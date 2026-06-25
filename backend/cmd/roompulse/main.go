@@ -1,0 +1,115 @@
+// Command roompulse is the RoomPulse backend prototype: it syncs Zoom Workspace
+// reservations into a local mirror and serves them over HTTP.
+//
+// Runs in "mock" mode by default (no Zoom credentials needed). Set ZOOM_MODE=live
+// plus the ZOOM_* env vars to talk to the real Zoom Workspace Reservation API.
+package main
+
+import (
+	"context"
+	"errors"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"roompulse/internal/api"
+	"roompulse/internal/config"
+	syncsvc "roompulse/internal/sync"
+	"roompulse/internal/store"
+	"roompulse/internal/zoom"
+)
+
+func main() {
+	log := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
+
+	cfg, err := config.Load()
+	if err != nil {
+		log.Error("config", "err", err)
+		os.Exit(1)
+	}
+
+	zc := buildZoomClient(cfg, log)
+	st := store.NewMemory()
+	sync := syncsvc.New(zc, st, cfg.ZoomLocationID, log)
+
+	// Initial sync so the API has data immediately.
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	if _, err := sync.Run(ctx, time.Now()); err != nil {
+		log.Warn("initial sync failed", "err", err)
+	}
+	cancel()
+
+	// Background periodic sync.
+	rootCtx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+	go runSyncLoop(rootCtx, sync, cfg.SyncInterval, log)
+
+	srv := &http.Server{
+		Addr:              cfg.HTTPAddr,
+		Handler:           api.NewServer(st, sync, zc, cfg.ZoomMode, log).Handler(),
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+
+	go func() {
+		log.Info("http listening", "addr", cfg.HTTPAddr, "zoom_mode", cfg.ZoomMode)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Error("http server", "err", err)
+			stop()
+		}
+	}()
+
+	<-rootCtx.Done()
+	log.Info("shutting down")
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 25*time.Second)
+	defer shutdownCancel()
+	_ = srv.Shutdown(shutdownCtx)
+}
+
+func buildZoomClient(cfg config.Config, log *slog.Logger) zoom.Client {
+	switch cfg.ZoomMode {
+	case "live":
+		log.Info("using live Zoom client (S2S admin)")
+		return zoom.NewHTTPClient(zoom.HTTPConfig{
+			AccountID:    cfg.ZoomAccountID,
+			ClientID:     cfg.ZoomClientID,
+			ClientSecret: cfg.ZoomClientSecret,
+		}, nil, log)
+	case "user":
+		log.Info("using user-OAuth Zoom client", "login_at", "/oauth/login")
+		return zoom.NewUserClient(zoom.UserConfig{
+			ClientID:     cfg.ZoomClientID,
+			ClientSecret: cfg.ZoomClientSecret,
+			RedirectURI:  cfg.ZoomRedirectURI,
+			TokenFile:    cfg.ZoomTokenFile,
+		}, nil, log)
+	default:
+		seed, err := zoom.LoadSeed(cfg.ZoomSeedFile)
+		if err != nil {
+			log.Warn("could not load seed file; using built-in default", "file", cfg.ZoomSeedFile, "err", err)
+		} else if seed != nil {
+			log.Info("loaded mock seed", "file", cfg.ZoomSeedFile, "rooms", len(seed.Rooms), "reservations", len(seed.Reservations))
+		}
+		log.Info("using mock Zoom client")
+		return zoom.NewMockClient(time.Now(), seed, log)
+	}
+}
+
+func runSyncLoop(ctx context.Context, sync *syncsvc.Service, interval time.Duration, log *slog.Logger) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			c, cancel := context.WithTimeout(ctx, 10*time.Second)
+			if _, err := sync.Run(c, time.Now()); err != nil {
+				log.Warn("periodic sync failed", "err", err)
+			}
+			cancel()
+		}
+	}
+}

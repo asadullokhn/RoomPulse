@@ -1,0 +1,40 @@
+services:
+  roompulse:
+    build: .
+    image: roompulse-backend:latest
+    container_name: roompulse
+    ports:
+      - "8080:8080"
+    environment:
+      HTTP_ADDR: ":8080"
+      SYNC_INTERVAL: "60s"
+      # Mode: "mock" (no creds), "live" (admin S2S), or "user" (your own OAuth).
+      ZOOM_MODE: "${ZOOM_MODE:-mock}"
+      # user-OAuth: redirect must EXACTLY match the app's Redirect URL in Zoom.
+      ZOOM_REDIRECT_URI: "http://localhost:8080/oauth/callback"
+      ZOOM_TOKEN_FILE: "/data/zoom_token.json"
+      # Fill these via a .env file next to this compose (gitignored). For "user"
+      # mode only CLIENT_ID/SECRET are needed; "live" also needs ACCOUNT_ID.
+      ZOOM_ACCOUNT_ID: "${ZOOM_ACCOUNT_ID:-}"
+      ZOOM_CLIENT_ID: "${ZOOM_CLIENT_ID:-}"
+      ZOOM_CLIENT_SECRET: "${ZOOM_CLIENT_SECRET:-}"
+      ZOOM_LOCATION_ID: "${ZOOM_LOCATION_ID:-}"
+    volumes:
+      - roompulse_token:/data   # persists the OAuth token across restarts
+    restart: unless-stopped
+
+  # Public tunnel: exposes the backend at https://room.teztun.uz so the phones
+  # reach it from anywhere. Needs TEZTUN_TOKEN in .env (mint at app.teztun.uz/tokens).
+  tunnel:
+    image: teztun-client:latest
+    container_name: roompulse-tunnel
+    depends_on:
+      - roompulse
+    environment:
+      TEZTUN_TOKEN: "${TEZTUN_TOKEN:-}"
+      TEZTUN_NO_UPDATE: "1"
+    command: ["http", "roompulse:8080", "--subdomain", "room"]
+    restart: unless-stopped
+
+volumes:
+  roompulse_token:

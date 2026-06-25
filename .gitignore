@@ -1,0 +1,25 @@
+# --- Secrets — never commit ---
+**/.env
+**/.env.local
+**/zoom_token.json
+
+# --- Go build output ---
+/backend/out/
+/backend/roompulse
+
+# --- Xcode (project is generated from project.yml via `xcodegen generate`) ---
+**/build/
+**/build_*/
+**/*.xcodeproj/
+**/DerivedData/
+**/xcuserdata/
+
+# --- macOS / tooling / scratch ---
+.DS_Store
+**/.DS_Store
+/.playwright-mcp/
+/*.png
+*.log
+
+# belt-and-suspenders
+build/

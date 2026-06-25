@@ -1,0 +1,38 @@
+# XcodeGen spec — generates RoomPulseBeaconLab.xcodeproj from the Sources/ folder.
+# Run:  xcodegen generate   (brew install xcodegen)
+name: RoomPulseBeaconLab
+options:
+  bundleIdPrefix: net.roompulse
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    TARGETED_DEVICE_FAMILY: "1"
+targets:
+  RoomPulseBeaconLab:
+    type: application
+    platform: iOS
+    sources:
+      - Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: net.roompulse.beaconlab
+    info:
+      path: Sources/Info.plist
+      properties:
+        CFBundleDisplayName: RoomPulse Beacon
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UIBackgroundModes:
+          - location
+        NSLocationWhenInUseUsageDescription: "RoomPulse uses your location to detect nearby room beacons for check-in."
+        NSLocationAlwaysAndWhenInUseUsageDescription: "RoomPulse needs Always access so it can check you in automatically when you walk up to a room — even with the app closed."
+        NSBluetoothAlwaysUsageDescription: "RoomPulse uses Bluetooth to broadcast and detect room beacons."
+        NSLocalNetworkUsageDescription: "RoomPulse connects to the RoomPulse backend on your local network."
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true

@@ -1,0 +1,68 @@
+// Package config loads runtime config from env vars. Prototype uses stdlib
+// os.Getenv; production should switch to kelseyhightower/envconfig per Go rules.
+package config
+
+import (
+	"fmt"
+	"os"
+	"time"
+)
+
+type Config struct {
+	HTTPAddr     string
+	ZoomMode     string // "mock" (default), "live" (S2S admin), or "user" (user OAuth)
+	SyncInterval time.Duration
+
+	// Zoom OAuth credentials. "live" uses Account ID (S2S); "user" uses
+	// ClientID/Secret + redirect URI (authorization code flow).
+	ZoomAccountID    string
+	ZoomClientID     string
+	ZoomClientSecret string
+	ZoomLocationID   string
+
+	// User-OAuth ("user" mode) settings.
+	ZoomRedirectURI string
+	ZoomTokenFile   string
+
+	// Mock-mode seed file (mirror your real rooms). Optional.
+	ZoomSeedFile string
+}
+
+func Load() (Config, error) {
+	c := Config{
+		HTTPAddr:         getenv("HTTP_ADDR", ":8080"),
+		ZoomMode:         getenv("ZOOM_MODE", "mock"),
+		ZoomAccountID:    os.Getenv("ZOOM_ACCOUNT_ID"),
+		ZoomClientID:     os.Getenv("ZOOM_CLIENT_ID"),
+		ZoomClientSecret: os.Getenv("ZOOM_CLIENT_SECRET"),
+		ZoomLocationID:   os.Getenv("ZOOM_LOCATION_ID"),
+		ZoomRedirectURI:  getenv("ZOOM_REDIRECT_URI", "http://localhost:8080/oauth/callback"),
+		ZoomTokenFile:    getenv("ZOOM_TOKEN_FILE", "zoom_token.json"),
+		ZoomSeedFile:     getenv("ZOOM_SEED_FILE", "seed.json"),
+	}
+
+	interval, err := time.ParseDuration(getenv("SYNC_INTERVAL", "60s"))
+	if err != nil {
+		return Config{}, fmt.Errorf("invalid SYNC_INTERVAL: %w", err)
+	}
+	c.SyncInterval = interval
+
+	switch c.ZoomMode {
+	case "live":
+		if c.ZoomAccountID == "" || c.ZoomClientID == "" || c.ZoomClientSecret == "" {
+			return Config{}, fmt.Errorf("live mode requires ZOOM_ACCOUNT_ID, ZOOM_CLIENT_ID, ZOOM_CLIENT_SECRET")
+		}
+	case "user":
+		if c.ZoomClientID == "" || c.ZoomClientSecret == "" {
+			return Config{}, fmt.Errorf("user mode requires ZOOM_CLIENT_ID, ZOOM_CLIENT_SECRET")
+		}
+	}
+	return c, nil
+}
+
+func getenv(key, def string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return def
+}

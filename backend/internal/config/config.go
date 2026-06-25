@@ -26,6 +26,10 @@ type Config struct {
 
 	// Mock-mode seed file (mirror your real rooms). Optional.
 	ZoomSeedFile string
+
+	// PresenceTTL: a device not seen within this window is reaped (checked out).
+	// Backstop for a killed/offline phone that never sent a leave.
+	PresenceTTL time.Duration
 }
 
 func Load() (Config, error) {
@@ -46,6 +50,12 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("invalid SYNC_INTERVAL: %w", err)
 	}
 	c.SyncInterval = interval
+
+	ttl, err := time.ParseDuration(getenv("PRESENCE_TTL", "90s"))
+	if err != nil {
+		return Config{}, fmt.Errorf("invalid PRESENCE_TTL: %w", err)
+	}
+	c.PresenceTTL = ttl
 
 	switch c.ZoomMode {
 	case "live":

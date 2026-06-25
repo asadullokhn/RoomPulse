@@ -47,10 +47,16 @@ func main() {
 	defer stop()
 	go runSyncLoop(rootCtx, sync, cfg.SyncInterval, log)
 
+	apiSrv := api.NewServer(st, sync, zc, cfg.ZoomMode, cfg.PresenceTTL, log)
+	go apiSrv.ReapLoop(rootCtx) // expire stale presence (killed/offline phones)
+
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,
-		Handler:           api.NewServer(st, sync, zc, cfg.ZoomMode, log).Handler(),
+		Handler:           apiSrv.Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	go func() {

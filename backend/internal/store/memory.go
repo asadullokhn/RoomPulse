@@ -6,6 +6,7 @@ package store
 import (
 	"sort"
 	"sync"
+	"time"
 
 	"roompulse/internal/domain"
 )
@@ -20,6 +21,7 @@ type Memory struct {
 	displayNames   map[string]string              // userID -> display label
 	deviceRoom     map[string]string              // deviceID -> current workspaceID ("" = none)
 	deviceTS       map[string]int64               // deviceID -> last heartbeat ts (ms)
+	deviceSeenAt   map[string]time.Time           // deviceID -> server receipt time (for TTL)
 }
 
 func NewMemory() *Memory {
@@ -31,7 +33,38 @@ func NewMemory() *Memory {
 		displayNames:   make(map[string]string),
 		deviceRoom:     make(map[string]string),
 		deviceTS:       make(map[string]int64),
+		deviceSeenAt:   make(map[string]time.Time),
 	}
+}
+
+// ReapStale removes devices not seen within maxAge (by SERVER receipt time, so
+// client clock skew can't matter). Returns the workspace ids that lost an
+// occupant, so the caller can reflect check-out on those reservations. This is
+// the backstop for a killed/offline phone that never sent a leave.
+func (m *Memory) ReapStale(maxAge time.Duration) []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	cutoff := time.Now().Add(-maxAge)
+	vacated := map[string]struct{}{}
+	for dev, seen := range m.deviceSeenAt {
+		if seen.After(cutoff) {
+			continue
+		}
+		if room := m.deviceRoom[dev]; room != "" {
+			if set := m.presence[room]; set != nil {
+				delete(set, dev)
+			}
+			vacated[room] = struct{}{}
+		}
+		delete(m.deviceRoom, dev)
+		delete(m.deviceSeenAt, dev)
+		delete(m.deviceTS, dev)
+	}
+	out := make([]string, 0, len(vacated))
+	for ws := range vacated {
+		out = append(out, ws)
+	}
+	return out
 }
 
 // SetDeviceRoom reconciles a device's current room from a heartbeat (idempotent
@@ -45,6 +78,7 @@ func (m *Memory) SetDeviceRoom(deviceID, workspaceID, displayName string, ts int
 		return false, m.deviceRoom[deviceID] // stale
 	}
 	m.deviceTS[deviceID] = ts
+	m.deviceSeenAt[deviceID] = time.Now() // server-side TTL clock
 	if displayName != "" {
 		m.displayNames[deviceID] = displayName
 	}

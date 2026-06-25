@@ -106,6 +106,7 @@ func defaultSeed() *Seed {
 			{WorkspaceID: "ws-c", Name: "Room C", Capacity: 6, HasTV: true, Location: "Floor 2"},
 		},
 		Reservations: []SeedReservation{
+			{ReservationID: "res-a1", WorkspaceID: "ws-a", UserEmail: "carol@example.com", StartOffsetMin: -5, EndOffsetMin: 55, CheckInStatus: "not_checked_in"},
 			{ReservationID: "res-b1", WorkspaceID: "ws-b", UserEmail: "alice@example.com", StartOffsetMin: -2, EndOffsetMin: 58, CheckInStatus: "not_checked_in"},
 			{ReservationID: "res-c1", WorkspaceID: "ws-c", UserEmail: "bob@example.com", StartOffsetMin: -20, EndOffsetMin: 40, CheckInStatus: "not_checked_in"},
 		},

@@ -20,6 +20,12 @@ import (
 //go:embed dashboard.html
 var dashboardHTML []byte
 
+const (
+	maxBody    = 1 << 20 // 1 MiB request body cap
+	maxIDLen   = 128
+	maxNameLen = 96
+)
+
 // OAuthFlow is implemented by the user-OAuth Zoom client. When the active
 // client supports it, the server exposes /oauth/login and /oauth/callback.
 type OAuthFlow interface {
@@ -35,15 +41,40 @@ type Server struct {
 	zoom  zoom.Client
 	oauth OAuthFlow // non-nil only in user mode
 	mode  string
+	ttl   time.Duration // presence stale-after window
 	log   *slog.Logger
 }
 
-func NewServer(st *store.Memory, sync *syncsvc.Service, zc zoom.Client, mode string, log *slog.Logger) *Server {
-	s := &Server{store: st, sync: sync, zoom: zc, mode: mode, log: log}
+func NewServer(st *store.Memory, sync *syncsvc.Service, zc zoom.Client, mode string, ttl time.Duration, log *slog.Logger) *Server {
+	s := &Server{store: st, sync: sync, zoom: zc, mode: mode, ttl: ttl, log: log}
 	if of, ok := zc.(OAuthFlow); ok {
 		s.oauth = of
 	}
 	return s
+}
+
+// ReapLoop periodically expires devices not seen within the TTL and reflects
+// check-out on the rooms they vacated — the backstop for a killed/offline phone
+// that never sent a leave. Bind ctx to the app's root context.
+func (s *Server) ReapLoop(ctx context.Context) {
+	ticker := time.NewTicker(s.ttl / 3)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			vacated := s.store.ReapStale(s.ttl)
+			for _, ws := range vacated {
+				c, cancel := context.WithTimeout(ctx, 5*time.Second)
+				s.driveReservation(c, ws, zoom.EventCheckOut, domain.CheckedOut)
+				cancel()
+			}
+			if len(vacated) > 0 {
+				s.log.Info("reaped stale presence", "rooms", vacated, "ttl", s.ttl)
+			}
+		}
+	}
 }
 
 // Handler builds the routed mux.
@@ -65,7 +96,7 @@ func (s *Server) Handler() http.Handler {
 		mux.HandleFunc("GET /oauth/login", s.oauthLogin)
 		mux.HandleFunc("GET /oauth/callback", s.oauthCallback)
 	}
-	return logging(s.log, mux)
+	return recovery(s.log, logging(s.log, mux))
 }
 
 func (s *Server) oauthLogin(w http.ResponseWriter, r *http.Request) {
@@ -163,10 +194,15 @@ func (s *Server) heartbeat(w http.ResponseWriter, r *http.Request) {
 		WorkspaceID string `json:"workspace_id"` // "" = not in any room
 		TS          int64  `json:"ts"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeBody(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
+	if len(body.DeviceID) == 0 || len(body.DeviceID) > maxIDLen || len(body.WorkspaceID) > maxIDLen {
+		writeError(w, http.StatusUnprocessableEntity, "device_id required; ids must be 1..128 chars")
+		return
+	}
+	body.DisplayName = clamp(body.DisplayName, maxNameLen)
 
 	changed, prev := s.store.SetDeviceRoom(body.DeviceID, body.WorkspaceID, body.DisplayName, body.TS)
 	if changed {
@@ -210,10 +246,15 @@ func (s *Server) presence(w http.ResponseWriter, r *http.Request) {
 		Confidence  float64 `json:"confidence"`
 		EventTS     int64   `json:"event_ts"`
 	}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+	if err := decodeBody(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
+	if body.UserID == "" || len(body.UserID) > maxIDLen || body.WorkspaceID == "" || len(body.WorkspaceID) > maxIDLen {
+		writeError(w, http.StatusUnprocessableEntity, "user_id and workspace_id required; 1..128 chars")
+		return
+	}
+	body.DisplayName = clamp(body.DisplayName, maxNameLen)
 
 	var event zoom.EventType
 	var newStatus domain.CheckInStatus
@@ -295,6 +336,35 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 
 func writeError(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
+}
+
+// decodeBody caps the request body and decodes JSON into v.
+func decodeBody(w http.ResponseWriter, r *http.Request, v any) error {
+	r.Body = http.MaxBytesReader(w, r.Body, maxBody)
+	return json.NewDecoder(r.Body).Decode(v)
+}
+
+// clamp trims a string to at most n runes (defends the dashboard + store).
+func clamp(s string, n int) string {
+	rs := []rune(s)
+	if len(rs) > n {
+		return string(rs[:n])
+	}
+	return s
+}
+
+// recovery turns a panic in any handler into a 500 instead of a dropped
+// connection, and must wrap (be outside) the logging middleware.
+func recovery(log *slog.Logger, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer func() {
+			if rec := recover(); rec != nil {
+				log.Error("panic recovered", "err", rec, "path", r.URL.Path)
+				writeError(w, http.StatusInternalServerError, "internal error")
+			}
+		}()
+		next.ServeHTTP(w, r)
+	})
 }
 
 func logging(log *slog.Logger, next http.Handler) http.Handler {

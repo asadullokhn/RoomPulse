@@ -86,6 +86,10 @@
 </main>
 
 <script>
+function esc(s) {
+  return String(s ?? "").replace(/[&<>"']/g, c =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
 function fmtTime(s) {
   if (!s) return "—";
   const d = new Date(s);
@@ -118,8 +122,8 @@ async function refresh() {
       <th>Room</th><th>User</th><th>Start</th><th>End</th><th>Check-in</th>
     </tr></thead><tbody>
     ${reservations.map(v => `<tr>
-      <td>${roomName(rooms, v.zoom_workspace_id)}</td>
-      <td>${v.user_email || v.user_id || "—"}</td>
+      <td>${esc(roomName(rooms, v.zoom_workspace_id))}</td>
+      <td>${esc(v.user_email || v.user_id || "—")}</td>
       <td>${fmtTime(v.start_time)}</td>
       <td>${fmtTime(v.end_time)}</td>
       <td>${checkBadge(v.check_in_status)}</td>
@@ -133,7 +137,7 @@ async function refresh() {
       <th>Room</th><th>Floor</th><th>Capacity</th><th>Equipment</th><th>Simulate phone</th>
     </tr></thead><tbody>
     ${rooms.map(r => `<tr>
-      <td>${r.name}</td>
+      <td>${esc(r.name)}</td>
       <td>${r.floor || "—"}</td>
       <td>${r.capacity || "—"}</td>
       <td class="tv">${r.has_tv ? "TV / Zoom Room" : "Reservation-only"}</td>
@@ -161,9 +165,9 @@ async function refresh() {
       </div>`;
 
     if (count > 0) {
-      const names = users.map(u => booker && u === booker.user_id ? (booker.user_email || u) : u).join(", ");
+      const names = users.map(u => esc(booker && u === booker.user_id ? (booker.user_email || u) : u)).join(", ");
       return `<div class="occ busy">
-        <div class="rn">${r.name}<span class="cap">👤 ${cap}</span></div>
+        <div class="rn">${esc(r.name)}<span class="cap">👤 ${cap}</span></div>
         <div class="who occupant">● ${head} in the room</div>
         <div class="meta2">${names}</div>
         ${sim}
@@ -175,7 +179,7 @@ async function refresh() {
       ? `Booked ${fmtTime(booked.start_time)}–${fmtTime(booked.end_time)} · awaiting check-in`
       : "No booking";
     return `<div class="occ">
-      <div class="rn">${r.name}<span class="cap">👤 ${cap}</span></div>
+      <div class="rn">${esc(r.name)}<span class="cap">👤 ${cap}</span></div>
       <div class="who free">○ Empty</div>
       <div class="meta2">${sub}</div>
       ${sim}

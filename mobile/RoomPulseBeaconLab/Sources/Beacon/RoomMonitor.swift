@@ -35,22 +35,45 @@ final class RoomMonitor: NSObject, ObservableObject {
     private var currentRoom: String?               // the one room we're in (source of truth)
     private var nearHits: [String: Int] = [:]      // room -> consecutive near samples
     private var lastSeenNear: [String: Date] = [:] // room -> last time genuinely near
-    private var heartbeatTimer: Timer?
+    private var tickTimer: Timer?
+    private var lastSentAt = Date.distantPast
 
     private static let curKey = "rp_current_room"
     private static let enterThreshold = 2               // ~2s sustained near before check-in
     private static let exitGrace: TimeInterval = 6      // leave after 6s of not being near
-    private static let heartbeatInterval: TimeInterval = 3
+    private static let tickInterval: TimeInterval = 2   // local grace/keepalive check (no network)
+    private static let keepaliveInterval: TimeInterval = 45 // network keepalive cadence (< backend TTL)
 
     private override init() {
         super.init()
         manager.delegate = self
         currentRoom = UserDefaults.standard.string(forKey: Self.curKey)
         insideRooms = currentRoom.map { [$0] } ?? []
+        // Scope the high-power ranging scan to the foreground only.
+        NotificationCenter.default.addObserver(self, selector: #selector(appDidBackground),
+                                               name: UIApplication.didEnterBackgroundNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(appWillForeground),
+                                               name: UIApplication.willEnterForegroundNotification, object: nil)
         if !manager.monitoredRegions.isEmpty {
             isMonitoring = true
             statusText = "Monitoring \(manager.monitoredRegions.count) rooms"
         }
+    }
+
+    // Ranging is HIGH power; region monitoring is low power and runs the whole
+    // time. So range only while foregrounded; let region events drive presence
+    // when backgrounded.
+    @objc private func appDidBackground() {
+        guard isMonitoring else { return }
+        manager.stopRangingBeacons(satisfying: constraint)
+        tickTimer?.invalidate()
+        tickTimer = nil
+    }
+
+    @objc private func appWillForeground() {
+        guard isMonitoring else { return }
+        manager.startRangingBeacons(satisfying: constraint)
+        startTick()
     }
 
     func bootstrap() { _ = manager }
@@ -65,8 +88,8 @@ final class RoomMonitor: NSObject, ObservableObject {
         for region in manager.monitoredRegions { manager.stopMonitoring(for: region) }
         manager.stopRangingBeacons(satisfying: constraint)
         manager.allowsBackgroundLocationUpdates = false
-        heartbeatTimer?.invalidate()
-        heartbeatTimer = nil
+        tickTimer?.invalidate()
+        tickTimer = nil
         if currentRoom != nil { setCurrentRoom(nil) }   // tell backend we're gone
         isMonitoring = false
         statusText = "Off"
@@ -89,14 +112,16 @@ final class RoomMonitor: NSObject, ObservableObject {
             manager.startMonitoring(for: region)
         }
         manager.startRangingBeacons(satisfying: constraint)
-
-        heartbeatTimer?.invalidate()
-        let t = Timer(timeInterval: Self.heartbeatInterval, repeats: true) { [weak self] _ in self?.heartbeat() }
-        RunLoop.main.add(t, forMode: .common)
-        heartbeatTimer = t
-
+        startTick()
         isMonitoring = true
         statusText = "Auto check-in when near · check-out when you leave"
+    }
+
+    private func startTick() {
+        tickTimer?.invalidate()
+        let t = Timer(timeInterval: Self.tickInterval, repeats: true) { [weak self] _ in self?.tick() }
+        RunLoop.main.add(t, forMode: .common)
+        tickTimer = t
     }
 
     // MARK: - lookups
@@ -137,18 +162,24 @@ final class RoomMonitor: NSObject, ObservableObject {
         sendState()
     }
 
-    /// Foreground tick: grace-based leave, then re-send current state.
-    private func heartbeat() {
+    /// Foreground tick (local, no network): grace-based leave + a low-cadence
+    /// keepalive. We POST on every state change (setCurrentRoom); the keepalive
+    /// only refreshes the backend TTL while genuinely in a room — so the radio
+    /// tail demotes between sends instead of being pinned by a 3s trickle.
+    private func tick() {
         if let cur = currentRoom,
            Date().timeIntervalSince(lastSeenNear[cur] ?? .distantPast) > Self.exitGrace {
-            setCurrentRoom(nil)   // sendState() runs inside
+            setCurrentRoom(nil)   // sendState() runs inside on change
             return
         }
-        sendState()
+        if currentRoom != nil, Date().timeIntervalSince(lastSentAt) > Self.keepaliveInterval {
+            sendState()
+        }
     }
 
     /// Idempotent full-state report — robust to lost messages.
     private func sendState() {
+        lastSentAt = Date()
         let ws = currentRoom.flatMap { room(named: $0)?.workspaceID } ?? ""
         let ts = Int64(Date().timeIntervalSince1970 * 1000)
         let bg = UIApplication.shared.beginBackgroundTask(withName: "heartbeat")

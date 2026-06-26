@@ -30,6 +30,13 @@ type Config struct {
 	// PresenceTTL: a device not seen within this window is reaped (checked out).
 	// Backstop for a killed/offline phone that never sent a leave.
 	PresenceTTL time.Duration
+
+	// BeaconsFile persists the room↔iBeacon registry (admin edits survive restart).
+	BeaconsFile string
+
+	// DBPath is the SQLite file backing the durable device registry. Defaults
+	// under /data so it persists in the container volume; override for local runs.
+	DBPath string
 }
 
 func Load() (Config, error) {
@@ -43,6 +50,8 @@ func Load() (Config, error) {
 		ZoomRedirectURI:  getenv("ZOOM_REDIRECT_URI", "http://localhost:8080/oauth/callback"),
 		ZoomTokenFile:    getenv("ZOOM_TOKEN_FILE", "zoom_token.json"),
 		ZoomSeedFile:     getenv("ZOOM_SEED_FILE", "seed.json"),
+		BeaconsFile:      getenv("BEACONS_FILE", "/data/beacons.json"),
+		DBPath:           getenv("DB_PATH", "/data/roompulse.db"),
 	}
 
 	interval, err := time.ParseDuration(getenv("SYNC_INTERVAL", "60s"))

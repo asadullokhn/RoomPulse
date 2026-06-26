@@ -22,6 +22,7 @@ type Memory struct {
 	deviceRoom     map[string]string              // deviceID -> current workspaceID ("" = none)
 	deviceTS       map[string]int64               // deviceID -> last heartbeat ts (ms)
 	deviceSeenAt   map[string]time.Time           // deviceID -> server receipt time (for TTL)
+	beacons        map[string]domain.Beacon       // workspaceID -> iBeacon identity
 }
 
 func NewMemory() *Memory {
@@ -34,6 +35,7 @@ func NewMemory() *Memory {
 		deviceRoom:     make(map[string]string),
 		deviceTS:       make(map[string]int64),
 		deviceSeenAt:   make(map[string]time.Time),
+		beacons:        make(map[string]domain.Beacon),
 	}
 }
 

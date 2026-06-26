@@ -13,6 +13,8 @@ services:
       # user-OAuth: redirect must EXACTLY match the app's Redirect URL in Zoom.
       ZOOM_REDIRECT_URI: "http://localhost:8080/oauth/callback"
       ZOOM_TOKEN_FILE: "/data/zoom_token.json"
+      # SQLite file for the durable device registry (persisted via the /data volume).
+      DB_PATH: "/data/roompulse.db"
       # Fill these via a .env file next to this compose (gitignored). For "user"
       # mode only CLIENT_ID/SECRET are needed; "live" also needs ACCOUNT_ID.
       ZOOM_ACCOUNT_ID: "${ZOOM_ACCOUNT_ID:-}"

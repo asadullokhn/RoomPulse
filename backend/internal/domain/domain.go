@@ -22,6 +22,15 @@ type Room struct {
 	BeaconMinor int    `json:"beacon_minor,omitempty"`
 }
 
+// Beacon is the iBeacon identity assigned to a room (local config, not Zoom).
+// Per the concept: UUID = org/building, Major = floor/zone, Minor = room.
+type Beacon struct {
+	WorkspaceID string `json:"workspace_id"`
+	UUID        string `json:"uuid"`
+	Major       int    `json:"major"`
+	Minor       int    `json:"minor"`
+}
+
 // CheckInStatus mirrors Zoom's reservation check-in state.
 type CheckInStatus string
 

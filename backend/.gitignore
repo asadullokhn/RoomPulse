@@ -2,3 +2,7 @@
 zoom_token.json
 /out/
 /roompulse
+# Local SQLite device registry (WAL/SHM sidecars included)
+roompulse.db
+roompulse.db-wal
+roompulse.db-shm

@@ -33,6 +33,13 @@ func main() {
 
 	zc := buildZoomClient(cfg, log)
 	st := store.NewMemory()
+	db, err := store.OpenDB(cfg.DBPath)
+	if err != nil {
+		log.Error("open database", "path", cfg.DBPath, "err", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+	log.Info("sqlite ready", "path", cfg.DBPath)
 	sync := syncsvc.New(zc, st, cfg.ZoomLocationID, log)
 
 	// Initial sync so the API has data immediately.
@@ -47,7 +54,7 @@ func main() {
 	defer stop()
 	go runSyncLoop(rootCtx, sync, cfg.SyncInterval, log)
 
-	apiSrv := api.NewServer(st, sync, zc, cfg.ZoomMode, cfg.PresenceTTL, log)
+	apiSrv := api.NewServer(st, db, sync, zc, cfg.ZoomMode, cfg.PresenceTTL, log)
 	go apiSrv.ReapLoop(rootCtx) // expire stale presence (killed/offline phones)
 
 	srv := &http.Server{

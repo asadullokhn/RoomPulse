@@ -37,6 +37,7 @@ type OAuthFlow interface {
 // Server wires handlers over the store, sync service and Zoom client.
 type Server struct {
 	store *store.Memory
+	db    *store.DB // durable device registry (SQLite)
 	sync  *syncsvc.Service
 	zoom  zoom.Client
 	oauth OAuthFlow // non-nil only in user mode
@@ -45,8 +46,8 @@ type Server struct {
 	log   *slog.Logger
 }
 
-func NewServer(st *store.Memory, sync *syncsvc.Service, zc zoom.Client, mode string, ttl time.Duration, log *slog.Logger) *Server {
-	s := &Server{store: st, sync: sync, zoom: zc, mode: mode, ttl: ttl, log: log}
+func NewServer(st *store.Memory, db *store.DB, sync *syncsvc.Service, zc zoom.Client, mode string, ttl time.Duration, log *slog.Logger) *Server {
+	s := &Server{store: st, db: db, sync: sync, zoom: zc, mode: mode, ttl: ttl, log: log}
 	if of, ok := zc.(OAuthFlow); ok {
 		s.oauth = of
 	}
@@ -86,6 +87,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /health/ready", s.live)
 	mux.HandleFunc("POST /sync", s.runSync)
 	mux.HandleFunc("GET /rooms", s.listRooms)
+	mux.HandleFunc("GET /devices", s.listDevices)
 	mux.HandleFunc("GET /reservations", s.listReservations)
 	mux.HandleFunc("POST /reservations/{id}/check-in", s.checkIn)
 	mux.HandleFunc("POST /reservations/{id}/check-out", s.checkOut)
@@ -161,6 +163,19 @@ func (s *Server) listReservations(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"reservations": s.store.Reservations()})
 }
 
+// listDevices returns the durable device registry (from SQLite). Each row
+// carries the device's last known room as a workspace id; the dashboard joins
+// it to the room name it already has from /rooms.
+func (s *Server) listDevices(w http.ResponseWriter, _ *http.Request) {
+	devices, err := s.db.Devices(time.Now())
+	if err != nil {
+		s.log.Error("list devices", "err", err)
+		writeError(w, http.StatusInternalServerError, "could not read devices")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"devices": devices})
+}
+
 // occupancy reports how many people (phones) are currently in each room.
 func (s *Server) occupancy(w http.ResponseWriter, _ *http.Request) {
 	type entry struct {
@@ -203,6 +218,11 @@ func (s *Server) heartbeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	body.DisplayName = clamp(body.DisplayName, maxNameLen)
+
+	// Durable registry: every heartbeat refreshes the device's last-seen and room.
+	if err := s.db.UpsertDevice(body.DeviceID, body.DisplayName, body.WorkspaceID, time.Now()); err != nil {
+		s.log.Warn("persist device", "device", body.DeviceID, "err", err)
+	}
 
 	changed, prev := s.store.SetDeviceRoom(body.DeviceID, body.WorkspaceID, body.DisplayName, body.TS)
 	if changed {

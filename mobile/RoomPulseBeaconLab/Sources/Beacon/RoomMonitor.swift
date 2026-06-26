@@ -36,6 +36,7 @@ final class RoomMonitor: NSObject, ObservableObject {
     private var nearHits: [String: Int] = [:]      // room -> consecutive near samples
     private var lastSeenNear: [String: Date] = [:] // room -> last time genuinely near
     private var tickTimer: Timer?
+    private var beaconTimer: Timer?                 // periodic /beacons refresh
     private var lastSentAt = Date.distantPast
 
     private static let curKey = "rp_current_room"
@@ -43,6 +44,7 @@ final class RoomMonitor: NSObject, ObservableObject {
     private static let exitGrace: TimeInterval = 6      // leave after 6s of not being near
     private static let tickInterval: TimeInterval = 2   // local grace/keepalive check (no network)
     private static let keepaliveInterval: TimeInterval = 45 // network keepalive cadence (< backend TTL)
+    private static let beaconRefreshInterval: TimeInterval = 300 // re-fetch the beacon list every 5 min
 
     private override init() {
         super.init()
@@ -74,6 +76,7 @@ final class RoomMonitor: NSObject, ObservableObject {
         guard isMonitoring else { return }
         manager.startRangingBeacons(satisfying: constraint)
         startTick()
+        refreshBeacons() // catch any room/beacon changes since we backgrounded
     }
 
     func bootstrap() { _ = manager }
@@ -90,6 +93,8 @@ final class RoomMonitor: NSObject, ObservableObject {
         manager.allowsBackgroundLocationUpdates = false
         tickTimer?.invalidate()
         tickTimer = nil
+        beaconTimer?.invalidate()
+        beaconTimer = nil
         if currentRoom != nil { setCurrentRoom(nil) }   // tell backend we're gone
         isMonitoring = false
         statusText = "Off"
@@ -99,22 +104,28 @@ final class RoomMonitor: NSObject, ObservableObject {
     }
 
     private func startMonitoringRooms() {
-        for room in RoomPreset.all {
-            let region = CLBeaconRegion(
-                uuid: BeaconConstants.uuid,
-                major: room.major,
-                minor: room.minor,
-                identifier: room.workspaceID
-            )
-            region.notifyOnEntry = true
-            region.notifyOnExit = true
-            region.notifyEntryStateOnDisplay = true
-            manager.startMonitoring(for: region)
+        for room in RoomRegistry.shared.rooms {
+            manager.startMonitoring(for: monitorRegion(for: room))
         }
         manager.startRangingBeacons(satisfying: constraint)
         startTick()
+        startBeaconRefresh()
+        refreshBeacons() // pull the latest list right away
         isMonitoring = true
         statusText = "Auto check-in when near · check-out when you leave"
+    }
+
+    private func monitorRegion(for room: RoomPreset) -> CLBeaconRegion {
+        let region = CLBeaconRegion(
+            uuid: BeaconConstants.uuid,
+            major: room.major,
+            minor: room.minor,
+            identifier: room.workspaceID
+        )
+        region.notifyOnEntry = true
+        region.notifyOnExit = true
+        region.notifyEntryStateOnDisplay = true
+        return region
     }
 
     private func startTick() {
@@ -124,15 +135,42 @@ final class RoomMonitor: NSObject, ObservableObject {
         tickTimer = t
     }
 
+    // MARK: - beacon list refresh
+    private func startBeaconRefresh() {
+        beaconTimer?.invalidate()
+        let t = Timer(timeInterval: Self.beaconRefreshInterval, repeats: true) { [weak self] _ in
+            self?.refreshBeacons()
+        }
+        RunLoop.main.add(t, forMode: .common)
+        beaconTimer = t
+    }
+
+    /// Fetch the backend beacon list; if it changed, re-register the monitored
+    /// regions so newly added/re-mapped rooms take effect without a new build.
+    func refreshBeacons() {
+        BeaconClient.fetch { [weak self] rooms in
+            guard let self, let rooms, RoomRegistry.shared.update(rooms) else { return }
+            DispatchQueue.main.async {
+                guard self.isMonitoring else { return }
+                for region in self.manager.monitoredRegions { self.manager.stopMonitoring(for: region) }
+                for room in RoomRegistry.shared.rooms {
+                    self.manager.startMonitoring(for: self.monitorRegion(for: room))
+                }
+                self.statusText = "Monitoring \(RoomRegistry.shared.rooms.count) rooms"
+                self.lastEvent = "beacon list updated"
+            }
+        }
+    }
+
     // MARK: - lookups
     private func room(for region: CLRegion) -> RoomPreset? {
-        RoomPreset.all.first { $0.workspaceID == region.identifier }
+        RoomRegistry.shared.rooms.first { $0.workspaceID == region.identifier }
     }
     private func room(major: Int, minor: Int) -> RoomPreset? {
-        RoomPreset.all.first { Int($0.major) == major && Int($0.minor) == minor }
+        RoomRegistry.shared.rooms.first { Int($0.major) == major && Int($0.minor) == minor }
     }
     private func room(named name: String) -> RoomPreset? {
-        RoomPreset.all.first { $0.name == name }
+        RoomRegistry.shared.rooms.first { $0.name == name }
     }
     private static func proximityText(_ p: CLProximity) -> String {
         switch p {

@@ -3,14 +3,15 @@ import SwiftUI
 /// Turns this phone into a room beacon for bench testing.
 struct TransmitView: View {
     @StateObject private var tx = BeaconTransmitter()
-    @State private var selected = RoomPreset.all[1] // Room B
+    @ObservedObject private var registry = RoomRegistry.shared
+    @State private var selected: RoomPreset = RoomRegistry.shared.rooms.first ?? RoomPreset.defaults[0]
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("Pretend this phone is a room beacon") {
                     Picker("Room", selection: $selected) {
-                        ForEach(RoomPreset.all) { room in
+                        ForEach(registry.rooms) { room in
                             Text(room.name).tag(room)
                         }
                     }

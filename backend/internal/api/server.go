@@ -87,6 +87,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /health/ready", s.live)
 	mux.HandleFunc("POST /sync", s.runSync)
 	mux.HandleFunc("GET /rooms", s.listRooms)
+	mux.HandleFunc("GET /beacons", s.listBeacons)
 	mux.HandleFunc("GET /devices", s.listDevices)
 	mux.HandleFunc("GET /reservations", s.listReservations)
 	mux.HandleFunc("POST /reservations/{id}/check-in", s.checkIn)
@@ -161,6 +162,29 @@ func (s *Server) listRooms(w http.ResponseWriter, _ *http.Request) {
 
 func (s *Server) listReservations(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"reservations": s.store.Reservations()})
+}
+
+// listBeacons returns the room↔iBeacon registry, each entry joined to its room
+// name. The mobile app polls this to learn which beacons to range/monitor, so
+// rooms can be added or re-mapped without shipping a new build.
+func (s *Server) listBeacons(w http.ResponseWriter, _ *http.Request) {
+	type entry struct {
+		WorkspaceID string `json:"workspace_id"`
+		UUID        string `json:"uuid"`
+		Major       int    `json:"major"`
+		Minor       int    `json:"minor"`
+		Name        string `json:"name"`
+	}
+	bs := s.store.Beacons()
+	out := make([]entry, 0, len(bs))
+	for _, b := range bs {
+		name := ""
+		if room, ok := s.store.RoomByWorkspace(b.WorkspaceID); ok {
+			name = room.Name
+		}
+		out = append(out, entry{WorkspaceID: b.WorkspaceID, UUID: b.UUID, Major: b.Major, Minor: b.Minor, Name: name})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"beacons": out})
 }
 
 // listDevices returns the durable device registry (from SQLite). Each row

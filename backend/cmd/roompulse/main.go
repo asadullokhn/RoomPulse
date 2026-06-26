@@ -40,6 +40,19 @@ func main() {
 	}
 	defer db.Close()
 	log.Info("sqlite ready", "path", cfg.DBPath)
+
+	// Seed the room<->iBeacon registry (from BeaconsFile if present, else the
+	// built-in defaults) so GET /beacons can serve the app immediately.
+	beacons, err := store.LoadBeacons(cfg.BeaconsFile)
+	if err != nil {
+		log.Warn("load beacons; using built-in defaults", "file", cfg.BeaconsFile, "err", err)
+	}
+	if len(beacons) == 0 {
+		beacons = store.DefaultBeacons()
+	}
+	st.SeedBeacons(beacons)
+	log.Info("beacon registry seeded", "count", len(beacons))
+
 	sync := syncsvc.New(zc, st, cfg.ZoomLocationID, log)
 
 	// Initial sync so the API has data immediately.

@@ -82,6 +82,11 @@
   </section>
 
   <section>
+    <h2>Beacons — iBeacon identity per room</h2>
+    <div id="beacons"></div>
+  </section>
+
+  <section>
     <h2>Reservations</h2>
     <div id="reservations"></div>
   </section>
@@ -119,17 +124,34 @@ function fmtAgo(sec) {
 }
 
 async function refresh() {
-  const [rRes, rRooms, rOcc, rDev] = await Promise.all([
+  const [rRes, rRooms, rOcc, rDev, rBeac] = await Promise.all([
     fetch("/reservations").then(r => r.json()),
     fetch("/rooms").then(r => r.json()),
     fetch("/occupancy").then(r => r.json()),
     fetch("/devices").then(r => r.json()),
+    fetch("/beacons").then(r => r.json()),
   ]);
   const rooms = rRooms.rooms || [];
   const reservations = rRes.reservations || [];
   const devices = rDev.devices || [];
+  const beacons = rBeac.beacons || [];
   const occByWs = {};
   (rOcc.occupancy || []).forEach(o => { occByWs[o.workspace_id] = o; });
+
+  // Beacons table — the iBeacon device identity (UUID/major/minor) per room.
+  const bt = beacons.length ? `
+    <table><thead><tr>
+      <th>Room</th><th>Workspace</th><th>UUID</th><th>Major</th><th>Minor</th>
+    </tr></thead><tbody>
+    ${beacons.map(b => `<tr>
+      <td>${esc(b.name || roomName(rooms, b.workspace_id))}</td>
+      <td class="mono">${esc(b.workspace_id)}</td>
+      <td class="mono">${esc(b.uuid)}</td>
+      <td>${b.major}</td>
+      <td>${b.minor}</td>
+    </tr>`).join("")}
+    </tbody></table>` : '<div class="empty">No beacons registered.</div>';
+  document.getElementById("beacons").innerHTML = bt;
 
   // Devices table — each phone and the room it last reported (joined to /rooms).
   const STALE_SEC = 120;

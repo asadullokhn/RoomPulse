@@ -13,8 +13,6 @@ struct MonitorView: View {
     @State private var pulse = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private static let brand = Color(red: 0.0, green: 0.60, blue: 0.46)
-
     private var currentRoom: String? { monitor.insideRooms.sorted().first }
     private var scanning: Bool { monitor.isMonitoring && currentRoom == nil }
 
@@ -28,7 +26,7 @@ struct MonitorView: View {
     }
     private var heroTint: Color {
         guard monitor.isMonitoring else { return .gray }
-        return currentRoom != nil ? .green : Self.brand
+        return currentRoom != nil ? .green : Brand.teal
     }
 
     var body: some View {
@@ -65,7 +63,7 @@ struct MonitorView: View {
                             // Working — just confirm it, no off switch.
                             Label("On — running in the background", systemImage: "checkmark.circle.fill")
                                 .font(.subheadline.weight(.medium))
-                                .foregroundStyle(Self.brand)
+                                .foregroundStyle(Brand.teal)
                         }
 
                         if monitor.needsAlwaysInSettings {
@@ -149,7 +147,7 @@ struct MonitorView: View {
                 }
             }
             .navigationTitle("RoomPulse")
-            .tint(Self.brand)
+            .tint(Brand.teal)
             .onAppear {
                 guard !reduceMotion else { return }
                 withAnimation(.easeOut(duration: 2.2).repeatForever(autoreverses: false)) { pulse = true }

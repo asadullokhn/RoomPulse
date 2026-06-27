@@ -30,6 +30,9 @@ var floorImage []byte
 //go:embed floor.json
 var floorData []byte // raw Zoom workspace export (rooms + polygons)
 
+//go:embed favicon.svg
+var faviconSVG []byte
+
 const (
 	maxBody        = 1 << 20 // 1 MiB request body cap
 	maxIDLen       = 128
@@ -102,6 +105,7 @@ func (s *Server) ReapLoop(ctx context.Context) {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.dashboard)
+	mux.HandleFunc("GET /favicon.svg", s.favicon)
 	mux.HandleFunc("GET /floor", s.floor)
 	mux.HandleFunc("GET /floor/image", s.floorImageHandler)
 	mux.HandleFunc("GET /floor/rooms", s.floorRooms)
@@ -158,6 +162,12 @@ func (s *Server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 func (s *Server) dashboard(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write(dashboardHTML)
+}
+
+func (s *Server) favicon(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "image/svg+xml")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	_, _ = w.Write(faviconSVG)
 }
 
 func (s *Server) floor(w http.ResponseWriter, _ *http.Request) {

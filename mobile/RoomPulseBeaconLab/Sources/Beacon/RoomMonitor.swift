@@ -83,8 +83,14 @@ final class RoomMonitor: NSObject, ObservableObject {
 
     func enableBackgroundCheckIn() {
         manager.requestAlwaysAuthorization()
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+        if AppSettings.notifyOnCheckInOut { requestNotificationAuthorization() }
         startMonitoringRooms()
+    }
+
+    /// Ask for notification permission — only called when the user turns on
+    /// check-in/out notifications (off by default).
+    func requestNotificationAuthorization() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
     }
 
     func disable() {
@@ -227,6 +233,7 @@ final class RoomMonitor: NSObject, ObservableObject {
     }
 
     private func notify(entered: Bool, room: String) {
+        guard AppSettings.notifyOnCheckInOut else { return }
         let content = UNMutableNotificationContent()
         if entered {
             content.title = "You're at \(room)"

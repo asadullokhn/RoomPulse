@@ -7,6 +7,7 @@ struct MonitorView: View {
     @State private var userID = AppSettings.userID
     @State private var backendURL = AppSettings.backendBaseURL
     @State private var rssi = AppSettings.rssiThreshold
+    @State private var notify = AppSettings.notifyOnCheckInOut
     @State private var showAdvanced = false
 
     var body: some View {
@@ -59,6 +60,16 @@ struct MonitorView: View {
                     }
                     .onChange(of: rssi) { newValue in AppSettings.rssiThreshold = newValue }
                     Text("Stand in the room and read your RSSI below, then step out and read it again. Set the threshold between the two. Higher (e.g. −55) = must be closer.")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+
+                Section("Notifications") {
+                    Toggle("Notify on check-in / out", isOn: $notify)
+                        .onChange(of: notify) { on in
+                            AppSettings.notifyOnCheckInOut = on
+                            if on { RoomMonitor.shared.requestNotificationAuthorization() }
+                        }
+                    Text("Off by default. RoomPulse checks you in silently — turn this on to get a notification each time you arrive or leave.")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
 

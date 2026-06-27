@@ -31,4 +31,11 @@ enum AppSettings {
         get { let v = d.integer(forKey: "rssiThreshold"); return v == 0 ? -65 : v }
         set { d.set(newValue, forKey: "rssiThreshold") }
     }
+
+    /// Local notifications on auto check-in / check-out. Default OFF (bool(forKey:)
+    /// returns false when unset) — presence still works silently.
+    static var notifyOnCheckInOut: Bool {
+        get { d.bool(forKey: "notifyOnCheckInOut") }
+        set { d.set(newValue, forKey: "notifyOnCheckInOut") }
+    }
 }

@@ -27,38 +27,41 @@
   body { margin: 0; color: var(--text); font-family: var(--f-body); font-size: 14px;
     background: var(--ink); display: flex; flex-direction: column; overflow: hidden; }
 
-  header { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
-    padding: 13px 22px; border-bottom: 1px solid var(--line); background: rgba(10,15,31,.72);
-    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); z-index: 5; }
-  .brand { display: flex; align-items: center; gap: 11px; }
-  .beacon { position: relative; width: 11px; height: 11px; }
+  /* ---- shared header (identical on dashboard + floor) ---- */
+  header {
+    position: sticky; top: 0; z-index: 20;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 13px 22px; border-bottom: 1px solid var(--line);
+    background: rgba(10,15,31,.72); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  }
+  .brand { display: flex; align-items: center; gap: 11px; text-decoration: none; color: inherit; }
+  .beacon { position: relative; width: 11px; height: 11px; flex: none; }
   .beacon i { position: absolute; inset: 0; margin: auto; width: 9px; height: 9px; border-radius: 50%;
-    background: var(--live); box-shadow: 0 0 12px var(--live); }
-  .beacon::after { content: ""; position: absolute; inset: -2px; border-radius: 50%;
-    border: 1.5px solid var(--live); opacity: 0; animation: ping 2.6s cubic-bezier(.2,.6,.3,1) infinite; }
+    background: #2FE6B0; box-shadow: 0 0 12px #2FE6B0; }
+  .beacon::before, .beacon::after { content: ""; position: absolute; inset: -2px; border-radius: 50%;
+    border: 1.5px solid #2FE6B0; opacity: 0; animation: ping 2.6s cubic-bezier(.2,.6,.3,1) infinite; }
+  .beacon::after { animation-delay: 1.3s; }
   @keyframes ping { 0% { transform: scale(.7); opacity: .7; } 80%,100% { transform: scale(2.6); opacity: 0; } }
-  .brand h1 { font-family: var(--f-display); font-size: 18px; font-weight: 700; margin: 0; }
-  .brand h1 b { color: var(--live); }
-  .brand .tag { font-size: 11px; color: var(--muted); margin-top: 1px; }
-
-  nav { display: flex; gap: 6px; }
-  nav a { font-family: var(--f-mono); font-size: 12px; text-decoration: none; color: var(--muted);
-    padding: 8px 13px; border: 1px solid var(--line); border-radius: 999px; }
-  nav a.on { color: var(--live); border-color: var(--live-line); }
-  nav a:hover { color: var(--text); }
-
-  .right { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .brand h1 { font-family: var(--f-display); font-size: 18px; font-weight: 700; letter-spacing: .2px; margin: 0; }
+  .brand h1 b { color: #2FE6B0; }
+  .brand .tag { font-size: 11px; color: var(--muted); margin-top: 1px; letter-spacing: .2px; }
+  .seg { display: flex; gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: 999px; background: rgba(150,170,220,.06); }
+  .seg a { font-family: var(--f-mono); font-size: 12px; text-decoration: none; color: var(--muted); padding: 7px 14px; border-radius: 999px; transition: color .15s, background .15s; }
+  .seg a.on { background: rgba(47,230,176,.14); color: #2FE6B0; }
+  .seg a:hover:not(.on) { color: var(--text); }
+  .right { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .chip { font-family: var(--f-mono); font-size: 11px; color: var(--muted);
     border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; display: inline-flex; gap: 6px; align-items: center; }
   .chip .led { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
-  .chip.live .led { background: var(--live); box-shadow: 0 0 8px var(--live); }
+  .chip.live .led { background: #2FE6B0; box-shadow: 0 0 8px #2FE6B0; }
   .chip.down { color: var(--amber); border-color: rgba(244,183,64,.4); }
   .chip.down .led { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
 
-  /* legend mirrors the real room treatments so it teaches the encoding */
-  .legend { display: flex; gap: 14px; align-items: center; font-size: 12px; color: var(--muted);
-    background: rgba(17,26,51,.7); border: 1px solid var(--line); border-radius: 999px;
-    padding: 6px 13px; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  /* legend floats over the map (mirrors the real room treatments) */
+  .legend { position: absolute; left: 16px; bottom: 16px; z-index: 4;
+    display: flex; gap: 14px; align-items: center; font-size: 12px; color: var(--muted);
+    background: rgba(17,26,51,.82); border: 1px solid var(--line); border-radius: 12px;
+    padding: 9px 13px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
   .lg-item { display: inline-flex; align-items: center; gap: 7px; }
   .lg-item em { font-style: normal; font-family: var(--f-mono); color: var(--text); }
   .sw { width: 22px; height: 14px; border-radius: 4px; display: inline-block; }
@@ -142,24 +145,25 @@
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
   @media (max-width: 720px) { .brand .tag { display: none; } }
-  @media (max-width: 560px) { header { padding: 11px 14px; } .legend { font-size: 11px; gap: 10px; padding: 5px 10px; } }
+  @media (max-width: 560px) {
+    header { padding: 11px 14px; }
+    .legend { font-size: 11px; gap: 10px; padding: 6px 11px; left: 12px; bottom: 12px; }
+    .modal { padding: 12px; align-items: flex-end; }
+    .sheet { max-height: 88vh; }
+  }
 </style>
 </head>
 <body>
 <header>
-  <div class="brand">
+  <a class="brand" href="/">
     <span class="beacon"><i></i></span>
     <div><h1>Room<b>Pulse</b></h1><div class="tag">Apple Developer Academy · Bali</div></div>
-  </div>
-  <nav>
+  </a>
+  <nav class="seg">
     <a href="/">Dashboard</a>
     <a href="/floor" class="on" aria-current="page">Floor plan</a>
   </nav>
   <div class="right">
-    <div class="legend" aria-label="Legend">
-      <span class="lg-item"><span class="sw sw-busy"></span>Occupied <em id="lg-busy">0</em></span>
-      <span class="lg-item"><span class="sw sw-open"></span>Open <em id="lg-open">0</em></span>
-    </div>
     <span class="chip" id="conn"><span class="led"></span><span id="conn-text">connecting…</span></span>
   </div>
 </header>
@@ -170,6 +174,10 @@
     <div class="scrim"></div>
     <svg class="overlay" id="ovl" preserveAspectRatio="none" aria-hidden="true"></svg>
     <div class="labels" id="labels" aria-live="polite" aria-label="Rooms"></div>
+  </div>
+  <div class="legend" aria-label="Legend">
+    <span class="lg-item"><span class="sw sw-busy"></span>Occupied <em id="lg-busy">0</em></span>
+    <span class="lg-item"><span class="sw sw-open"></span>Open <em id="lg-open">0</em></span>
   </div>
 </div>
 
@@ -211,10 +219,11 @@ let lastFocus = null;                 // restore focus on modal close
 // Static fit-to-screen (no zoom/pan): scale the plan to contain the viewport, centred.
 function fit() {
   const r = vp.getBoundingClientRect();
-  const pad = 28;
+  const pad = r.width < 560 ? 12 : 28;          // phones: less padding → larger map
   const scale = Math.min((r.width - pad * 2) / NAT_W, (r.height - pad * 2) / NAT_H);
   const x = (r.width - NAT_W * scale) / 2;
-  const y = (r.height - NAT_H * scale) / 2;
+  const freeY = r.height - NAT_H * scale;
+  const y = freeY > 0 ? Math.min(freeY / 2, r.height * 0.1 + pad) : freeY / 2; // bias up under the header
   stage.style.transform = `translate(${x}px,${y}px) scale(${scale})`;
 }
 window.addEventListener("resize", fit);

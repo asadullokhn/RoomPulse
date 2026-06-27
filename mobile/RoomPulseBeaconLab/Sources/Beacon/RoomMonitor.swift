@@ -148,17 +148,14 @@ final class RoomMonitor: NSObject, ObservableObject {
     /// Fetch the backend beacon list; if it changed, re-register the monitored
     /// regions so newly added/re-mapped rooms take effect without a new build.
     func refreshBeacons() {
-        BeaconClient.fetch { [weak self] rooms in
-            guard let self, let rooms, RoomRegistry.shared.update(rooms) else { return }
-            DispatchQueue.main.async {
-                guard self.isMonitoring else { return }
-                for region in self.manager.monitoredRegions { self.manager.stopMonitoring(for: region) }
-                for room in RoomRegistry.shared.rooms {
-                    self.manager.startMonitoring(for: self.monitorRegion(for: room))
-                }
-                self.statusText = "Monitoring \(RoomRegistry.shared.rooms.count) rooms"
-                self.lastEvent = "beacon list updated"
+        RoomRegistry.shared.refresh { [weak self] changed in
+            guard let self, changed, self.isMonitoring else { return }
+            for region in self.manager.monitoredRegions { self.manager.stopMonitoring(for: region) }
+            for room in RoomRegistry.shared.rooms {
+                self.manager.startMonitoring(for: self.monitorRegion(for: room))
             }
+            self.statusText = "Monitoring \(RoomRegistry.shared.rooms.count) rooms"
+            self.lastEvent = "beacon list updated"
         }
     }
 

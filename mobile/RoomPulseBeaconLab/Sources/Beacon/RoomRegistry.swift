@@ -30,6 +30,16 @@ final class RoomRegistry: ObservableObject {
         return true
     }
 
+    /// Pulls the latest beacon list from the backend and updates the cache.
+    /// completion(changed) runs on the main thread. Both the monitor and the
+    /// broadcaster call this so either screen shows the current rooms.
+    func refresh(_ completion: ((Bool) -> Void)? = nil) {
+        BeaconClient.fetch { [weak self] rooms in
+            let changed = (rooms != nil) ? (self?.update(rooms!) ?? false) : false
+            DispatchQueue.main.async { completion?(changed) }
+        }
+    }
+
     private static func loadCached() -> [RoomPreset]? {
         guard let data = UserDefaults.standard.data(forKey: key),
               let decoded = try? JSONDecoder().decode([RoomPreset].self, from: data),

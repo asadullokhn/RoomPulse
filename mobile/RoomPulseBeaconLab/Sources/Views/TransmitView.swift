@@ -42,6 +42,10 @@ struct TransmitView: View {
                 }
             }
             .navigationTitle("Transmit")
+            .onAppear { RoomRegistry.shared.refresh() } // pull the latest rooms to broadcast as
+            .onChange(of: registry.rooms) { rooms in
+                if !rooms.contains(selected) { selected = rooms.first ?? selected }
+            }
         }
     }
 }

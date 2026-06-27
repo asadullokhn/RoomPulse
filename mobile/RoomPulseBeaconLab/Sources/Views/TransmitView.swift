@@ -5,18 +5,21 @@ struct TransmitView: View {
     @StateObject private var tx = BeaconTransmitter()
     @ObservedObject private var registry = RoomRegistry.shared
     @State private var selected: RoomPreset = RoomRegistry.shared.rooms.first ?? RoomPreset.defaults[0]
+    @State private var showAdvanced = false
 
     var body: some View {
         NavigationStack {
             Form {
-                Section("Pretend this phone is a room beacon") {
+                Section {
                     Picker("Room", selection: $selected) {
                         ForEach(registry.rooms) { room in
                             Text(room.name).tag(room)
                         }
                     }
-                    LabeledContent("Major / Minor", value: "\(selected.major) / \(selected.minor)")
-                    LabeledContent("Workspace", value: selected.workspaceID)
+                } header: {
+                    Text("Broadcast as a room")
+                } footer: {
+                    Text("Bench testing — turns this phone into a room beacon other phones can detect.")
                 }
 
                 Section {
@@ -30,15 +33,19 @@ struct TransmitView: View {
                         }
                     }
                     LabeledContent("Status", value: tx.statusText)
+                } footer: {
+                    Text("Keep this screen open and the phone unlocked — iOS stops the beacon when the app is backgrounded.")
                 }
 
                 Section {
-                    Text(BeaconConstants.uuid.uuidString)
-                        .font(.footnote.monospaced())
-                        .foregroundStyle(.secondary)
-                    Text("Keep this screen open and the phone unlocked — iOS stops the beacon when the app is backgrounded.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+                    DisclosureGroup("Advanced", isExpanded: $showAdvanced) {
+                        LabeledContent("Major / Minor", value: "\(selected.major) / \(selected.minor)")
+                        LabeledContent("Workspace", value: selected.workspaceID)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Beacon UUID").font(.caption).foregroundStyle(.secondary)
+                            Text(BeaconConstants.uuid.uuidString).font(.footnote.monospaced())
+                        }
+                    }
                 }
             }
             .navigationTitle("Transmit")

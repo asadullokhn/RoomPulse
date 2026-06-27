@@ -55,16 +55,17 @@ struct MonitorView: View {
                                 .multilineTextAlignment(.center)
                         }
 
-                        if monitor.isMonitoring {
-                            Button(role: .destructive) { monitor.disable() } label: {
-                                Text("Turn off").frame(maxWidth: .infinity)
-                            }
-                            .buttonStyle(.bordered).controlSize(.regular)
-                        } else {
+                        if !monitor.isMonitoring {
+                            // The only thing to do: grant permission once.
                             Button { monitor.enableBackgroundCheckIn() } label: {
                                 Text("Enable auto check-in").font(.headline).frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.borderedProminent).controlSize(.large)
+                        } else if !monitor.needsAlwaysInSettings {
+                            // Working — just confirm it, no off switch.
+                            Label("On — running in the background", systemImage: "checkmark.circle.fill")
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(Self.brand)
                         }
 
                         if monitor.needsAlwaysInSettings {

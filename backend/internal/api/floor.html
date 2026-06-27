@@ -73,7 +73,10 @@
 
   /* AVAILABLE: cool slate, hollow, dashed, static — recedes */
   .overlay polygon { fill: var(--open-fill); stroke: var(--open-line); stroke-width: 1.5;
-    stroke-dasharray: 7 5; vector-effect: non-scaling-stroke; transition: fill .18s ease, stroke .18s ease; }
+    stroke-dasharray: 7 5; vector-effect: non-scaling-stroke; pointer-events: all; cursor: pointer;
+    transition: fill .18s ease, stroke .18s ease; }
+  .overlay polygon:hover { fill: rgba(176,190,224,.20); }
+  .overlay polygon.busy:hover { fill: rgba(47,230,176,.42); }
   /* OCCUPIED: saturated teal, solid, glowing, breathing — the live signal */
   .overlay polygon.busy { fill: var(--live-fill); stroke: var(--live-line); stroke-width: 2.5;
     stroke-dasharray: none; filter: drop-shadow(0 0 7px rgba(47,230,176,.55));
@@ -85,9 +88,10 @@
 
   .labels { position: absolute; inset: 0; pointer-events: none; }
   .lbl { position: absolute; transform: translate(-50%,-50%); display: flex; flex-direction: column;
-    align-items: center; gap: 5px; text-align: center; max-width: 172px;
+    align-items: center; gap: 5px; text-align: center; max-width: 172px; pointer-events: auto; cursor: pointer;
     background: rgba(8,12,24,.46); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
-    border-radius: 11px; padding: 6px 10px; box-shadow: 0 2px 8px rgba(7,11,22,.45); }
+    border-radius: 11px; padding: 6px 10px; box-shadow: 0 2px 8px rgba(7,11,22,.45); transition: background .15s; }
+  .lbl:hover { background: rgba(8,12,24,.68); }
   .lbl .ico { width: 25px; height: 25px; opacity: .9; color: var(--open-text); }
   .lbl .ico svg { width: 100%; height: 100%; }
   .lbl .nm { font-family: var(--f-display); font-weight: 600; font-size: 20px; line-height: 1.12; color: var(--open-text); }
@@ -102,6 +106,35 @@
   .ghost { font-family: var(--f-mono); font-size: 13px; color: var(--open-text);
     padding: 2px 10px; border: 1px dashed rgba(176,190,224,.5); border-radius: 999px; }
   .lbl.sm .pill { font-size: 13px; padding: 2px 9px; } .lbl.sm .ghost { font-size: 11px; }
+
+  /* ---- room detail modal ---- */
+  .modal[hidden] { display: none; }
+  .modal { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .modal-bg { position: absolute; inset: 0; background: rgba(6,9,18,.62); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); }
+  .sheet { position: relative; width: 100%; max-width: 430px; max-height: 84vh; overflow: auto;
+    background: linear-gradient(180deg, #16203C, #111A33); border: 1px solid var(--line);
+    border-radius: 18px; padding: 20px; box-shadow: 0 24px 60px rgba(0,0,0,.5); animation: sheetIn .18s ease; }
+  @keyframes sheetIn { from { opacity: 0; transform: translateY(10px) scale(.985); } to { opacity: 1; transform: none; } }
+  .sheet-x { position: absolute; top: 13px; right: 13px; width: 30px; height: 30px; border-radius: 50%;
+    border: 1px solid var(--line); background: rgba(255,255,255,.04); color: var(--muted); font-size: 17px; line-height: 1; cursor: pointer; }
+  .sheet-x:hover { color: #fff; border-color: var(--accent); }
+  .sheet-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; padding-right: 34px; }
+  .sheet-head h2 { font-family: var(--f-display); font-size: 21px; margin: 0; }
+  .sheet-sub { font-size: 12px; color: var(--muted); margin-top: 3px; font-family: var(--f-mono); }
+  .m-sec { margin-top: 18px; }
+  .m-h { font-family: var(--f-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.5px; color: var(--muted); margin-bottom: 9px; }
+  .who-chip { display: inline-flex; align-items: center; gap: 6px; background: rgba(47,230,176,.12);
+    border: 1px solid var(--live-line); color: #DFF6EE; border-radius: 999px; padding: 4px 11px; font-size: 13px; margin: 0 6px 7px 0; }
+  .who-chip svg { width: 13px; height: 13px; }
+  .m-empty { color: var(--faint); font-size: 13px; }
+  .m-line strong { font-weight: 600; }
+  .m-sub2 { font-size: 12px; color: var(--muted); margin-top: 2px; font-family: var(--f-mono); }
+  .act { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(150,170,220,.07); font-size: 13px; }
+  .act:last-child { border-bottom: 0; }
+  .act .dot { width: 7px; height: 7px; border-radius: 50%; flex: none; }
+  .act.enter .dot { background: var(--live); box-shadow: 0 0 7px var(--live); }
+  .act.leave .dot { background: rgba(176,190,224,.7); }
+  .act .ago { margin-left: auto; color: var(--faint); font-family: var(--f-mono); font-size: 11.5px; }
 
   :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
@@ -137,6 +170,20 @@
   </div>
 </div>
 
+<div class="modal" id="modal" hidden>
+  <div class="modal-bg" id="modal-bg"></div>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="m-name">
+    <button class="sheet-x" id="m-close" aria-label="Close">✕</button>
+    <div class="sheet-head">
+      <div><h2 id="m-name"></h2><div class="sheet-sub" id="m-sub"></div></div>
+      <span id="m-badge"></span>
+    </div>
+    <div class="m-sec"><div class="m-h">Inside now</div><div id="m-inside"></div></div>
+    <div class="m-sec"><div class="m-h">Booking</div><div id="m-booking"></div></div>
+    <div class="m-sec"><div class="m-h">Recent activity</div><div id="m-activity"></div></div>
+  </div>
+</div>
+
 <script>
 const NAT_W = 2489, NAT_H = 1380;
 function esc(s){ return String(s ?? "").replace(/[&<>"']/g, c =>
@@ -146,10 +193,17 @@ const ICON_ROOM = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 const ICON_WS = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
 const ICON_PERSON = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6z"/></svg>';
 
+function fmtTime(s){ if(!s) return "—"; return new Date(s).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
+function fmtAgoShort(s){ if(s==null) return ""; if(s<60) return s+"s"; if(s<3600) return Math.floor(s/60)+"m"; if(s<86400) return Math.floor(s/3600)+"h"; return Math.floor(s/86400)+"d"; }
+
 const vp = document.getElementById("vp");
 const stage = document.getElementById("stage");
 const ovl = document.getElementById("ovl");
 const labels = document.getElementById("labels");
+
+let cacheRooms = [], cacheOcc = {};   // latest /rooms + /occupancy, for the modal
+let modalName = null, modalWs = null; // currently open room
+let lastFocus = null;                 // restore focus on modal close
 
 // Static fit-to-screen (no zoom/pan): scale the plan to contain the viewport, centred.
 function fit() {
@@ -197,6 +251,14 @@ async function build() {
     lbl: labels.querySelector(`.lbl[data-i="${i}"]`),
     chip: labels.querySelector(`[data-chip="${i}"]`),
   }));
+  for (const c of cells) {
+    const open = () => { if (modalEl.hidden) openRoom(c.name); };
+    c.poly.addEventListener("click", open);
+    c.lbl.addEventListener("click", open);
+    c.lbl.tabIndex = 0; c.lbl.setAttribute("role", "button");
+    c.lbl.setAttribute("aria-label", `${c.name} — details`);
+    c.lbl.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(); } });
+  }
   fit();
   paint();
   setInterval(paint, 3000);
@@ -213,6 +275,9 @@ async function paint() {
     ]);
   } catch (e) { setConn(false); return; }
   setConn(true);
+  cacheRooms = rooms;
+  cacheOcc = {};
+  occ.forEach(o => { cacheOcc[o.workspace_id] = o; });
   const wsCount = {};
   occ.forEach(o => { wsCount[o.workspace_id] = o.count; });
   const nameCount = {};
@@ -230,7 +295,67 @@ async function paint() {
   }
   document.getElementById("lg-busy").textContent = busyN;
   document.getElementById("lg-open").textContent = cells.length - busyN;
+  if (modalName) updateModal();
 }
+
+// ---- room detail modal ----
+const modalEl = document.getElementById("modal");
+function openRoom(name) {
+  lastFocus = document.activeElement;
+  modalName = name;
+  const room = cacheRooms.find(r => norm(r.name) === norm(name));
+  modalWs = room ? room.zoom_workspace_id : null;
+  document.getElementById("m-name").textContent = name;
+  const type = room ? (room.has_tv ? "Zoom Room" : "Reservation-only") : "";
+  const cap = room && room.capacity ? `Capacity ${room.capacity}` : "";
+  document.getElementById("m-sub").textContent = [type, cap].filter(Boolean).join("  ·  ");
+  vp.setAttribute("inert", ""); // background non-interactive + out of the a11y tree
+  modalEl.hidden = false;
+  document.body.style.overflow = "hidden";
+  document.getElementById("m-close").focus();
+  updateModal();
+}
+function closeModal() {
+  modalName = null; modalWs = null;
+  modalEl.hidden = true;
+  vp.removeAttribute("inert");
+  document.body.style.overflow = "";
+  if (lastFocus && lastFocus.focus) lastFocus.focus();
+  lastFocus = null;
+}
+async function updateModal() {
+  if (!modalName) return;
+  const ws = modalWs;
+  const occ = (ws && cacheOcc[ws]) || { count: 0, users: [] };
+  document.getElementById("m-badge").innerHTML = occ.count > 0
+    ? `<span class="pill">${ICON_PERSON}${occ.count}</span>` : `<span class="ghost">Open</span>`;
+  document.getElementById("m-inside").innerHTML = occ.count > 0
+    ? (occ.users || []).map(u => `<span class="who-chip">${ICON_PERSON}${esc(u)}</span>`).join("")
+    : `<div class="m-empty">No one here right now.</div>`;
+  if (!ws) {
+    document.getElementById("m-booking").innerHTML = `<div class="m-empty">—</div>`;
+    document.getElementById("m-activity").innerHTML = `<div class="m-empty">Not mapped to a workspace.</div>`;
+    return;
+  }
+  const [ev, resv] = await Promise.all([
+    fetch(`/events?workspace_id=${encodeURIComponent(ws)}&limit=25`).then(r => r.json()).then(d => d.events || []).catch(() => []),
+    fetch(`/reservations`).then(r => r.json()).then(d => d.reservations || []).catch(() => []),
+  ]);
+  if (modalWs !== ws) return; // closed or switched rooms while fetching
+  const b = resv.find(v => v.zoom_workspace_id === ws);
+  document.getElementById("m-booking").innerHTML = b
+    ? `<div class="m-line"><strong>${esc(b.user_email || b.user_id || "—")}</strong></div>
+       <div class="m-sub2">${fmtTime(b.start_time)}–${fmtTime(b.end_time)} · ${esc((b.check_in_status || "").replace(/_/g, " "))}</div>`
+    : `<div class="m-empty">No booking today.</div>`;
+  document.getElementById("m-activity").innerHTML = ev.length
+    ? ev.map(e => `<div class="act ${e.kind === "enter" ? "enter" : "leave"}"><span class="dot"></span>
+        <span>${esc(e.name || e.actor)} ${e.kind === "enter" ? "entered" : "left"}</span>
+        <span class="ago">${fmtAgoShort(e.ago_sec)} ago</span></div>`).join("")
+    : `<div class="m-empty">No activity recorded yet.</div>`;
+}
+document.getElementById("m-close").addEventListener("click", closeModal);
+document.getElementById("modal-bg").addEventListener("click", closeModal);
+document.addEventListener("keydown", e => { if (e.key === "Escape" && !modalEl.hidden) closeModal(); });
 
 build();
 </script>

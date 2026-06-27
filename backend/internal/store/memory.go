@@ -39,15 +39,22 @@ func NewMemory() *Memory {
 	}
 }
 
+// ReapedDevice is a device expired by the TTL backstop, with the room it left.
+type ReapedDevice struct {
+	DeviceID    string
+	DisplayName string
+	WorkspaceID string
+}
+
 // ReapStale removes devices not seen within maxAge (by SERVER receipt time, so
-// client clock skew can't matter). Returns the workspace ids that lost an
-// occupant, so the caller can reflect check-out on those reservations. This is
-// the backstop for a killed/offline phone that never sent a leave.
-func (m *Memory) ReapStale(maxAge time.Duration) []string {
+// client clock skew can't matter). Returns the reaped devices that were in a
+// room, so the caller can log "left" events and reflect check-out. This is the
+// backstop for a killed/offline phone that never sent a leave.
+func (m *Memory) ReapStale(maxAge time.Duration) []ReapedDevice {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	cutoff := time.Now().Add(-maxAge)
-	vacated := map[string]struct{}{}
+	out := []ReapedDevice{}
 	for dev, seen := range m.deviceSeenAt {
 		if seen.After(cutoff) {
 			continue
@@ -56,15 +63,11 @@ func (m *Memory) ReapStale(maxAge time.Duration) []string {
 			if set := m.presence[room]; set != nil {
 				delete(set, dev)
 			}
-			vacated[room] = struct{}{}
+			out = append(out, ReapedDevice{DeviceID: dev, DisplayName: m.displayNames[dev], WorkspaceID: room})
 		}
 		delete(m.deviceRoom, dev)
 		delete(m.deviceSeenAt, dev)
 		delete(m.deviceTS, dev)
-	}
-	out := make([]string, 0, len(vacated))
-	for ws := range vacated {
-		out = append(out, ws)
 	}
 	return out
 }

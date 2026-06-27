@@ -145,6 +145,17 @@
   .empty { padding: 26px 18px; color: var(--muted); font-size: 13px; text-align: center; }
   .empty b { display: block; color: var(--text); font-weight: 600; margin-bottom: 3px; font-family: var(--f-display); }
 
+  /* ---- advanced / diagnostics disclosure ---- */
+  .advanced { border-top: 1px solid var(--line); margin-top: 8px; }
+  .advanced > summary { cursor: pointer; list-style: none; font-family: var(--f-mono); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 1.6px; color: var(--muted); padding: 16px 2px; display: flex; align-items: center; gap: 9px; }
+  .advanced > summary::-webkit-details-marker { display: none; }
+  .advanced > summary::before { content: "›"; display: inline-block; transition: transform .2s; font-size: 14px; }
+  .advanced[open] > summary::before { transform: rotate(90deg); }
+  .advanced > summary:hover { color: var(--text); }
+  .adv-body { padding-top: 6px; }
+  .adv-row { display: flex; gap: 10px; align-items: center; margin-bottom: 18px; flex-wrap: wrap; }
+
   footer { text-align: center; color: var(--faint); font-size: 11.5px; font-family: var(--f-mono); padding: 8px 0 0; }
 
   @media (max-width: 860px) { .vitals { grid-template-columns: repeat(2, 1fr); } }
@@ -165,10 +176,8 @@
     </div>
   </div>
   <div class="ctrls">
-    <span class="chip" id="mode">mode —</span>
     <span class="chip" id="conn"><span class="led"></span><span id="conn-text">connecting…</span></span>
     <a class="btn-ghost" href="/floor" style="text-decoration:none">Floor plan</a>
-    <button class="btn-ghost" onclick="sync()" id="syncBtn">Sync from Zoom</button>
   </div>
 </header>
 
@@ -181,19 +190,27 @@
   </section>
 
   <section class="block">
-    <div class="eyebrow">Devices <span class="n">phones reporting presence</span></div>
-    <div class="card"><div class="scroll" id="devices"></div></div>
-  </section>
-
-  <section class="block">
-    <div class="eyebrow">Beacons <span class="n">iBeacon identity per room</span></div>
-    <div class="card"><div class="scroll" id="beacons"></div></div>
-  </section>
-
-  <section class="block">
     <div class="eyebrow">Reservations <span class="n">today</span></div>
     <div class="card"><div class="scroll" id="reservations"></div></div>
   </section>
+
+  <details class="advanced">
+    <summary>Advanced · diagnostics</summary>
+    <div class="adv-body">
+      <div class="adv-row">
+        <span class="chip" id="mode">mode —</span>
+        <button class="btn-ghost" onclick="sync()" id="syncBtn">Sync from Zoom</button>
+      </div>
+      <section class="block">
+        <div class="eyebrow">Devices <span class="n">phones reporting presence</span></div>
+        <div class="card"><div class="scroll" id="devices"></div></div>
+      </section>
+      <section class="block">
+        <div class="eyebrow">Beacons <span class="n">iBeacon identity per room</span></div>
+        <div class="card"><div class="scroll" id="beacons"></div></div>
+      </section>
+    </div>
+  </details>
 
   <footer id="updated">—</footer>
 </main>

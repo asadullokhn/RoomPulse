@@ -68,8 +68,8 @@ func TestReapStale(t *testing.T) {
 	if occCount(m, "ws-b") != 0 {
 		t.Fatalf("stale not reaped: ws-b=%d", occCount(m, "ws-b"))
 	}
-	if len(vacated) != 1 || vacated[0] != "ws-b" {
-		t.Fatalf("vacated=%v want [ws-b]", vacated)
+	if len(vacated) != 1 || vacated[0].WorkspaceID != "ws-b" {
+		t.Fatalf("vacated=%v want one device in ws-b", vacated)
 	}
 }
 

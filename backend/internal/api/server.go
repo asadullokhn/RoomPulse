@@ -9,6 +9,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"time"
 
 	"roompulse/internal/domain"
@@ -30,9 +31,10 @@ var floorImage []byte
 var floorData []byte // raw Zoom workspace export (rooms + polygons)
 
 const (
-	maxBody    = 1 << 20 // 1 MiB request body cap
-	maxIDLen   = 128
-	maxNameLen = 96
+	maxBody        = 1 << 20 // 1 MiB request body cap
+	maxIDLen       = 128
+	maxNameLen     = 96
+	eventRetention = 14 * 24 * time.Hour // activity history kept this long
 )
 
 // OAuthFlow is implemented by the user-OAuth Zoom client. When the active
@@ -74,14 +76,23 @@ func (s *Server) ReapLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			vacated := s.store.ReapStale(s.ttl)
-			for _, ws := range vacated {
+			reaped := s.store.ReapStale(s.ttl)
+			now := time.Now()
+			rooms := map[string]struct{}{}
+			for _, rd := range reaped {
+				s.logEvent(rd.WorkspaceID, rd.DeviceID, rd.DisplayName, "leave", now)
+				rooms[rd.WorkspaceID] = struct{}{}
+			}
+			for ws := range rooms {
 				c, cancel := context.WithTimeout(ctx, 5*time.Second)
 				s.driveReservation(c, ws, zoom.EventCheckOut, domain.CheckedOut)
 				cancel()
 			}
-			if len(vacated) > 0 {
-				s.log.Info("reaped stale presence", "rooms", vacated, "ttl", s.ttl)
+			if len(reaped) > 0 {
+				s.log.Info("reaped stale presence", "devices", len(reaped), "ttl", s.ttl)
+			}
+			if err := s.db.PruneEvents(now.Add(-eventRetention)); err != nil {
+				s.log.Warn("prune events", "err", err)
 			}
 		}
 	}
@@ -101,6 +112,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /rooms", s.listRooms)
 	mux.HandleFunc("GET /beacons", s.listBeacons)
 	mux.HandleFunc("GET /devices", s.listDevices)
+	mux.HandleFunc("GET /events", s.listEvents)
 	mux.HandleFunc("GET /reservations", s.listReservations)
 	mux.HandleFunc("POST /reservations/{id}/check-in", s.checkIn)
 	mux.HandleFunc("POST /reservations/{id}/check-out", s.checkOut)
@@ -257,6 +269,29 @@ func (s *Server) listBeacons(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"beacons": out})
 }
 
+// listEvents returns a room's recent presence activity (the floor modal's
+// history). Requires a workspace_id query param.
+func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
+	ws := r.URL.Query().Get("workspace_id")
+	if ws == "" || len(ws) > maxIDLen {
+		writeError(w, http.StatusBadRequest, "workspace_id required")
+		return
+	}
+	limit := 30
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if n, err := strconv.Atoi(l); err == nil {
+			limit = n
+		}
+	}
+	events, err := s.db.Events(ws, limit, time.Now())
+	if err != nil {
+		s.log.Error("list events", "err", err)
+		writeError(w, http.StatusInternalServerError, "could not read events")
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"events": events})
+}
+
 // listDevices returns the durable device registry (from SQLite). Each row
 // carries the device's last known room as a workspace id; the dashboard joins
 // it to the room name it already has from /rooms.
@@ -320,6 +355,13 @@ func (s *Server) heartbeat(w http.ResponseWriter, r *http.Request) {
 
 	changed, prev := s.store.SetDeviceRoom(body.DeviceID, body.WorkspaceID, body.DisplayName, body.TS)
 	if changed {
+		now := time.Now()
+		if prev != "" {
+			s.logEvent(prev, body.DeviceID, body.DisplayName, "leave", now)
+		}
+		if body.WorkspaceID != "" {
+			s.logEvent(body.WorkspaceID, body.DeviceID, body.DisplayName, "enter", now)
+		}
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
 		if body.WorkspaceID != "" {
@@ -331,6 +373,14 @@ func (s *Server) heartbeat(w http.ResponseWriter, r *http.Request) {
 		s.log.Info("presence state change", "device", body.DeviceID, "room", body.WorkspaceID, "prev", prev)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "room": body.WorkspaceID})
+}
+
+// logEvent records a presence event, logging (never failing) on a write error —
+// history is best-effort and must not break a heartbeat.
+func (s *Server) logEvent(workspaceID, actor, name, kind string, at time.Time) {
+	if err := s.db.LogEvent(workspaceID, actor, name, kind, at); err != nil {
+		s.log.Warn("log event", "err", err)
+	}
 }
 
 // driveReservation reflects a room's occupancy onto its booking's check-in
@@ -388,6 +438,12 @@ func (s *Server) presence(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]any{"status": "stale_ignored", "workspace_id": body.WorkspaceID})
 		return
 	}
+
+	kind := "leave"
+	if body.EventType == "entered" {
+		kind = "enter"
+	}
+	s.logEvent(body.WorkspaceID, body.UserID, body.DisplayName, kind, time.Now())
 
 	// Presence (headcount) is tracked above regardless of bookings. Below we
 	// best-effort drive the booker's reservation check-in/out.

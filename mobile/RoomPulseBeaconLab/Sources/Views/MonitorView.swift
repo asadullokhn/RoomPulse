@@ -1,7 +1,8 @@
 import SwiftUI
 
-/// The main screen: set your name, enable once, forget the app. Production-clean —
-/// tuning and diagnostics live under a collapsed Advanced section.
+/// The main screen. Auto check-in is the whole point, so it's the hero: one
+/// status, one action. Everything tunable or temporary (name, sensitivity,
+/// signal, backend, device id) lives under a collapsed Advanced section.
 struct MonitorView: View {
     @StateObject private var monitor = RoomMonitor.shared
     @State private var userID = AppSettings.userID
@@ -9,71 +10,82 @@ struct MonitorView: View {
     @State private var rssi = AppSettings.rssiThreshold
     @State private var notify = AppSettings.notifyOnCheckInOut
     @State private var showAdvanced = false
+    @State private var pulse = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private static let brand = Color(red: 0.0, green: 0.60, blue: 0.46)
 
     private var currentRoom: String? { monitor.insideRooms.sorted().first }
+    private var scanning: Bool { monitor.isMonitoring && currentRoom == nil }
 
     private var headline: String {
         guard monitor.isMonitoring else { return "Auto check-in is off" }
-        return currentRoom.map { "You’re in \($0)" } ?? "Not in a room"
+        return currentRoom.map { "You’re in \($0)" } ?? "Looking for rooms…"
     }
     private var heroIcon: String {
         guard monitor.isMonitoring else { return "moon.zzz.fill" }
         return currentRoom != nil ? "checkmark.circle.fill" : "dot.radiowaves.left.and.right"
     }
-    private var heroColor: Color {
+    private var heroTint: Color {
         guard monitor.isMonitoring else { return .gray }
-        return currentRoom != nil ? .green : .accentColor
+        return currentRoom != nil ? .green : Self.brand
     }
 
     var body: some View {
         NavigationStack {
             Form {
-                // --- Status + primary control ---
+                // --- Hero: auto check-in status + the one action ---
                 Section {
-                    HStack(spacing: 13) {
-                        Image(systemName: heroIcon)
-                            .font(.system(size: 28))
-                            .foregroundStyle(heroColor)
-                            .frame(width: 34)
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(headline).font(.headline)
-                            Text(monitor.statusText).font(.caption).foregroundStyle(.secondary)
+                    VStack(spacing: 16) {
+                        ZStack {
+                            if scanning && !reduceMotion {
+                                Circle().stroke(heroTint.opacity(0.5), lineWidth: 2)
+                                    .frame(width: 86, height: 86)
+                                    .scaleEffect(pulse ? 1.5 : 0.85)
+                                    .opacity(pulse ? 0 : 0.7)
+                            }
+                            Circle().fill(heroTint.opacity(0.14)).frame(width: 86, height: 86)
+                            Image(systemName: heroIcon)
+                                .font(.system(size: 34, weight: .medium))
+                                .foregroundStyle(heroTint)
                         }
-                        Spacer()
-                    }
-                    .padding(.vertical, 4)
+                        VStack(spacing: 4) {
+                            Text(headline).font(.title2.weight(.semibold)).multilineTextAlignment(.center)
+                            Text(monitor.statusText).font(.subheadline).foregroundStyle(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
 
-                    if monitor.isMonitoring {
-                        Button(role: .destructive) { monitor.disable() } label: {
-                            Label("Turn off auto check-in", systemImage: "stop.fill")
+                        if monitor.isMonitoring {
+                            Button(role: .destructive) { monitor.disable() } label: {
+                                Text("Turn off").frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.bordered).controlSize(.regular)
+                        } else {
+                            Button { monitor.enableBackgroundCheckIn() } label: {
+                                Text("Enable auto check-in").font(.headline).frame(maxWidth: .infinity)
+                            }
+                            .buttonStyle(.borderedProminent).controlSize(.large)
                         }
-                    } else {
-                        Button { monitor.enableBackgroundCheckIn() } label: {
-                            Label("Enable auto check-in", systemImage: "sparkles")
-                                .frame(maxWidth: .infinity)
+
+                        if monitor.needsAlwaysInSettings {
+                            Button { monitor.openSettings() } label: {
+                                Label("Allow “Always” in Settings", systemImage: "gear").font(.footnote)
+                            }
                         }
-                        .buttonStyle(.borderedProminent)
-                    }
-                    if monitor.needsAlwaysInSettings {
-                        Button { monitor.openSettings() } label: {
-                            Label("Allow “Always” in Settings", systemImage: "gear")
+                        if !monitor.lastEvent.isEmpty {
+                            Text(monitor.lastEvent).font(.caption).foregroundStyle(.secondary)
                         }
                     }
-                    if !monitor.lastEvent.isEmpty {
-                        LabeledContent("Last event", value: monitor.lastEvent).font(.caption)
-                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .listRowBackground(Color.clear)
                 } footer: {
-                    Text("Enable once, then forget the app. RoomPulse checks you in when you’re near a room and out when you leave — even when it’s closed.")
+                    Text("Enable once and forget it. RoomPulse checks you in when you’re near a room and out when you leave — even when it’s closed.")
+                        .frame(maxWidth: .infinity)
+                        .multilineTextAlignment(.center)
                 }
 
-                // --- Identity ---
-                Section("You") {
-                    TextField("Your name", text: $userID)
-                        .textInputAutocapitalization(.words)
-                        .onChange(of: userID) { newValue in AppSettings.userID = newValue }
-                }
-
-                // --- Notifications ---
+                // --- Notifications (a real user setting) ---
                 Section {
                     Toggle("Check-in notifications", isOn: $notify)
                         .onChange(of: notify) { on in
@@ -89,6 +101,14 @@ struct MonitorView: View {
                 // --- Advanced (collapsed) ---
                 Section {
                     DisclosureGroup("Advanced", isExpanded: $showAdvanced) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            TextField("Your name", text: $userID)
+                                .textInputAutocapitalization(.words)
+                                .onChange(of: userID) { newValue in AppSettings.userID = newValue }
+                            Text("Temporary — replaced by sign-in later.")
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
+
                         Stepper(value: $rssi, in: -90 ... -40, step: 1) {
                             Text("Sensitivity: \(rssi) dBm")
                         }
@@ -128,6 +148,11 @@ struct MonitorView: View {
                 }
             }
             .navigationTitle("RoomPulse")
+            .tint(Self.brand)
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeOut(duration: 2.2).repeatForever(autoreverses: false)) { pulse = true }
+            }
         }
     }
 }

@@ -41,6 +41,11 @@ struct MonitorView: View {
                     if !monitor.lastEvent.isEmpty {
                         LabeledContent("Last event", value: monitor.lastEvent)
                     }
+                    if monitor.needsAlwaysInSettings {
+                        Button { monitor.openSettings() } label: {
+                            Label("Allow “Always” in Settings", systemImage: "gear")
+                        }
+                    }
                 }
 
                 Section("Inside now") {

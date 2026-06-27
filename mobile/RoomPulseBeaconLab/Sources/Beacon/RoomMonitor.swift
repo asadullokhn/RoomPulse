@@ -28,6 +28,9 @@ final class RoomMonitor: NSObject, ObservableObject {
     @Published var lastEvent = ""
     @Published var insideRooms: Set<String> = []   // 0 or 1 element (current room), for the UI
     @Published var liveBeacons: [RangedBeacon] = []
+    @Published var needsAlwaysInSettings = false   // show a "open Settings" affordance
+
+    private var askedAlways = false                // the one-shot system "Always" prompt
 
     private let manager = CLLocationManager()
     private lazy var constraint = CLBeaconIdentityConstraint(uuid: BeaconConstants.uuid)
@@ -82,15 +85,41 @@ final class RoomMonitor: NSObject, ObservableObject {
     func bootstrap() { _ = manager }
 
     func enableBackgroundCheckIn() {
-        manager.requestAlwaysAuthorization()
         if AppSettings.notifyOnCheckInOut { requestNotificationAuthorization() }
-        startMonitoringRooms()
+        switch manager.authorizationStatus {
+        case .notDetermined:
+            // Ask for When-In-Use first; we escalate to Always on the grant
+            // callback (the only reliable way iOS shows the Always dialog).
+            manager.requestWhenInUseAuthorization()
+        case .authorizedWhenInUse:
+            if askedAlways {
+                openSettings()
+            } else {
+                askedAlways = true
+                manager.requestAlwaysAuthorization()
+            }
+            startMonitoringRooms()
+        case .authorizedAlways:
+            startMonitoringRooms()
+        case .denied, .restricted:
+            needsAlwaysInSettings = true
+            statusText = "Location is off — enable it in Settings"
+            openSettings()
+        @unknown default:
+            break
+        }
     }
 
     /// Ask for notification permission — only called when the user turns on
     /// check-in/out notifications (off by default).
     func requestNotificationAuthorization() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { _, _ in }
+    }
+
+    func openSettings() {
+        if let url = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(url)
+        }
     }
 
     func disable() {
@@ -252,13 +281,24 @@ extension RoomMonitor: CLLocationManagerDelegate {
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         switch manager.authorizationStatus {
         case .authorizedAlways:
+            needsAlwaysInSettings = false
             manager.allowsBackgroundLocationUpdates = true
             if manager.monitoredRegions.isEmpty { startMonitoringRooms() }
+            statusText = "Auto check-in on — even when the app is closed"
         case .authorizedWhenInUse:
-            statusText = "Tap again and choose 'Always' for closed-app check-in"
             if manager.monitoredRegions.isEmpty { startMonitoringRooms() }
+            if !askedAlways {
+                askedAlways = true
+                manager.requestAlwaysAuthorization() // shows the system "Always" dialog
+                statusText = "Allow “Always” so check-in works with the app closed"
+            } else {
+                needsAlwaysInSettings = true
+                statusText = "Working while open — allow “Always” in Settings for closed-app check-in"
+            }
         case .denied, .restricted:
-            statusText = "Location denied — enable Always in Settings"
+            needsAlwaysInSettings = true
+            statusText = "Location denied — enable it in Settings"
+            isMonitoring = false
         default:
             break
         }

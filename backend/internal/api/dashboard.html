@@ -15,6 +15,7 @@
     --text: #EAEEFB; --muted: #818DB4; --faint: #5C668A;
     --signal: #2FE6B0; --signal-dim: rgba(47,230,176,.14); --signal-line: rgba(47,230,176,.4);
     --amber: #F4B740; --amber-dim: rgba(244,183,64,.14);
+    --open-text: #C7D0EA; --open-line: rgba(176,190,224,.30);
     --accent: #6C8BFF; --accent-dim: rgba(108,139,255,.16);
     --danger: #FF6B6B;
     --r: 14px;
@@ -95,22 +96,29 @@
   .room { position: relative; background: linear-gradient(180deg, var(--panel-2), var(--panel));
     border: 1px solid var(--line); border-radius: var(--r); padding: 16px 17px 14px; }
   .room.busy { border-color: var(--signal-line); }
+  .room.booked { border-left: 2px solid var(--amber); }
+  .room.empty { opacity: .72; border-left: 2px solid var(--open-line); }
   .room.busy::after { content: ""; position: absolute; inset: -1px; border-radius: inherit; pointer-events: none;
     border: 1px solid var(--signal); opacity: 0; animation: pulse 2.8s ease-out infinite; }
   @keyframes pulse { 0% { opacity: .55; } 70%,100% { opacity: 0; } }
   .room .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
   .room .name { font-family: var(--f-display); font-weight: 600; font-size: 16px; }
   .room .loc { font-size: 11.5px; color: var(--faint); margin-top: 2px; }
-  .head { font-family: var(--f-mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
-  .room .state { display: flex; align-items: center; gap: 7px; margin: 12px 0 4px; font-size: 13px; font-weight: 500; }
-  .room .state .d { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  .room .cap { font-family: var(--f-mono); font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .room .state { display: flex; align-items: center; gap: 7px; margin: 13px 0 4px; font-size: 13px; font-weight: 600; }
+  .room .state .ico { width: 15px; height: 15px; flex: none; display: inline-flex; }
+  .room .state .ico svg { width: 100%; height: 100%; }
   .room.busy .state { color: var(--signal); }
-  .room.busy .state .d { background: var(--signal); box-shadow: 0 0 9px var(--signal); }
-  .room .state.free { color: var(--muted); }
-  .room .state.free .d { background: var(--faint); }
+  .room.booked .state { color: var(--amber); }
+  .room.empty .state { color: var(--muted); }
+  .room .pill { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; font-family: var(--f-mono);
+    font-weight: 600; font-size: 13px; font-variant-numeric: tabular-nums; background: var(--signal); color: #06231B;
+    padding: 2px 10px; border-radius: 999px; box-shadow: 0 0 10px rgba(47,230,176,.45); }
+  .room .pill svg { width: 13px; height: 13px; }
   .room .who { font-size: 12.5px; color: var(--text); min-height: 17px; }
-  .room .who.empty { color: var(--faint); }
-  .room .booked { font-size: 12px; color: var(--amber); margin-top: 2px; }
+  .room .booked-t { font-size: 12px; color: var(--amber); margin-top: 2px; }
+  .vital .bar { height: 4px; border-radius: 2px; background: rgba(124,140,170,.18); margin-top: 10px; overflow: hidden; }
+  .vital .bar i { display: block; height: 100%; background: var(--signal); border-radius: 2px; transition: width .4s ease; }
 
   /* ---- tables ---- */
   .card { background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line);
@@ -220,7 +228,12 @@ function setConn(ok) {
   document.getElementById("conn-text").textContent = ok ? "Live" : "Reconnecting…";
 }
 
+const ICON_PERSON = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6z"/></svg>';
+const ICON_CLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 1.8"/></svg>';
+const ICON_CHECK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.4 2.4 4.6-5"/></svg>';
+
 const STALE_SEC = 120;
+let lastUpdate = Date.now();
 
 async function refresh() {
   let res, rooms, occ, dev, beac;
@@ -249,38 +262,45 @@ async function refresh() {
   // ---- vitals ----
   const vital = (k, v, sub, hero) => `<div class="vital${hero ? " hero" : ""}">
     <div class="k">${k}</div><div class="v">${v}</div><div class="sub">${sub}</div></div>`;
+  const occPct = roomList.length ? Math.round(occupied / roomList.length * 100) : 0;
   document.getElementById("vitals").innerHTML =
     vital("People present", present, present === 1 ? "1 person in a room" : "across all rooms", true) +
-    vital("Rooms occupied", `${occupied}<span style="color:var(--faint);font-size:22px">/${roomList.length}</span>`, "currently in use") +
+    vital("Rooms occupied", `${occupied}<span style="color:var(--faint);font-size:22px">/${roomList.length}</span>`,
+      `<div class="bar"><i style="width:${occPct}%"></i></div>`) +
     vital("Active devices", activeDev, `${devices.length} known · ${devices.length - activeDev} idle`) +
     vital("Rooms", roomList.length, `${beacons.length} beacons mapped`);
 
-  // ---- occupancy ----
+  // ---- occupancy: classify, then sort occupied -> booked -> empty ----
   document.getElementById("occ-count").textContent = present ? `${present} present` : "all rooms quiet";
-  document.getElementById("occupancy").innerHTML = roomList.length ? roomList.map(r => {
+  const cards = roomList.map(r => {
     const ws = r.zoom_workspace_id;
     const o = occByWs[ws] || {};
     const count = o.count || 0;
-    const users = o.users || [];
-    const cap = r.capacity ? `${count}/${r.capacity}` : `${count}`;
+    const booked = reservations.find(v => v.zoom_workspace_id === ws && v.check_in_status === "not_checked_in");
+    const rank = count > 0 ? 0 : (booked ? 1 : 2);
+    return { r, ws, count, users: o.users || [], booked, rank };
+  });
+  cards.sort((a, b) => a.rank - b.rank || b.count - a.count || a.r.name.localeCompare(b.r.name));
+  document.getElementById("occupancy").innerHTML = cards.length ? cards.map(c => {
+    const r = c.r;
+    const cap = r.capacity ? `${c.count}/${r.capacity}` : `${c.count}`;
     const loc = [r.floor, r.has_tv ? "Zoom Room" : null].filter(Boolean).join(" · ") || "Reservation-only";
-    if (count > 0) {
-      const booker = reservations.find(v => v.zoom_workspace_id === ws && v.check_in_status === "checked_in");
-      const names = users.map(u => esc(booker && u === booker.user_id ? (booker.user_email || u) : u)).join(", ");
-      return `<div class="room busy">
-        <div class="top"><div><div class="name">${esc(r.name)}</div><div class="loc">${esc(loc)}</div></div>
-          <span class="head">◍ ${cap}</span></div>
-        <div class="state"><span class="d"></span>${count === 1 ? "1 person here" : count + " people here"}</div>
+    const top = `<div class="top"><div><div class="name">${esc(r.name)}</div><div class="loc">${esc(loc)}</div></div>
+      <span class="cap">${cap}</span></div>`;
+    if (c.count > 0) {
+      const booker = reservations.find(v => v.zoom_workspace_id === c.ws && v.check_in_status === "checked_in");
+      const names = c.users.map(u => esc(booker && u === booker.user_id ? (booker.user_email || u) : u)).join(", ");
+      return `<div class="room busy">${top}
+        <div class="state"><span class="ico">${ICON_PERSON}</span>In use<span class="pill">${ICON_PERSON}${c.count}</span></div>
         <div class="who">${names}</div></div>`;
     }
-    const booked = reservations.find(v => v.zoom_workspace_id === ws && v.check_in_status === "not_checked_in");
-    return `<div class="room">
-      <div class="top"><div><div class="name">${esc(r.name)}</div><div class="loc">${esc(loc)}</div></div>
-        <span class="head">◌ ${cap}</span></div>
-      <div class="state free"><span class="d"></span>Empty</div>
-      <div class="${booked ? "booked" : "who empty"}">${booked
-        ? "Booked " + fmtTime(booked.start_time) + "–" + fmtTime(booked.end_time)
-        : "No booking"}</div></div>`;
+    if (c.booked) {
+      return `<div class="room booked">${top}
+        <div class="state"><span class="ico">${ICON_CLOCK}</span>Booked</div>
+        <div class="booked-t">${fmtTime(c.booked.start_time)}–${fmtTime(c.booked.end_time)} · awaiting check-in</div></div>`;
+    }
+    return `<div class="room empty">${top}
+      <div class="state"><span class="ico">${ICON_CHECK}</span>Available</div></div>`;
   }).join("") : `<div class="card"><div class="empty"><b>No rooms yet</b>Sync from Zoom to load your workspaces.</div></div>`;
 
   // ---- devices ----
@@ -318,7 +338,12 @@ async function refresh() {
     </tbody></table>`
     : `<div class="empty"><b>No reservations</b>Nothing booked in the current window.</div>`;
 
-  document.getElementById("updated").textContent = "updated " + new Date().toLocaleTimeString();
+  lastUpdate = Date.now();
+}
+
+function tickUpdated() {
+  const s = Math.round((Date.now() - lastUpdate) / 1000);
+  document.getElementById("updated").textContent = "updated " + (s < 60 ? s + "s ago" : Math.floor(s / 60) + "m ago");
 }
 
 async function sync() {
@@ -339,6 +364,7 @@ async function loadMode() {
 loadMode();
 refresh();
 setInterval(refresh, 3000);
+setInterval(tickUpdated, 1000);
 </script>
 </body>
 </html>

@@ -1,0 +1,720 @@
+{
+    "code": 0,
+    "data": [
+        {
+            "locationId": "VjllHXuZQn-0imkdfBi7hQ",
+            "locationName": "BINB Ubud Zoom",
+            "locationType": 20,
+            "path": "<path d=\"M992,712L1132,712L1132,808L992,808Z\" />",
+            "points": "[[992,712],[1132,712],[1132,808],[992,808]]",
+            "type": 0,
+            "extension": "{}",
+            "roomWorkType": 0,
+            "roomCalendarType": 7,
+            "calendarResourceEmail": "",
+            "calendarResourceName": "",
+            "roomBusy": false,
+            "readBasicPermission": false,
+            "subLocations": [],
+            "parentLocationId": "kHTH_ReoRXazaUIt_QMp_w",
+            "roomShortName": "",
+            "floorMapSize": "",
+            "enableHotDeskMode": false,
+            "deskType": "room",
+            "hasPermission": false,
+            "roomCapacity": 0,
+            "roomScreenCount": 0,
+            "authConfig": [],
+            "subLocationCounts": 0,
+            "maxReserveDuration": 2,
+            "convertFileType": false,
+            "mapOptions": 0,
+            "underConstruction": false,
+            "backgroundMapWidth": 0,
+            "backgroundMapHeight": 0,
+            "calendarServiceId": "5df911ea-1952-467c-957d-2fe30abfc5ce",
+            "calendarResourceId": "27ee6bbb-6e0f-4e90-a273-916aad88bda7",
+            "extendProps": {
+                "displayUserInfoOnReservation": true,
+                "approveRequired": true,
+                "approveSetting": true,
+                "inOfficeReserve": false,
+                "hasAdminPermission": false,
+                "reserveForVisitor": false,
+                "supportRecurring": true,
+                "byPassCalendar": false,
+                "reserveInAdvanceDays": 30,
+                "reserveSlot": "{\"enableReserveSlot\":false,\"slotType\":0,\"startTime\":\"00:00\"}"
+            },
+            "assets": [
+                {
+                    "labelId": "92df12f12d684ed4b54b70e6d94a25e2",
+                    "labelName": "AirPlay",
+                    "labelType": 1
+                },
+                {
+                    "labelId": "332695e9f0664e60a8e4101b097b4d79",
+                    "labelName": "Zoom",
+                    "labelType": 1
+                },
+                {
+                    "labelId": "f677b82d06ef444cb92b80a0ec32de59",
+                    "labelName": "HDMI",
+                    "labelType": 1
+                }
+            ],
+            "photos": [
+                {
+                    "fileId": "CyORQLbrS2Slq4E0xb-XUQ",
+                    "signature": null,
+                    "action": null,
+                    "path": "https://us02file.zoom.us/file/CyORQLbrS2Slq4E0xb-XUQ?business=zr&jwt=eyJ6bV9za20iOiJ6bV9vMm0iLCJ0eXAiOiJKV1QiLCJrIjoiZ09JTlo4N08iLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJ6ZnMiLCJ0b2tlbklkIjoiWUh0RkJSazlUMk91M3NYR0cwWmdJUSIsImFwcE5hbWUiOiJ6ciIsImlzcyI6InpyIiwicGVybWlzc2lvbiI6IntcImFjdGlvblwiOlwicmVhZFwiLFwiZW50aXR5XCI6e1wiY291bnRcIjowLFwiZmlsZUlkXCI6XCJDeU9SUUxiclMyU2xxNEUweGItWFVRXCIsXCJtYXhTaXplXCI6MH19IiwiZXhwIjoxNzgyNjM4NzkzLCJ0b2tlblR5cGUiOiJwcmVzaWduVG9rZW4iLCJpYXQiOjE3ODI1NTIzOTN9.miC8RT-NQR9gIlcsmnl_oGiW1XGbhrWDrJs9zz35140BPn92ivw3OHGQw_9gyfb0d6pxRQmaFKw3DrUtuEnUgQ"
+                },
+                {
+                    "fileId": "Xi7DW_T3Q6m_noov7x1LAA",
+                    "signature": null,
+                    "action": null,
+                    "path": "https://us02file.zoom.us/file/Xi7DW_T3Q6m_noov7x1LAA?business=zr&jwt=eyJ6bV9za20iOiJ6bV9vMm0iLCJ0eXAiOiJKV1QiLCJrIjoiZ09JTlo4N08iLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJ6ZnMiLCJ0b2tlbklkIjoiSlJVWG1DWTNUcHFmbUZsNi11a1dRZyIsImFwcE5hbWUiOiJ6ciIsImlzcyI6InpyIiwicGVybWlzc2lvbiI6IntcImFjdGlvblwiOlwicmVhZFwiLFwiZW50aXR5XCI6e1wiY291bnRcIjowLFwiZmlsZUlkXCI6XCJYaTdEV19UM1E2bV9ub292N3gxTEFBXCIsXCJtYXhTaXplXCI6MH19IiwiZXhwIjoxNzgyNjM4NzkzLCJ0b2tlblR5cGUiOiJwcmVzaWduVG9rZW4iLCJpYXQiOjE3ODI1NTIzOTN9.M6dpMw7DqKR9cwAyrVlVwPxECo8qqCyO5lEBE2VCN2cl8d2A194Z4HeLoUfNnRTWrtVr4HaMO76ulITwi0eb8w"
+                }
+            ],
+            "capacity": 16,
+            "newWsType": 1,
+            "options": 2131968
+        },
+        {
+            "locationId": "rKWfGxwDS8O0RyBrrgB5vQ",
+            "locationName": "BINB Sanur Zoom",
+            "locationType": 20,
+            "path": "<path d=\"M1134.168995,422.346571L1199.522013,422.346571L1199.522013,511.896803L1134.168995,511.896803Z\" />",
+            "points": "[[1134.168995,422.346571],[1199.522013,422.346571],[1199.522013,511.896803],[1134.168995,511.896803]]",
+            "type": 0,
+            "extension": "{}",
+            "roomWorkType": 0,
+            "roomCalendarType": 7,
+            "calendarResourceEmail": "",
+            "calendarResourceName": "",
+            "roomBusy": false,
+            "readBasicPermission": false,
+            "subLocations": [],
+            "parentLocationId": "kHTH_ReoRXazaUIt_QMp_w",
+            "roomShortName": "",
+            "floorMapSize": "",
+            "enableHotDeskMode": false,
+            "deskType": "room",
+            "hasPermission": true,
+            "roomCapacity": 0,
+            "roomScreenCount": 0,
+            "authConfig": [],
+            "subLocationCounts": 0,
+            "maxReserveDuration": 2,
+            "convertFileType": false,
+            "mapOptions": 0,
+            "underConstruction": false,
+            "backgroundMapWidth": 0,
+            "backgroundMapHeight": 0,
+            "calendarServiceId": "5df911ea-1952-467c-957d-2fe30abfc5ce",
+            "calendarResourceId": "76f09d92-e530-4341-9c11-b4ad59398243",
+            "extendProps": {
+                "displayUserInfoOnReservation": true,
+                "approveRequired": false,
+                "approveSetting": false,
+                "inOfficeReserve": false,
+                "hasAdminPermission": false,
+                "reserveForVisitor": false,
+                "supportRecurring": true,
+                "byPassCalendar": false,
+                "reserveInAdvanceDays": 30,
+                "reserveSlot": "{\"enableReserveSlot\":false,\"slotType\":0,\"startTime\":\"00:00\"}"
+            },
+            "assets": [
+                {
+                    "labelId": "92df12f12d684ed4b54b70e6d94a25e2",
+                    "labelName": "AirPlay",
+                    "labelType": 1
+                },
+                {
+                    "labelId": "f677b82d06ef444cb92b80a0ec32de59",
+                    "labelName": "HDMI",
+                    "labelType": 1
+                },
+                {
+                    "labelId": "332695e9f0664e60a8e4101b097b4d79",
+                    "labelName": "Zoom",
+                    "labelType": 1
+                }
+            ],
+            "photos": [
+                {
+                    "fileId": "AK9uIcMNRaSWPj2WUvE2Rg",
+                    "signature": null,
+                    "action": null,
+                    "path": "https://us02file.zoom.us/file/AK9uIcMNRaSWPj2WUvE2Rg?business=zr&jwt=eyJ6bV9za20iOiJ6bV9vMm0iLCJ0eXAiOiJKV1QiLCJrIjoiZ09JTlo4N08iLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJ6ZnMiLCJ0b2tlbklkIjoib0FrQXNCc1lSWUtPczhrNy0xN0V6QSIsImFwcE5hbWUiOiJ6ciIsImlzcyI6InpyIiwicGVybWlzc2lvbiI6IntcImFjdGlvblwiOlwicmVhZFwiLFwiZW50aXR5XCI6e1wiY291bnRcIjowLFwiZmlsZUlkXCI6XCJBSzl1SWNNTlJhU1dQajJXVXZFMlJnXCIsXCJtYXhTaXplXCI6MH19IiwiZXhwIjoxNzgyNjM4NzkzLCJ0b2tlblR5cGUiOiJwcmVzaWduVG9rZW4iLCJpYXQiOjE3ODI1NTIzOTN9.Ur-vNDhxHDeBVwWZuPnZjF-7EAYkjBjMHVibgSnf6E3_DRygfb9vF8G9F5IfjbSuaJmMGwHbC9RW-0ri-FNWEg"
+                }
+            ],
+            "capacity": 6,
+            "newWsType": 1,
+            "options": 34816
+        },
+        {
+            "locationId": "-xHToJmeQUO2V5SB554VZA",
+            "locationName": "BINB Nusa Dua Zoom",
+            "locationType": 20,
+            "path": "<path d=\"M145.250418,337.779049L215.799035,337.779049L215.799035,402.909053L145.250418,402.909053Z\" />",
+            "points": "[[145.250418,337.779049],[215.799035,337.779049],[215.799035,402.909053],[145.250418,402.909053]]",
+            "type": 0,
+            "extension": "{}",
+            "roomWorkType": 0,
+            "roomCalendarType": 7,
+            "calendarResourceEmail": "",
+            "calendarResourceName": "",
+            "roomBusy": false,
+            "readBasicPermission": false,
+            "subLocations": [],
+            "parentLocationId": "kHTH_ReoRXazaUIt_QMp_w",
+            "roomShortName": "BINB Nusa Dua",
+            "floorMapSize": "",
+            "enableHotDeskMode": false,
+            "deskType": "room",
+            "hasPermission": true,
+            "roomCapacity": 0,
+            "roomScreenCount": 0,
+            "authConfig": [],
+            "subLocationCounts": 0,
+            "maxReserveDuration": 2,
+            "convertFileType": false,
+            "mapOptions": 0,
+            "underConstruction": false,
+            "backgroundMapWidth": 0,
+            "backgroundMapHeight": 0,
+            "calendarServiceId": "5df911ea-1952-467c-957d-2fe30abfc5ce",
+            "calendarResourceId": "697ac9b0-9078-43ab-8bce-8bf29b89039a",
+            "extendProps": {
+                "displayUserInfoOnReservation": true,
+                "approveRequired": false,
+                "approveSetting": false,
+                "inOfficeReserve": false,
+                "hasAdminPermission": false,
+                "reserveForVisitor": false,
+                "supportRecurring": true,
+                "byPassCalendar": false,
+                "reserveInAdvanceDays": 30,
+                "reserveSlot": "{\"enableReserveSlot\":false,\"slotType\":0,\"startTime\":\"00:00\"}"
+            },
+            "photos": [
+                {
+                    "fileId": "QmjUHY6ZRxmy-3xTlDmvGg",
+                    "signature": null,
+                    "action": null,
+                    "path": "https://us02file.zoom.us/file/QmjUHY6ZRxmy-3xTlDmvGg?business=zr&jwt=eyJ6bV9za20iOiJ6bV9vMm0iLCJ0eXAiOiJKV1QiLCJrIjoiZ09JTlo4N08iLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJ6ZnMiLCJ0b2tlbklkIjoiUHlqOS1pTUtUX3V6RHpyRmZZMGNmZyIsImFwcE5hbWUiOiJ6ciIsImlzcyI6InpyIiwicGVybWlzc2lvbiI6IntcImFjdGlvblwiOlwicmVhZFwiLFwiZW50aXR5XCI6e1wiY291bnRcIjowLFwiZmlsZUlkXCI6XCJRbWpVSFk2WlJ4bXktM3hUbERtdkdnXCIsXCJtYXhTaXplXCI6MH19IiwiZXhwIjoxNzgyNjM4NzkzLCJ0b2tlblR5cGUiOiJwcmVzaWduVG9rZW4iLCJpYXQiOjE3ODI1NTIzOTN9.299G91sBJMuu-jkYoWOxETul2Nh8xhBW9ZaMXdUFj2CzN0zP4X4tsQJ3e5usEZnLno6DqeZulbrP6ZTlDpWczw"
+                }
+            ],
+            "capacity": 7,
+            "newWsType": 1,
+            "options": 34816
+        },
+        {
+            "locationId": "M-u_Fse8RdCalVCGqarYxA",
+            "locationName": "BINB Bedugul Zoom",
+            "locationType": 20,
+            "path": "<path d=\"M1109.391873,277.846851L1197.872273,277.846851L1197.872273,345.628844L1109.391873,345.628844Z\" />",
+            "points": "[[1109.391873,277.846851],[1197.872273,277.846851],[1197.872273,345.628844],[1109.391873,345.628844]]",
+            "type": 0,
+            "extension": "{}",
+            "roomWorkType": 0,
+            "roomCalendarType": 7,
+            "calendarResourceEmail": "",
+            "calendarResourceName": "",
+            "roomBusy": false,
+            "readBasicPermission": false,
+            "subLocations": [],
+            "parentLocationId": "kHTH_ReoRXazaUIt_QMp_w",
+            "roomShortName": "",
+            "floorMapSize": "",
+            "enableHotDeskMode": false,
+            "deskType": "room",
+            "hasPermission": true,
+            "roomCapacity": 0,
+            "roomScreenCount": 0,
+            "authConfig": [],
+            "subLocationCounts": 0,
+            "maxReserveDuration": 2,
+            "convertFileType": false,
+            "mapOptions": 0,
+            "underConstruction": false,
+            "backgroundMapWidth": 0,
+            "backgroundMapHeight": 0,
+            "calendarServiceId": "5df911ea-1952-467c-957d-2fe30abfc5ce",
+            "calendarResourceId": "bad48f12-c863-4647-af00-302737f482eb",
+            "extendProps": {
+                "displayUserInfoOnReservation": true,
+                "approveRequired": false,
+                "approveSetting": false,
+                "inOfficeReserve": false,
+                "hasAdminPermission": false,
+                "reserveForVisitor": false,
+                "supportRecurring": true,
+                "byPassCalendar": false,
+                "reserveInAdvanceDays": 30,
+                "reserveSlot": "{\"enableReserveSlot\":false,\"slotType\":0,\"startTime\":\"00:00\"}"
+            },
+            "assets": [
+                {
+                    "labelId": "f677b82d06ef444cb92b80a0ec32de59",
+                    "labelName": "HDMI",
+                    "labelType": 1
+                },
+                {
+                    "labelId": "332695e9f0664e60a8e4101b097b4d79",
+                    "labelName": "Zoom",
+                    "labelType": 1
+                },
+                {
+                    "labelId": "92df12f12d684ed4b54b70e6d94a25e2",
+                    "labelName": "AirPlay",
+                    "labelType": 1
+                }
+            ],
+            "photos": [
+                {
+                    "fileId": "3oRWN9I1QaSqHCqEES8XXw",
+                    "signature": null,
+                    "action": null,
+                    "path": "https://us02file.zoom.us/file/3oRWN9I1QaSqHCqEES8XXw?business=zr&jwt=eyJ6bV9za20iOiJ6bV9vMm0iLCJ0eXAiOiJKV1QiLCJrIjoiZ09JTlo4N08iLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJ6ZnMiLCJ0b2tlbklkIjoiaW9JZTNYUDdUeDYzcXhjWWFDbjF0ZyIsImFwcE5hbWUiOiJ6ciIsImlzcyI6InpyIiwicGVybWlzc2lvbiI6IntcImFjdGlvblwiOlwicmVhZFwiLFwiZW50aXR5XCI6e1wiY291bnRcIjowLFwiZmlsZUlkXCI6XCIzb1JXTjlJMVFhU3FIQ3FFRVM4WFh3XCIsXCJtYXhTaXplXCI6MH19IiwiZXhwIjoxNzgyNjM4NzkzLCJ0b2tlblR5cGUiOiJwcmVzaWduVG9rZW4iLCJpYXQiOjE3ODI1NTIzOTN9.G542gNnqB1WunTZhWOCRrCeeu6LsWWrtoVTjUF6srOA0ZnsK9_pav02WWZ8HGw7VBlnmKKajGjqpg-7IBBQrsw"
+                }
+            ],
+            "capacity": 8,
+            "newWsType": 1,
+            "options": 34816
+        },
+        {
+            "locationId": "sImXDmoXRu2aFmuxxnKwrQ",
+            "locationName": "BINB Petang Zoom",
+            "locationType": 20,
+            "path": "<path d=\"M1028.352603,278.086072L1108.3046610000001,278.086072L1108.3046610000001,345.578484L1028.352603,345.578484Z\" />",
+            "points": "[[1028.352603,278.086072],[1108.3046610000001,278.086072],[1108.3046610000001,345.578484],[1028.352603,345.578484]]",
+            "type": 0,
+            "extension": "{}",
+            "roomWorkType": 0,
+            "roomCalendarType": 7,
+            "calendarResourceEmail": "",
+            "calendarResourceName": "",
+            "roomBusy": false,
+            "readBasicPermission": false,
+            "subLocations": [],
+            "parentLocationId": "kHTH_ReoRXazaUIt_QMp_w",
+            "roomShortName": "",
+            "floorMapSize": "",
+            "enableHotDeskMode": false,
+            "deskType": "room",
+            "hasPermission": true,
+            "roomCapacity": 0,
+            "roomScreenCount": 0,
+            "authConfig": [],
+            "subLocationCounts": 0,
+            "maxReserveDuration": 2,
+            "convertFileType": false,
+            "mapOptions": 0,
+            "underConstruction": false,
+            "backgroundMapWidth": 0,
+            "backgroundMapHeight": 0,
+            "calendarServiceId": "5df911ea-1952-467c-957d-2fe30abfc5ce",
+            "calendarResourceId": "83150c17-89eb-4bc9-a489-eb63d17df84d",
+            "extendProps": {
+                "displayUserInfoOnReservation": true,
+                "approveRequired": false,
+                "approveSetting": false,
+                "inOfficeReserve": false,
+                "hasAdminPermission": false,
+                "reserveForVisitor": false,
+                "supportRecurring": true,
+                "byPassCalendar": false,
+                "reserveInAdvanceDays": 30,
+                "reserveSlot": "{\"enableReserveSlot\":false,\"slotType\":0,\"startTime\":\"00:00\"}"
+            },
+            "assets": [
+                {
+                    "labelId": "92df12f12d684ed4b54b70e6d94a25e2",
+                    "labelName": "AirPlay",
+                    "labelType": 1
+                },
+                {
+                    "labelId": "f677b82d06ef444cb92b80a0ec32de59",
+                    "labelName": "HDMI",
+                    "labelType": 1
+                },
+                {
+                    "labelId": "332695e9f0664e60a8e4101b097b4d79",
+                    "labelName": "Zoom",
+                    "labelType": 1
+                }
+            ],
+            "photos": [
+                {
+                    "fileId": "q8XiZ6VaQs6kYiqEd6_H9w",
+                    "signature": null,
+                    "action": null,
+                    "path": "https://us02file.zoom.us/file/q8XiZ6VaQs6kYiqEd6_H9w?business=zr&jwt=eyJ6bV9za20iOiJ6bV9vMm0iLCJ0eXAiOiJKV1QiLCJrIjoiZ09JTlo4N08iLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJ6ZnMiLCJ0b2tlbklkIjoidzdlRGhNWW1SZE82Y3FTX0pvVGVTUSIsImFwcE5hbWUiOiJ6ciIsImlzcyI6InpyIiwicGVybWlzc2lvbiI6IntcImFjdGlvblwiOlwicmVhZFwiLFwiZW50aXR5XCI6e1wiY291bnRcIjowLFwiZmlsZUlkXCI6XCJxOFhpWjZWYVFzNmtZaXFFZDZfSDl3XCIsXCJtYXhTaXplXCI6MH19IiwiZXhwIjoxNzgyNjM4NzkzLCJ0b2tlblR5cGUiOiJwcmVzaWduVG9rZW4iLCJpYXQiOjE3ODI1NTIzOTN9.CwFaIarYWYT-VGv6dRdhUD1nD_H_LqlI9ust-PcNo_va-68JqXE1ElvfoQRlELofyPfwVEZAoGbtJtT8G6kpjw"
+                }
+            ],
+            "capacity": 6,
+            "newWsType": 1,
+            "options": 34816
+        },
+        {
+            "locationId": "_WhtWIolTB6dyyOPIOA0GA##WS",
+            "locationName": "Lembongan",
+            "locationType": 20,
+            "path": "<path d=\"M1134.423837,514.505034L1169.842707,514.505034L1169.842707,566.617106L1134.423837,566.617106Z\" />",
+            "points": "[[1134.423837,514.505034],[1169.842707,514.505034],[1169.842707,566.617106],[1134.423837,566.617106]]",
+            "type": 0,
+            "extension": "{}",
+            "roomWorkType": -1,
+            "roomCalendarType": 10,
+            "calendarResourceEmail": "",
+            "calendarResourceName": "",
+            "roomBusy": false,
+            "readBasicPermission": false,
+            "subLocations": [],
+            "parentLocationId": "kHTH_ReoRXazaUIt_QMp_w",
+            "roomShortName": "",
+            "floorMapSize": "",
+            "enableHotDeskMode": false,
+            "deskType": "expandBookableWorkspace",
+            "customizeWorkspaceType": {
+                "typeId": "ded4c147926a4d5f843f871ab96ef1b2",
+                "typeName": "Phone Room",
+                "icon": "briefcase"
+            },
+            "hasPermission": true,
+            "roomCapacity": 0,
+            "roomScreenCount": 0,
+            "authConfig": [],
+            "subLocationCounts": 0,
+            "maxReserveDuration": 2,
+            "convertFileType": false,
+            "mapOptions": 0,
+            "underConstruction": false,
+            "backgroundMapWidth": 0,
+            "backgroundMapHeight": 0,
+            "extendProps": {
+                "displayUserInfoOnReservation": true,
+                "approveRequired": false,
+                "approveSetting": false,
+                "inOfficeReserve": false,
+                "hasAdminPermission": false,
+                "reserveForVisitor": false,
+                "byPassCalendar": true,
+                "reserveInAdvanceDays": 30,
+                "reserveSlot": "{\"enableReserveSlot\":false,\"slotType\":0,\"startTime\":\"00:00\"}"
+            },
+            "assets": [
+                {
+                    "labelId": "c65281a8d0e94546a1cd0d7196d2543f",
+                    "labelName": "Couch",
+                    "labelType": 1
+                }
+            ],
+            "photos": [
+                {
+                    "fileId": "mj_wDxukRXmowGPPbWdR8w",
+                    "signature": null,
+                    "action": null,
+                    "path": "https://us02file.zoom.us/file/mj_wDxukRXmowGPPbWdR8w?business=zr&jwt=eyJ6bV9za20iOiJ6bV9vMm0iLCJ0eXAiOiJKV1QiLCJrIjoiZ09JTlo4N08iLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJ6ZnMiLCJ0b2tlbklkIjoiaEVNQnF1Y0VSTFNHUEJwVVdTYzFCUSIsImFwcE5hbWUiOiJ6ciIsImlzcyI6InpyIiwicGVybWlzc2lvbiI6IntcImFjdGlvblwiOlwicmVhZFwiLFwiZW50aXR5XCI6e1wiY291bnRcIjowLFwiZmlsZUlkXCI6XCJtal93RHh1a1JYbW93R1BQYldkUjh3XCIsXCJtYXhTaXplXCI6MH19IiwiZXhwIjoxNzgyNjM4NzkzLCJ0b2tlblR5cGUiOiJwcmVzaWduVG9rZW4iLCJpYXQiOjE3ODI1NTIzOTN9.2-qHxMBoBy-pERLOG3uPdC1gk2AanmacGZAruJ5ZztEgcqef3-aB5ubFfVJkcYQpuLBaTdSOT-nGU-GBHSCn0w"
+                }
+            ],
+            "newWsType": 6,
+            "options": 32768
+        },
+        {
+            "locationId": "_PbsxKawTRmDgx8g597tbA",
+            "locationName": "BINB Mengwi Zoom",
+            "locationType": 20,
+            "path": "<path d=\"M1133.311598,345.381734L1197.129015,345.381734L1197.129015,420.7998L1133.311598,420.7998Z\" />",
+            "points": "[[1133.311598,345.381734],[1197.129015,345.381734],[1197.129015,420.7998],[1133.311598,420.7998]]",
+            "type": 0,
+            "extension": "{}",
+            "roomWorkType": 0,
+            "roomCalendarType": 7,
+            "calendarResourceEmail": "",
+            "calendarResourceName": "",
+            "roomBusy": false,
+            "readBasicPermission": false,
+            "subLocations": [],
+            "parentLocationId": "kHTH_ReoRXazaUIt_QMp_w",
+            "roomShortName": "",
+            "floorMapSize": "",
+            "enableHotDeskMode": false,
+            "deskType": "room",
+            "hasPermission": true,
+            "roomCapacity": 0,
+            "roomScreenCount": 0,
+            "authConfig": [],
+            "subLocationCounts": 0,
+            "maxReserveDuration": 2,
+            "convertFileType": false,
+            "mapOptions": 0,
+            "underConstruction": false,
+            "backgroundMapWidth": 0,
+            "backgroundMapHeight": 0,
+            "calendarServiceId": "5df911ea-1952-467c-957d-2fe30abfc5ce",
+            "calendarResourceId": "fb7178cc-3fd9-4ce7-81dd-4f1ef237c574",
+            "extendProps": {
+                "displayUserInfoOnReservation": true,
+                "approveRequired": false,
+                "approveSetting": false,
+                "inOfficeReserve": false,
+                "hasAdminPermission": false,
+                "reserveForVisitor": false,
+                "supportRecurring": true,
+                "byPassCalendar": false,
+                "reserveInAdvanceDays": 30,
+                "reserveSlot": "{\"enableReserveSlot\":false,\"slotType\":0,\"startTime\":\"00:00\"}"
+            },
+            "assets": [
+                {
+                    "labelId": "92df12f12d684ed4b54b70e6d94a25e2",
+                    "labelName": "AirPlay",
+                    "labelType": 1
+                },
+                {
+                    "labelId": "f677b82d06ef444cb92b80a0ec32de59",
+                    "labelName": "HDMI",
+                    "labelType": 1
+                },
+                {
+                    "labelId": "332695e9f0664e60a8e4101b097b4d79",
+                    "labelName": "Zoom",
+                    "labelType": 1
+                }
+            ],
+            "photos": [
+                {
+                    "fileId": "5I_F79u3Sv6VjFbyd9AzEg",
+                    "signature": null,
+                    "action": null,
+                    "path": "https://us02file.zoom.us/file/5I_F79u3Sv6VjFbyd9AzEg?business=zr&jwt=eyJ6bV9za20iOiJ6bV9vMm0iLCJ0eXAiOiJKV1QiLCJrIjoiZ09JTlo4N08iLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJ6ZnMiLCJ0b2tlbklkIjoic2xDNEMxUjNSc0t1bkRSR0gzWU5UdyIsImFwcE5hbWUiOiJ6ciIsImlzcyI6InpyIiwicGVybWlzc2lvbiI6IntcImFjdGlvblwiOlwicmVhZFwiLFwiZW50aXR5XCI6e1wiY291bnRcIjowLFwiZmlsZUlkXCI6XCI1SV9GNzl1M1N2NlZqRmJ5ZDlBekVnXCIsXCJtYXhTaXplXCI6MH19IiwiZXhwIjoxNzgyNjM4NzkzLCJ0b2tlblR5cGUiOiJwcmVzaWduVG9rZW4iLCJpYXQiOjE3ODI1NTIzOTN9.cRZB7CYRHgoEH1XM1SlIZHY-yKsmmvLGqrl30lpUbWKfpOor-z8eP3zwdtpNgUpczyI0zxBUdvv0nqto-szR9g"
+                }
+            ],
+            "capacity": 6,
+            "newWsType": 1,
+            "options": 34816
+        },
+        {
+            "locationId": "1elSTACaTq6m1Ye_dBDMbw",
+            "locationName": "BINB Agung Zoom",
+            "locationType": 20,
+            "path": "<path d=\"M798,282L734.8065,344.8065L735.40325,492L814.40325,491.8065L815,552L987.1935,553.40325L986.225998,280.59675Z\" />",
+            "points": "[[798,282],[734.8065,344.8065],[735.40325,492],[814.40325,491.8065],[815,552],[987.1935,553.40325],[986.225998,280.59675]]",
+            "type": 2,
+            "extension": "{}",
+            "roomWorkType": 0,
+            "roomCalendarType": 7,
+            "calendarResourceEmail": "",
+            "calendarResourceName": "",
+            "roomBusy": false,
+            "readBasicPermission": false,
+            "subLocations": [],
+            "parentLocationId": "kHTH_ReoRXazaUIt_QMp_w",
+            "roomShortName": "",
+            "floorMapSize": "",
+            "enableHotDeskMode": false,
+            "deskType": "room",
+            "hasPermission": false,
+            "roomCapacity": 0,
+            "roomScreenCount": 0,
+            "authConfig": [],
+            "subLocationCounts": 0,
+            "maxReserveDuration": 2,
+            "convertFileType": false,
+            "mapOptions": 0,
+            "underConstruction": false,
+            "backgroundMapWidth": 0,
+            "backgroundMapHeight": 0,
+            "calendarServiceId": "5df911ea-1952-467c-957d-2fe30abfc5ce",
+            "calendarResourceId": "5eea4854-3bc7-494d-88da-9ff4d7452fd3",
+            "extendProps": {
+                "displayUserInfoOnReservation": true,
+                "approveRequired": false,
+                "approveSetting": false,
+                "inOfficeReserve": false,
+                "hasAdminPermission": false,
+                "reserveForVisitor": false,
+                "supportRecurring": true,
+                "byPassCalendar": false,
+                "reserveInAdvanceDays": 30,
+                "reserveSlot": "{\"enableReserveSlot\":false,\"slotType\":0,\"startTime\":\"00:00\"}"
+            },
+            "assets": [
+                {
+                    "labelId": "f677b82d06ef444cb92b80a0ec32de59",
+                    "labelName": "HDMI",
+                    "labelType": 1
+                },
+                {
+                    "labelId": "92df12f12d684ed4b54b70e6d94a25e2",
+                    "labelName": "AirPlay",
+                    "labelType": 1
+                },
+                {
+                    "labelId": "332695e9f0664e60a8e4101b097b4d79",
+                    "labelName": "Zoom",
+                    "labelType": 1
+                }
+            ],
+            "photos": [
+                {
+                    "fileId": "_ZWCXWoxRiSkcLVc2GjjnA",
+                    "signature": null,
+                    "action": null,
+                    "path": "https://us02file.zoom.us/file/_ZWCXWoxRiSkcLVc2GjjnA?business=zr&jwt=eyJ6bV9za20iOiJ6bV9vMm0iLCJ0eXAiOiJKV1QiLCJrIjoiZ09JTlo4N08iLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJ6ZnMiLCJ0b2tlbklkIjoiRGRsYnhNSUxRUkc1VDJLb2dBZ0w4ZyIsImFwcE5hbWUiOiJ6ciIsImlzcyI6InpyIiwicGVybWlzc2lvbiI6IntcImFjdGlvblwiOlwicmVhZFwiLFwiZW50aXR5XCI6e1wiY291bnRcIjowLFwiZmlsZUlkXCI6XCJfWldDWFdveFJpU2tjTFZjMkdqam5BXCIsXCJtYXhTaXplXCI6MH19IiwiZXhwIjoxNzgyNjM4NzkzLCJ0b2tlblR5cGUiOiJwcmVzaWduVG9rZW4iLCJpYXQiOjE3ODI1NTIzOTN9.VYTb1bSV62fdbev_DYGmdmzIZjknBxEv-cH77b5pU5Fn0O1JMAXSEPaw-6bBZMMMP1KQZp-p9uzYz12oBQGOrw"
+                },
+                {
+                    "fileId": "biHOfev8TmenT8BjDWiI8Q",
+                    "signature": null,
+                    "action": null,
+                    "path": "https://us02file.zoom.us/file/biHOfev8TmenT8BjDWiI8Q?business=zr&jwt=eyJ6bV9za20iOiJ6bV9vMm0iLCJ0eXAiOiJKV1QiLCJrIjoiZ09JTlo4N08iLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJ6ZnMiLCJ0b2tlbklkIjoieDZrT255eDFTUTJUeUpaWVg5WXl0dyIsImFwcE5hbWUiOiJ6ciIsImlzcyI6InpyIiwicGVybWlzc2lvbiI6IntcImFjdGlvblwiOlwicmVhZFwiLFwiZW50aXR5XCI6e1wiY291bnRcIjowLFwiZmlsZUlkXCI6XCJiaUhPZmV2OFRtZW5UOEJqRFdpSThRXCIsXCJtYXhTaXplXCI6MH19IiwiZXhwIjoxNzgyNjM4NzkzLCJ0b2tlblR5cGUiOiJwcmVzaWduVG9rZW4iLCJpYXQiOjE3ODI1NTIzOTN9.wO_1XSQvnoRF7_28nqNEK5wSEZe8TgBnoY_-UJ2P5y2mGX20pI6c93OHNf3_ecf8Jb9Og2jpq-RnTv9s95VX8A"
+                },
+                {
+                    "fileId": "WSLDduhlQSO2lx6qMgRqXQ",
+                    "signature": null,
+                    "action": null,
+                    "path": "https://us02file.zoom.us/file/WSLDduhlQSO2lx6qMgRqXQ?business=zr&jwt=eyJ6bV9za20iOiJ6bV9vMm0iLCJ0eXAiOiJKV1QiLCJrIjoiZ09JTlo4N08iLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJ6ZnMiLCJ0b2tlbklkIjoiYmRSQnVzc1BRWk95bWJZdHk3bUthdyIsImFwcE5hbWUiOiJ6ciIsImlzcyI6InpyIiwicGVybWlzc2lvbiI6IntcImFjdGlvblwiOlwicmVhZFwiLFwiZW50aXR5XCI6e1wiY291bnRcIjowLFwiZmlsZUlkXCI6XCJXU0xEZHVobFFTTzJseDZxTWdScVhRXCIsXCJtYXhTaXplXCI6MH19IiwiZXhwIjoxNzgyNjM4NzkzLCJ0b2tlblR5cGUiOiJwcmVzaWduVG9rZW4iLCJpYXQiOjE3ODI1NTIzOTN9.qJZhySbE1Q9W_H6c6CDr6OMV3DP4ngiaUEZM3tzO0J7xFuhP46VhANNOFnpwovugxV5ZiHJTbjaOSUIWc2tE0w"
+                }
+            ],
+            "capacity": 200,
+            "newWsType": 1,
+            "options": 34816
+        },
+        {
+            "locationId": "NHl3QMIvTXORRDMo-R2ZbQ##WS",
+            "locationName": "Ceningan",
+            "locationType": 20,
+            "path": "<path d=\"M1135.08855,569.976568L1169.5024449999999,569.976568L1169.5024449999999,621.9365300000001L1135.08855,621.9365300000001Z\" />",
+            "points": "[[1135.08855,569.976568],[1169.5024449999999,569.976568],[1169.5024449999999,621.9365300000001],[1135.08855,621.9365300000001]]",
+            "type": 0,
+            "extension": "{}",
+            "roomWorkType": -1,
+            "roomCalendarType": 10,
+            "calendarResourceEmail": "",
+            "calendarResourceName": "",
+            "roomBusy": false,
+            "readBasicPermission": false,
+            "subLocations": [],
+            "parentLocationId": "kHTH_ReoRXazaUIt_QMp_w",
+            "roomShortName": "",
+            "floorMapSize": "",
+            "enableHotDeskMode": false,
+            "deskType": "expandBookableWorkspace",
+            "customizeWorkspaceType": {
+                "typeId": "ded4c147926a4d5f843f871ab96ef1b2",
+                "typeName": "Phone Room",
+                "icon": "briefcase"
+            },
+            "hasPermission": true,
+            "roomCapacity": 0,
+            "roomScreenCount": 0,
+            "authConfig": [],
+            "subLocationCounts": 0,
+            "maxReserveDuration": 2,
+            "convertFileType": false,
+            "mapOptions": 0,
+            "underConstruction": false,
+            "backgroundMapWidth": 0,
+            "backgroundMapHeight": 0,
+            "extendProps": {
+                "displayUserInfoOnReservation": true,
+                "approveRequired": false,
+                "approveSetting": false,
+                "inOfficeReserve": false,
+                "hasAdminPermission": false,
+                "reserveForVisitor": false,
+                "byPassCalendar": true,
+                "reserveInAdvanceDays": 30,
+                "reserveSlot": "{\"enableReserveSlot\":false,\"slotType\":0,\"startTime\":\"00:00\"}"
+            },
+            "assets": [
+                {
+                    "labelId": "c65281a8d0e94546a1cd0d7196d2543f",
+                    "labelName": "Couch",
+                    "labelType": 1
+                }
+            ],
+            "photos": [
+                {
+                    "fileId": "T0MmdaelSL2sxXLNxXueEA",
+                    "signature": null,
+                    "action": null,
+                    "path": "https://us02file.zoom.us/file/T0MmdaelSL2sxXLNxXueEA?business=zr&jwt=eyJ6bV9za20iOiJ6bV9vMm0iLCJ0eXAiOiJKV1QiLCJrIjoiZ09JTlo4N08iLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJ6ZnMiLCJ0b2tlbklkIjoiWm5FS2VjYlNUUTI1OTM1bnM4ZUZzQSIsImFwcE5hbWUiOiJ6ciIsImlzcyI6InpyIiwicGVybWlzc2lvbiI6IntcImFjdGlvblwiOlwicmVhZFwiLFwiZW50aXR5XCI6e1wiY291bnRcIjowLFwiZmlsZUlkXCI6XCJUME1tZGFlbFNMMnN4WExOeFh1ZUVBXCIsXCJtYXhTaXplXCI6MH19IiwiZXhwIjoxNzgyNjM4NzkzLCJ0b2tlblR5cGUiOiJwcmVzaWduVG9rZW4iLCJpYXQiOjE3ODI1NTIzOTN9.etFQQSFgwomXT0WevgF7KxjlcIUwQPA5rPREzFRx6wC6xwM_PfdSbz8oUSVS9WSHlATCVZ3R1SpSmCp0-VoBzw"
+                }
+            ],
+            "newWsType": 6,
+            "options": 32768
+        },
+        {
+            "locationId": "KI6T1pqMSP-XEDf3jr6fgA##WS",
+            "locationName": "Penida",
+            "locationType": 20,
+            "path": "<path d=\"M1134.837528,625.062511L1169.599833,625.062511L1169.599833,677.601471L1134.837528,677.601471Z\" />",
+            "points": "[[1134.837528,625.062511],[1169.599833,625.062511],[1169.599833,677.601471],[1134.837528,677.601471]]",
+            "type": 0,
+            "extension": "{}",
+            "roomWorkType": -1,
+            "roomCalendarType": 10,
+            "calendarResourceEmail": "",
+            "calendarResourceName": "",
+            "roomBusy": false,
+            "readBasicPermission": false,
+            "subLocations": [],
+            "parentLocationId": "kHTH_ReoRXazaUIt_QMp_w",
+            "roomShortName": "",
+            "floorMapSize": "",
+            "enableHotDeskMode": false,
+            "deskType": "expandBookableWorkspace",
+            "customizeWorkspaceType": {
+                "typeId": "ded4c147926a4d5f843f871ab96ef1b2",
+                "typeName": "Phone Room",
+                "icon": "briefcase"
+            },
+            "hasPermission": true,
+            "roomCapacity": 0,
+            "roomScreenCount": 0,
+            "authConfig": [],
+            "subLocationCounts": 0,
+            "maxReserveDuration": 2,
+            "convertFileType": false,
+            "mapOptions": 0,
+            "underConstruction": false,
+            "backgroundMapWidth": 0,
+            "backgroundMapHeight": 0,
+            "extendProps": {
+                "displayUserInfoOnReservation": true,
+                "approveRequired": false,
+                "approveSetting": false,
+                "inOfficeReserve": false,
+                "hasAdminPermission": false,
+                "reserveForVisitor": false,
+                "byPassCalendar": true,
+                "reserveInAdvanceDays": 30,
+                "reserveSlot": "{\"enableReserveSlot\":false,\"slotType\":0,\"startTime\":\"00:00\"}"
+            },
+            "assets": [
+                {
+                    "labelId": "c65281a8d0e94546a1cd0d7196d2543f",
+                    "labelName": "Couch",
+                    "labelType": 1
+                }
+            ],
+            "photos": [
+                {
+                    "fileId": "y0REQv5fTcu9T5mbP8QmCA",
+                    "signature": null,
+                    "action": null,
+                    "path": "https://us02file.zoom.us/file/y0REQv5fTcu9T5mbP8QmCA?business=zr&jwt=eyJ6bV9za20iOiJ6bV9vMm0iLCJ0eXAiOiJKV1QiLCJrIjoiZ09JTlo4N08iLCJhbGciOiJFUzI1NiJ9.eyJhdWQiOiJ6ZnMiLCJ0b2tlbklkIjoieUc5X1ZiUUlUYW1feW1MaEZIblJJZyIsImFwcE5hbWUiOiJ6ciIsImlzcyI6InpyIiwicGVybWlzc2lvbiI6IntcImFjdGlvblwiOlwicmVhZFwiLFwiZW50aXR5XCI6e1wiY291bnRcIjowLFwiZmlsZUlkXCI6XCJ5MFJFUXY1ZlRjdTlUNW1iUDhRbUNBXCIsXCJtYXhTaXplXCI6MH19IiwiZXhwIjoxNzgyNjM4NzkzLCJ0b2tlblR5cGUiOiJwcmVzaWduVG9rZW4iLCJpYXQiOjE3ODI1NTIzOTN9.BxGr-fqXYuXqbjYzuxXMY3RINoWGkdtBiRjvyoMsMF_Ej_7sQg8SDmBRKpOGBevRwLza3O6Jasn_h3fVVVglpw"
+                }
+            ],
+            "newWsType": 6,
+            "options": 32768
+        }
+    ],
+    "success": true
+}

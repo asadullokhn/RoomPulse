@@ -20,6 +20,15 @@ import (
 //go:embed dashboard.html
 var dashboardHTML []byte
 
+//go:embed floor.html
+var floorHTML []byte
+
+//go:embed floor.png
+var floorImage []byte
+
+//go:embed floor.json
+var floorData []byte // raw Zoom workspace export (rooms + polygons)
+
 const (
 	maxBody    = 1 << 20 // 1 MiB request body cap
 	maxIDLen   = 128
@@ -82,6 +91,9 @@ func (s *Server) ReapLoop(ctx context.Context) {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.dashboard)
+	mux.HandleFunc("GET /floor", s.floor)
+	mux.HandleFunc("GET /floor/image", s.floorImageHandler)
+	mux.HandleFunc("GET /floor/rooms", s.floorRooms)
 	mux.HandleFunc("GET /info", s.info)
 	mux.HandleFunc("GET /health/live", s.live)
 	mux.HandleFunc("GET /health/ready", s.live)
@@ -134,6 +146,63 @@ func (s *Server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 func (s *Server) dashboard(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write(dashboardHTML)
+}
+
+func (s *Server) floor(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(floorHTML)
+}
+
+func (s *Server) floorImageHandler(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	_, _ = w.Write(floorImage)
+}
+
+// floorRooms projects the raw Zoom export into just what the floor view needs:
+// each room's label and polygon, plus the transform that maps the polygon's
+// coordinate space onto the floor image (calibrated against floor.png).
+func (s *Server) floorRooms(w http.ResponseWriter, _ *http.Request) {
+	type entry struct {
+		Name     string      `json:"name"`
+		Points   [][]float64 `json:"points"`
+		Kind     string      `json:"kind"` // "room" or "workspace"
+		Capacity int         `json:"capacity"`
+		Screens  int         `json:"screens"`
+		Busy     bool        `json:"busy"`
+	}
+	var src struct {
+		Data []struct {
+			Name     string `json:"locationName"`
+			Points   string `json:"points"`
+			DeskType string `json:"deskType"`
+			Capacity int    `json:"roomCapacity"`
+			Screens  int    `json:"roomScreenCount"`
+			Busy     bool   `json:"roomBusy"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(floorData, &src); err != nil {
+		writeError(w, http.StatusInternalServerError, "floor data unreadable")
+		return
+	}
+	rooms := make([]entry, 0, len(src.Data))
+	for _, d := range src.Data {
+		var pts [][]float64
+		if json.Unmarshal([]byte(d.Points), &pts); len(pts) < 3 {
+			continue
+		}
+		kind := "workspace"
+		if d.DeskType == "room" {
+			kind = "room"
+		}
+		rooms = append(rooms, entry{d.Name, pts, kind, d.Capacity, d.Screens, d.Busy})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{
+		"rooms": rooms,
+		// Polygon coordinate window that exactly covers the image (see floor.html).
+		"view_box": map[string]float64{"x": 11.4, "y": 130.7, "w": 1207.6, "h": 715.3},
+		"image":    map[string]int{"w": 2489, "h": 1380},
+	})
 }
 
 func (s *Server) info(w http.ResponseWriter, _ *http.Request) {

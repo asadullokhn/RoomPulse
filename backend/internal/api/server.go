@@ -24,6 +24,9 @@ var dashboardHTML []byte
 //go:embed floor.html
 var floorHTML []byte
 
+//go:embed how.html
+var howHTML []byte
+
 //go:embed floor.png
 var floorImage []byte
 
@@ -107,6 +110,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /{$}", s.dashboard)
 	mux.HandleFunc("GET /favicon.svg", s.favicon)
 	mux.HandleFunc("GET /floor", s.floor)
+	mux.HandleFunc("GET /how", s.how)
 	mux.HandleFunc("GET /floor/image", s.floorImageHandler)
 	mux.HandleFunc("GET /floor/rooms", s.floorRooms)
 	mux.HandleFunc("GET /info", s.info)
@@ -173,6 +177,11 @@ func (s *Server) favicon(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) floor(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write(floorHTML)
+}
+
+func (s *Server) how(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(howHTML)
 }
 
 func (s *Server) floorImageHandler(w http.ResponseWriter, _ *http.Request) {

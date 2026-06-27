@@ -58,7 +58,7 @@
   .brand h1 b { color: #2FE6B0; }
   .brand .tag { font-size: 11px; color: var(--muted); margin-top: 1px; letter-spacing: .2px; }
   .seg { display: flex; gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: 999px; background: rgba(150,170,220,.06); }
-  .seg a { font-family: var(--f-mono); font-size: 12px; text-decoration: none; color: var(--muted); padding: 7px 14px; border-radius: 999px; transition: color .15s, background .15s; }
+  .seg a { font-family: var(--f-mono); font-size: 12px; text-decoration: none; color: var(--muted); padding: 7px 14px; border-radius: 999px; white-space: nowrap; transition: color .15s, background .15s; }
   .seg a.on { background: rgba(47,230,176,.14); color: #2FE6B0; }
   .seg a:hover:not(.on) { color: var(--text); }
   .right { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -181,6 +181,7 @@
   <nav class="seg">
     <a href="/" class="on" aria-current="page">Dashboard</a>
     <a href="/floor">Floor plan</a>
+    <a href="/how">How it works</a>
   </nav>
   <div class="right">
     <span class="chip" id="conn"><span class="led"></span><span id="conn-text">connecting…</span></span>

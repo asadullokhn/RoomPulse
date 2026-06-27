@@ -10,12 +10,20 @@ import (
 // orgUUID is the shared building/organization iBeacon UUID (Major=floor, Minor=room).
 const orgUUID = "11111111-2222-3333-4444-555555555555"
 
-// DefaultBeacons is the built-in registry, matching the app's room presets.
+// DefaultBeacons is the built-in registry, one beacon per floor-plan room
+// (Major = floor/zone, Minor = room).
 func DefaultBeacons() []domain.Beacon {
 	return []domain.Beacon{
-		{WorkspaceID: "ws-a", UUID: orgUUID, Major: 1, Minor: 101},
-		{WorkspaceID: "ws-b", UUID: orgUUID, Major: 1, Minor: 102},
-		{WorkspaceID: "ws-c", UUID: orgUUID, Major: 2, Minor: 201},
+		{WorkspaceID: "ws-nusadua", UUID: orgUUID, Major: 1, Minor: 101},
+		{WorkspaceID: "ws-petang", UUID: orgUUID, Major: 1, Minor: 102},
+		{WorkspaceID: "ws-bedugul", UUID: orgUUID, Major: 1, Minor: 103},
+		{WorkspaceID: "ws-mengwi", UUID: orgUUID, Major: 1, Minor: 104},
+		{WorkspaceID: "ws-sanur", UUID: orgUUID, Major: 1, Minor: 105},
+		{WorkspaceID: "ws-agung", UUID: orgUUID, Major: 1, Minor: 106},
+		{WorkspaceID: "ws-ubud", UUID: orgUUID, Major: 1, Minor: 107},
+		{WorkspaceID: "ws-lembongan", UUID: orgUUID, Major: 1, Minor: 108},
+		{WorkspaceID: "ws-ceningan", UUID: orgUUID, Major: 1, Minor: 109},
+		{WorkspaceID: "ws-penida", UUID: orgUUID, Major: 1, Minor: 110},
 	}
 }
 

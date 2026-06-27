@@ -199,8 +199,9 @@ func (s *Server) floorRooms(w http.ResponseWriter, _ *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"rooms": rooms,
-		// Polygon coordinate window that exactly covers the image (see floor.html).
-		"view_box": map[string]float64{"x": 11.4, "y": 130.7, "w": 1207.6, "h": 715.3},
+		// Polygon coordinate window that exactly covers the image, calibrated
+		// against the rendered floor plan (see floor.html).
+		"view_box": map[string]float64{"x": 1.9, "y": 153.0, "w": 1209.3, "h": 682.0},
 		"image":    map[string]int{"w": 2489, "h": 1380},
 	})
 }

@@ -98,17 +98,28 @@ func NewMockClient(now time.Time, seed *Seed, log *slog.Logger) *MockClient {
 	return &MockClient{workspaces: ws, reservations: res, log: log}
 }
 
+// defaultSeed mirrors the Apple Developer Academy Bali floor: the same 10 rooms
+// drawn on the floor plan, so occupancy, beacons and the map all line up.
 func defaultSeed() *Seed {
+	const loc = "Bali"
 	return &Seed{
 		Rooms: []SeedRoom{
-			{WorkspaceID: "ws-a", Name: "Room A", Capacity: 4, HasTV: false, Location: "Floor 1"},
-			{WorkspaceID: "ws-b", Name: "Room B", Capacity: 8, HasTV: true, Location: "Floor 1"},
-			{WorkspaceID: "ws-c", Name: "Room C", Capacity: 6, HasTV: true, Location: "Floor 2"},
+			{WorkspaceID: "ws-nusadua", Name: "BINB Nusa Dua Zoom", Capacity: 6, HasTV: true, Location: loc},
+			{WorkspaceID: "ws-petang", Name: "BINB Petang Zoom", Capacity: 6, HasTV: true, Location: loc},
+			{WorkspaceID: "ws-bedugul", Name: "BINB Bedugul Zoom", Capacity: 8, HasTV: true, Location: loc},
+			{WorkspaceID: "ws-mengwi", Name: "BINB Mengwi Zoom", Capacity: 6, HasTV: true, Location: loc},
+			{WorkspaceID: "ws-sanur", Name: "BINB Sanur Zoom", Capacity: 8, HasTV: true, Location: loc},
+			{WorkspaceID: "ws-agung", Name: "BINB Agung Zoom", Capacity: 80, HasTV: true, Location: loc},
+			{WorkspaceID: "ws-ubud", Name: "BINB Ubud Zoom", Capacity: 12, HasTV: true, Location: loc},
+			{WorkspaceID: "ws-lembongan", Name: "Lembongan", Capacity: 4, HasTV: false, Location: loc},
+			{WorkspaceID: "ws-ceningan", Name: "Ceningan", Capacity: 4, HasTV: false, Location: loc},
+			{WorkspaceID: "ws-penida", Name: "Penida", Capacity: 4, HasTV: false, Location: loc},
 		},
 		Reservations: []SeedReservation{
-			{ReservationID: "res-a1", WorkspaceID: "ws-a", UserEmail: "carol@example.com", StartOffsetMin: -5, EndOffsetMin: 55, CheckInStatus: "not_checked_in"},
-			{ReservationID: "res-b1", WorkspaceID: "ws-b", UserEmail: "alice@example.com", StartOffsetMin: -2, EndOffsetMin: 58, CheckInStatus: "not_checked_in"},
-			{ReservationID: "res-c1", WorkspaceID: "ws-c", UserEmail: "bob@example.com", StartOffsetMin: -20, EndOffsetMin: 40, CheckInStatus: "not_checked_in"},
+			{ReservationID: "res-agung", WorkspaceID: "ws-agung", UserEmail: "demo.day@adabali.dev", StartOffsetMin: -10, EndOffsetMin: 80, CheckInStatus: "not_checked_in"},
+			{ReservationID: "res-ubud", WorkspaceID: "ws-ubud", UserEmail: "mentors@adabali.dev", StartOffsetMin: -5, EndOffsetMin: 55, CheckInStatus: "not_checked_in"},
+			{ReservationID: "res-petang", WorkspaceID: "ws-petang", UserEmail: "standup@adabali.dev", StartOffsetMin: -2, EndOffsetMin: 28, CheckInStatus: "not_checked_in"},
+			{ReservationID: "res-sanur", WorkspaceID: "ws-sanur", UserEmail: "interviews@adabali.dev", StartOffsetMin: 15, EndOffsetMin: 75, CheckInStatus: "not_checked_in"},
 		},
 	}
 }

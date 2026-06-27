@@ -166,7 +166,7 @@ document.getElementById("zfit").onclick = fit;
 window.addEventListener("resize", fit);
 
 // --- build overlay from /floor/rooms, color from /occupancy ---
-let vb = { x: 11.4, y: 130.7, w: 1207.6, h: 715.3 };
+let vb = { x: 1.9, y: 153.0, w: 1209.3, h: 682.0 };
 const cells = []; // { name, poly, cntEl }
 
 function centroid(pts){ let x=0,y=0; for (const p of pts){ x+=p[0]; y+=p[1]; } return [x/pts.length, y/pts.length]; }

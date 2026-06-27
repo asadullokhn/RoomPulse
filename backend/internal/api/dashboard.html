@@ -111,12 +111,6 @@
   .room .who { font-size: 12.5px; color: var(--text); min-height: 17px; }
   .room .who.empty { color: var(--faint); }
   .room .booked { font-size: 12px; color: var(--amber); margin-top: 2px; }
-  .room .sim { display: flex; gap: 7px; margin-top: 13px; padding-top: 12px; border-top: 1px solid var(--line-soft); }
-  .room .sim button { flex: 1; font-size: 12px; padding: 6px 0; }
-  .sim-in { background: var(--signal-dim); color: var(--signal); border: 1px solid var(--signal-line); }
-  .sim-in:hover { background: rgba(47,230,176,.22); }
-  .sim-out { background: transparent; color: var(--muted); border: 1px solid var(--line); }
-  .sim-out:hover { color: var(--text); border-color: var(--muted); }
 
   /* ---- tables ---- */
   .card { background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line);
@@ -270,9 +264,6 @@ async function refresh() {
     const users = o.users || [];
     const cap = r.capacity ? `${count}/${r.capacity}` : `${count}`;
     const loc = [r.floor, r.has_tv ? "Zoom Room" : null].filter(Boolean).join(" · ") || "Reservation-only";
-    const sim = `<div class="sim">
-      <button class="sim-in" onclick="presence('${ws}','entered')">Arrive</button>
-      <button class="sim-out" onclick="presence('${ws}','exited')">Leave</button></div>`;
     if (count > 0) {
       const booker = reservations.find(v => v.zoom_workspace_id === ws && v.check_in_status === "checked_in");
       const names = users.map(u => esc(booker && u === booker.user_id ? (booker.user_email || u) : u)).join(", ");
@@ -280,7 +271,7 @@ async function refresh() {
         <div class="top"><div><div class="name">${esc(r.name)}</div><div class="loc">${esc(loc)}</div></div>
           <span class="head">◍ ${cap}</span></div>
         <div class="state"><span class="d"></span>${count === 1 ? "1 person here" : count + " people here"}</div>
-        <div class="who">${names}</div>${sim}</div>`;
+        <div class="who">${names}</div></div>`;
     }
     const booked = reservations.find(v => v.zoom_workspace_id === ws && v.check_in_status === "not_checked_in");
     return `<div class="room">
@@ -289,7 +280,7 @@ async function refresh() {
       <div class="state free"><span class="d"></span>Empty</div>
       <div class="${booked ? "booked" : "who empty"}">${booked
         ? "Booked " + fmtTime(booked.start_time) + "–" + fmtTime(booked.end_time)
-        : "No booking"}</div>${sim}</div>`;
+        : "No booking"}</div></div>`;
   }).join("") : `<div class="card"><div class="empty"><b>No rooms yet</b>Sync from Zoom to load your workspaces.</div></div>`;
 
   // ---- devices ----
@@ -335,25 +326,6 @@ async function sync() {
   b.disabled = true; b.textContent = "Syncing…";
   try { await fetch("/sync", { method: "POST" }); } catch (e) {}
   b.disabled = false; b.textContent = "Sync from Zoom";
-  refresh();
-}
-
-const simGuests = {};
-async function presence(workspaceID, eventType) {
-  simGuests[workspaceID] = simGuests[workspaceID] || [];
-  let userID;
-  if (eventType === "entered") {
-    userID = "Guest " + (simGuests[workspaceID].length + 1);
-    simGuests[workspaceID].push(userID);
-  } else {
-    userID = simGuests[workspaceID].pop() || "user-1";
-  }
-  try {
-    await fetch("/presence", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ workspace_id: workspaceID, user_id: userID, event_type: eventType, confidence: 0.95 }),
-    });
-  } catch (e) {}
   refresh();
 }
 

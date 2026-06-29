@@ -3,6 +3,7 @@
 package api
 
 import (
+	"compress/gzip"
 	"context"
 	_ "embed"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"roompulse/internal/domain"
@@ -143,7 +145,7 @@ func (s *Server) Handler() http.Handler {
 		mux.HandleFunc("GET /oauth/login", s.oauthLogin)
 		mux.HandleFunc("GET /oauth/callback", s.oauthCallback)
 	}
-	return recovery(s.log, logging(s.log, mux))
+	return recovery(s.log, logging(s.log, gzipped(mux)))
 }
 
 func (s *Server) oauthLogin(w http.ResponseWriter, r *http.Request) {
@@ -588,5 +590,29 @@ func logging(log *slog.Logger, next http.Handler) http.Handler {
 		start := time.Now()
 		next.ServeHTTP(w, r)
 		log.Info("request", "method", r.Method, "path", r.URL.Path, "dur_ms", time.Since(start).Milliseconds())
+	})
+}
+
+// gzipped compresses responses for clients that accept it. The pages are served
+// over a public tunnel where the ~35 KB dashboard HTML is the slowest payload;
+// gzip shrinks HTML/CSS/JS/JSON ~5-8x, so the page loads far faster on a slow link.
+type gzipWriter struct {
+	http.ResponseWriter
+	gz *gzip.Writer
+}
+
+func (w *gzipWriter) Write(b []byte) (int, error) { return w.gz.Write(b) }
+
+func gzipped(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.Header.Get("Accept-Encoding"), "gzip") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		w.Header().Set("Content-Encoding", "gzip")
+		w.Header().Add("Vary", "Accept-Encoding")
+		gz := gzip.NewWriter(w)
+		defer gz.Close()
+		next.ServeHTTP(&gzipWriter{ResponseWriter: w, gz: gz}, r)
 	})
 }

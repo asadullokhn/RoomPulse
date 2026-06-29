@@ -21,12 +21,9 @@
 // Measured RSSI at 1 m, used by the phone for distance estimates. Calibrate in
 // the field (read RSSI at exactly 1 m, put that value here as a signed dBm).
 #define MEASURED_POWER (-59)
-// iBeacon advertising interval (ms). Balance: long enough to save some power,
-// short enough for reliable/snappy check-in. NOTE: on this C6 the CPU can't sleep
-// (see battery note below), so the CPU draw dominates and the interval is only a
-// minor battery factor — hence we keep it short for reliable detection. ~1s made
-// detection sparse/intermittent. Units are 0.625 ms.
-#define ADV_INTERVAL_MS 300
+// iBeacon advertising interval (ms). 100 ms = Apple's reference — more adverts
+// means faster, more reliable detection by the phone. Units are 0.625 ms.
+#define ADV_INTERVAL_MS 100
 // =============================================
 
 #include <BLEDevice.h>
@@ -209,10 +206,12 @@ void setup() {
 }
 
 void loop() {
-  // The BLE controller advertises on its own. Just service serial provisioning
-  // commands and emit an occasional heartbeat.
-  static uint32_t lastBeat = 0;
+  // Self-heal: this C6's BLE advertiser halts on its own for long stretches
+  // (the phone then can't lock on). Re-assert it every second so it's reliably
+  // on-air. Also service serial provisioning + an occasional heartbeat.
+  static uint32_t lastBeat = 0, lastAdv = 0;
   pumpSerial();
+  if (millis() - lastAdv > 1000) { lastAdv = millis(); advertising->stop(); advertising->start(); }
   if (millis() - lastBeat > 10000) { lastBeat = millis(); Serial.println("alive, advertising"); }
   delay(50);
 }

@@ -8,6 +8,10 @@ services:
     environment:
       HTTP_ADDR: ":8080"
       SYNC_INTERVAL: "60s"
+      # Backstop for a vanished phone. Kept long because a BACKGROUNDED phone
+      # sends no heartbeats — it only emits region enter/exit. Clean check-out
+      # comes from the exit event; this TTL only catches a truly dead/gone phone.
+      PRESENCE_TTL: "1800s"
       # Mode: "mock" (no creds), "live" (admin S2S), or "user" (your own OAuth).
       ZOOM_MODE: "${ZOOM_MODE:-mock}"
       # user-OAuth: redirect must EXACTLY match the app's Redirect URL in Zoom.

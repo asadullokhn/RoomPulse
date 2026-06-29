@@ -17,6 +17,7 @@
     --text: #EAEEFB; --muted: #818DB4; --faint: #5C668A;
     --signal: #2FE6B0; --signal-dim: rgba(47,230,176,.14); --signal-line: rgba(47,230,176,.4);
     --amber: #F4B740; --amber-dim: rgba(244,183,64,.14); --amber-line: rgba(244,183,64,.4);
+    --red: #F4708A; --red-dim: rgba(244,112,138,.14); --red-line: rgba(244,112,138,.4);
     --r: 14px;
     --f-display: "Space Grotesk", system-ui, sans-serif;
     --f-body: "IBM Plex Sans", system-ui, sans-serif;
@@ -60,45 +61,23 @@
   .eyebrow { font-family: var(--f-mono); font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 2px; color: var(--signal); margin: 0 0 12px; }
   .lede h2 { font-family: var(--f-display); font-size: 30px; font-weight: 700; letter-spacing: -.4px; margin: 0 0 10px; line-height: 1.1; }
   .lede p { font-size: 15px; color: var(--muted); max-width: 680px; margin: 0; }
-  .block { margin-top: 38px; }
-  .block > .eyebrow { color: var(--muted); }
 
-  /* timing strip */
-  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 8px; }
-  .metric { background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 12px; text-align: center; }
-  .metric .mv { font-family: var(--f-display); font-size: 24px; font-weight: 700; color: var(--signal); }
-  .metric .ml { font-size: 11.5px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+  .answers-note { margin-top: 18px; display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--muted);
+    background: var(--panel); border: 1px solid var(--line); border-left: 2px solid var(--signal); border-radius: 10px; padding: 13px 15px; }
+  .answers-note b { color: var(--text); } .answers-note .ni { color: var(--signal); flex: none; margin-top: 1px; } .answers-note .ni svg { width: 16px; height: 16px; display: block; }
 
-  /* scenario cards */
-  .scs { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .sc { background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line); border-radius: var(--r); padding: 18px 18px 16px; }
-  .sc.caveat { border-color: var(--amber-line); }
-  .sc-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 9px; }
-  .sc .qk { font-family: var(--f-mono); font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.3px; color: var(--faint); }
-  .badge { font-family: var(--f-mono); font-size: 10px; font-weight: 600; letter-spacing: .2px; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
-  .badge.auto { background: var(--signal-dim); color: var(--signal); border: 1px solid var(--signal-line); }
-  .badge.caveat { background: var(--amber-dim); color: var(--amber); border: 1px solid var(--amber-line); }
-  .sc h3 { font-family: var(--f-display); font-weight: 600; font-size: 16.5px; margin: 0 0 7px; }
-  .sc p { font-size: 13px; color: var(--muted); margin: 0; line-height: 1.5; }
-  .sc p b { color: var(--text); }
-  .steps { counter-reset: s; list-style: none; margin: 12px 0 0; padding: 0; }
-  .steps li { position: relative; font-size: 12.5px; color: var(--muted); padding: 4px 0 4px 26px; line-height: 1.45; }
-  .steps li::before { counter-increment: s; content: counter(s); position: absolute; left: 0; top: 3px;
-    width: 17px; height: 17px; border-radius: 50%; background: var(--signal-dim); color: var(--signal);
-    border: 1px solid var(--signal-line); font-family: var(--f-mono); font-size: 10px; font-weight: 600;
-    display: grid; place-items: center; }
-  .sc.caveat .steps li::before { background: var(--amber-dim); color: var(--amber); border-color: var(--amber-line); }
-  .planned { margin-top: 11px; padding-top: 9px; border-top: 1px solid var(--line-soft); font-size: 12px; color: var(--faint); }
-  .planned b { color: var(--amber); font-weight: 600; }
+  .block { margin-top: 34px; }
+  .cases { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .case { background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; display: flex; flex-direction: column; }
+  .ctag { font-family: var(--f-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--faint); margin-bottom: 9px; }
+  .case h3 { font-family: var(--f-display); font-weight: 600; font-size: 16.5px; margin: 0 0 8px; }
+  .case > p { font-size: 13px; color: var(--muted); margin: 0 0 13px; line-height: 1.55; flex: 1; }
+  .prob { font-size: 12.5px; color: var(--text); background: var(--red-dim); border: 1px solid var(--red-line); border-radius: 9px; padding: 9px 12px; line-height: 1.5; }
+  .prob span { font-family: var(--f-mono); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .8px; color: var(--red); margin-right: 6px; }
 
-  .note { margin-top: 16px; display: flex; gap: 9px; align-items: flex-start; font-size: 13px; color: var(--muted);
-    background: var(--panel); border: 1px solid var(--line); border-left: 2px solid var(--amber); border-radius: 10px; padding: 13px 15px; }
-  .note b { color: var(--text); font-weight: 600; }
-  .note .ni { color: var(--amber); flex: none; margin-top: 1px; } .note .ni svg { width: 16px; height: 16px; display: block; }
-  .note ul { margin: 6px 0 0; padding-left: 18px; } .note li { padding: 2px 0; }
-  footer { text-align: center; color: var(--faint); font-size: 11.5px; font-family: var(--f-mono); padding: 30px 0 0; }
+  footer { text-align: center; color: var(--faint); font-size: 11.5px; font-family: var(--f-mono); padding: 34px 0 0; }
 
-  @media (max-width: 820px) { .scs { grid-template-columns: 1fr; } .metrics { grid-template-columns: repeat(2,1fr); } .lede h2 { font-size: 25px; } }
+  @media (max-width: 820px) { .cases { grid-template-columns: 1fr; } .lede h2 { font-size: 25px; } }
   @media (max-width: 560px) { main { padding: 22px 14px 48px; } header { padding: 11px 14px; } .brand .tag { display: none; } }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
 </style>
@@ -124,116 +103,106 @@
 
 <main>
   <div class="lede">
-    <div class="eyebrow">Behaviour · what happens if…</div>
-    <h2>The "what if" questions, answered</h2>
-    <p>RoomPulse is built so people never think about checking in or out — presence does it, with grace timers so a blip doesn't bounce you and a safety net so a dead phone can't strand a room. Here's exactly what happens in the awkward cases, including what we deliberately <i>haven't</i> built yet.</p>
+    <div class="eyebrow">The reality of room booking</div>
+    <h2>The everyday "what if" cases</h2>
+    <p>Meeting-room booking looks solved on a calendar and breaks the moment people walk around. These are the real situations — the ones that came up in the pitch, and more. First the problems, plainly.</p>
+    <div class="answers-note">
+      <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg></span>
+      <span><b>Answers come next.</b> How RoomPulse solves each of these will be added from the real system — not guesses. The problems are framed first so the solution speaks for itself.</span>
+    </div>
   </div>
 
-  <!-- TIMING -->
   <section class="block">
-    <div class="eyebrow">The clock the whole system runs on</div>
-    <div class="metrics">
-      <div class="metric"><div class="mv">~2–4 s</div><div class="ml">to check in<br>(2 steady readings)</div></div>
-      <div class="metric"><div class="mv">6 s</div><div class="ml">grace before<br>you count as "gone"</div></div>
-      <div class="metric"><div class="mv">45 s</div><div class="ml">keepalive<br>while you stay</div></div>
-      <div class="metric"><div class="mv">90 s</div><div class="ml">safety-net<br>auto-release</div></div>
+    <div class="cases">
+
+      <div class="case">
+        <div class="ctag">Booking ≠ reality</div>
+        <h3>Booked room is occupied</h3>
+        <p>You booked a meeting room, but when you arrive, someone else is already inside. The system says it's yours; reality says "good luck knocking."</p>
+        <div class="prob"><span>Problem</span>The calendar booking has no idea who is actually in the room.</div>
+      </div>
+
+      <div class="case">
+        <div class="ctag">No-shows</div>
+        <h3>Empty room is still marked booked</h3>
+        <p>You need a room now. You walk past rooms that are physically empty, but the booking system shows every one of them as reserved.</p>
+        <div class="prob"><span>Problem</span>People booked rooms and never showed up, so usable rooms stay blocked.</div>
+      </div>
+
+      <div class="case">
+        <div class="ctag">Overstay</div>
+        <h3>The meeting that won't end</h3>
+        <p>Your slot has started, but the previous group is still inside and in no hurry to leave. You hover outside, checking your watch.</p>
+        <div class="prob"><span>Problem</span>Bookings track the scheduled time, not when the room is actually free again.</div>
+      </div>
+
+      <div class="case">
+        <div class="ctag">Stale bookings</div>
+        <h3>Ghost recurring holds</h3>
+        <p>A weekly hold from a project that wrapped months ago still owns the room every Tuesday at 10. Nobody ever comes — but nobody can book it either.</p>
+        <div class="prob"><span>Problem</span>Stale recurring reservations quietly hoard rooms no one uses.</div>
+      </div>
+
+      <div class="case">
+        <div class="ctag">Real-time gap</div>
+        <h3>The ten-minute room hunt</h3>
+        <p>You just need somewhere for a quick call. You wander the floor opening doors, because the system shows everything booked and nothing about what's free right now.</p>
+        <div class="prob"><span>Problem</span>There's no live view of which rooms are actually available this minute.</div>
+      </div>
+
+      <div class="case">
+        <div class="ctag">Hoarding</div>
+        <h3>Booked "just in case"</h3>
+        <p>Someone reserves three slots across the day to be safe, uses one, and releases none. Multiply that by a team and the floor is "full" by 9am.</p>
+        <div class="prob"><span>Problem</span>Hoarding rooms costs nothing, so calendars fill with reservations no one honors.</div>
+      </div>
+
+      <div class="case">
+        <div class="ctag">Collisions</div>
+        <h3>Two teams, one room</h3>
+        <p>You walk in for your booking and another group is already setting up, equally certain the room is theirs. Now it's a standoff.</p>
+        <div class="prob"><span>Problem</span>Bookings and walk-ins collide with no single source of truth for who's really in.</div>
+      </div>
+
+      <div class="case">
+        <div class="ctag">Invisible use</div>
+        <h3>Grabbed without booking</h3>
+        <p>You take an empty room for a quick sync without booking it. Ten minutes in, someone with a reservation opens the door and you're out.</p>
+        <div class="prob"><span>Problem</span>Informal, real use is invisible to the system, so it can't reflect or protect it.</div>
+      </div>
+
+      <div class="case">
+        <div class="ctag">Mismatch</div>
+        <h3>Eight-person room for two</h3>
+        <p>A quick 1:1 settles into the big room while a team of eight circles the floor with nowhere to land.</p>
+        <div class="prob"><span>Problem</span>Nothing matches the group that's actually there to the size of the room they took.</div>
+      </div>
+
+      <div class="case">
+        <div class="ctag">Lateness</div>
+        <h3>You're a few minutes late</h3>
+        <p>You arrive five minutes after the start — and your room has already been handed off, or flagged a no-show.</p>
+        <div class="prob"><span>Problem</span>Rigid no-show rules punish normal, everyday lateness.</div>
+      </div>
+
+      <div class="case">
+        <div class="ctag">Ghost presence</div>
+        <h3>A laptop "holds" the room</h3>
+        <p>The person stepped out, but their laptop (or phone) is still on the table — so the room reads as busy while it sits empty.</p>
+        <div class="prob"><span>Problem</span>A device in the room isn't the same as a person actually using it.</div>
+      </div>
+
+      <div class="case">
+        <div class="ctag">Bad data</div>
+        <h3>Nobody knows the real usage</h3>
+        <p>Facilities sees rooms 90% "booked" and plans a new floor — while half of them sit empty most afternoons.</p>
+        <div class="prob"><span>Problem</span>Bookings aren't reality, so every utilization number built on them is fiction.</div>
+      </div>
+
     </div>
   </section>
 
-  <!-- SCENARIOS -->
-  <section class="block">
-    <div class="eyebrow">Scenarios</div>
-    <div class="scs">
-
-      <div class="sc">
-        <div class="sc-top"><span class="qk">What if…</span><span class="badge auto">Handled automatically</span></div>
-        <h3>I'm late to check in</h3>
-        <p>There's no window to miss. The moment you walk in and your phone sees the room's beacon, you're checked in — <b>on time or 40 minutes late.</b></p>
-        <ol class="steps">
-          <li>You walk in (whenever)</li>
-          <li>Phone detects the beacon, ~2–4 s of being near</li>
-          <li>You're checked in — dashboard &amp; booking update</li>
-        </ol>
-        <div class="planned"><b>Planned:</b> auto-release a no-show's booking if nobody arrives by N minutes after the start.</div>
-      </div>
-
-      <div class="sc">
-        <div class="sc-top"><span class="qk">What if…</span><span class="badge auto">Handled automatically</span></div>
-        <h3>I step out for a short break</h3>
-        <p>A quick signal dip won't bounce you — there's a <b>6-second grace</b>. Step away longer and the room frees; walk back and you're checked in again in seconds.</p>
-        <ol class="steps">
-          <li>You leave → 6 s grace (ignores brief flaps)</li>
-          <li>Still gone → checked out, room is freed</li>
-          <li>You return → ~2–4 s → checked back in</li>
-        </ol>
-        <div class="planned"><b>Note:</b> a break <i>does</i> free the room. A "hold my room for X min" grace is an easy future tweak.</div>
-      </div>
-
-      <div class="sc">
-        <div class="sc-top"><span class="qk">What if…</span><span class="badge auto">The safety net</span></div>
-        <h3>I leave without checking out</h3>
-        <p>You never check out by hand — it happens for you, three ways, so a lost message or dead battery <b>can't strand a room as "occupied."</b></p>
-        <ol class="steps">
-          <li>App open → 6 s after you leave → checked out</li>
-          <li>App closed → iOS region-exit → checked out</li>
-          <li>Phone dead/offline → 90 s reap releases it</li>
-        </ol>
-      </div>
-
-      <div class="sc">
-        <div class="sc-top"><span class="qk">What if…</span><span class="badge auto">Handled automatically</span></div>
-        <h3>I'm between two rooms / near a wall</h3>
-        <p>It picks the <b>nearest</b> room by signal strength, waits for ~2 steady readings before committing, and ignores brief flaps — so you don't flicker between rooms.</p>
-        <ol class="steps">
-          <li>Phone ranges every beacon in earshot</li>
-          <li>Strongest signal above the threshold wins</li>
-          <li>2 steady samples → commit (no flicker)</li>
-        </ol>
-        <div class="planned"><b>Tip:</b> big rooms can run two beacons for even coverage — both map to the same room.</div>
-      </div>
-
-      <div class="sc caveat">
-        <div class="sc-top"><span class="qk">What if…</span><span class="badge caveat">Tracked · with a caveat</span></div>
-        <h3>A friend checks in to my booked room first</h3>
-        <p>The live <b>headcount shows your friend by name</b> — that's accurate. But the booking flips to "in use" when <i>anyone</i> enters; today it means <b>"room in use," not "the booker is here."</b></p>
-        <ol class="steps">
-          <li>Friend enters → headcount adds their name</li>
-          <li>Booking marked checked-in (room is in use)</li>
-          <li>You arrive → you're added to the headcount too</li>
-        </ol>
-        <div class="planned"><b>Planned:</b> match the booking's check-in to the actual person who reserved it.</div>
-      </div>
-
-      <div class="sc caveat">
-        <div class="sc-top"><span class="qk">What if…</span><span class="badge caveat">Tracked · with a caveat</span></div>
-        <h3>I leave my phone in the room</h3>
-        <p>The system follows the <b>phone, not the person</b> — so the room stays occupied until the phone leaves. The 90 s safety net can't help here: the phone is still online and reporting in.</p>
-        <ol class="steps">
-          <li>Phone keeps reporting "I'm in this room"</li>
-          <li>Room stays checked-in (no exit signal)</li>
-          <li>Frees only when the phone physically leaves</li>
-        </ol>
-        <div class="planned"><b>Planned:</b> release at the booking's end time, or add a motion/occupancy sensor.</div>
-      </div>
-
-    </div>
-  </section>
-
-  <!-- HONEST ROADMAP -->
-  <section class="block">
-    <div class="note">
-      <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.5h.01"/></svg></span>
-      <span><b>What we deliberately haven't built yet</b> — so we can answer honestly when asked:
-        <ul>
-          <li><b>No-show release</b> — free a booking if nobody arrives after the start.</li>
-          <li><b>Booker identity</b> — verify the check-in is the person who reserved, not just "someone's here."</li>
-          <li><b>Phone-left-behind</b> — release at the booking's end time, or with a presence sensor.</li>
-        </ul>
-        Everything else above works today.</span>
-    </div>
-  </section>
-
-  <footer>RoomPulse · how check-in behaves</footer>
+  <footer>RoomPulse · the problems, before the solution</footer>
 </main>
 
 <script>

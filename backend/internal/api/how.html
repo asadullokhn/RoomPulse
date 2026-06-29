@@ -135,6 +135,7 @@
     <a href="/">Dashboard</a>
     <a href="/floor">Floor plan</a>
     <a href="/how" class="on" aria-current="page">How it works</a>
+    <a href="/battery">Battery</a>
   </nav>
   <div class="right">
     <span class="chip" id="conn"><span class="led"></span><span id="conn-text">connecting…</span></span>
@@ -155,7 +156,7 @@
         <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4"/><circle cx="12" cy="12" r="2.2" fill="currentColor" stroke="none"/></svg></div>
         <div class="nt">Room beacon</div>
         <div class="nd">Broadcasts the room's identity (UUID · major · minor) over Bluetooth, continuously.</div>
-        <div class="nc">an iPhone today</div>
+        <div class="nc">iPhone now · ESP32 ready</div>
       </div>
       <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M12 5l7 7-7 7"/></svg></div>
       <div class="node">
@@ -200,13 +201,13 @@
         </ul>
       </div>
       <div class="phase next">
-        <div class="ph-top"><div class="pico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><path d="M9 1.5v3M15 1.5v3M9 19.5v3M15 19.5v3M1.5 9h3M1.5 15h3M19.5 9h3M19.5 15h3"/></svg></div><span class="badge next">Next</span></div>
+        <div class="ph-top"><div class="pico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="2"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/><path d="M9 1.5v3M15 1.5v3M9 19.5v3M15 19.5v3M1.5 9h3M1.5 15h3M19.5 9h3M19.5 15h3"/></svg></div><span class="badge next">● In progress</span></div>
         <div class="pk">Phase 2</div>
         <div class="ptitle">ESP32 beacons</div>
-        <p>Replace the phone-broadcaster with real hardware.</p>
+        <p>The first ESP32-C6 beacon is live on the bench — rolling out to the rooms next.</p>
         <ul>
-          <li>A tiny always-on ESP32 iBeacon per room</li>
-          <li>No phone needed to broadcast — runs 24/7</li>
+          <li>A tiny always-on iBeacon per room — no phone needed</li>
+          <li>Self-IDs from its own chip; provision once, runs 24/7</li>
           <li>Same UUID · major · minor scheme, zero app changes</li>
         </ul>
       </div>

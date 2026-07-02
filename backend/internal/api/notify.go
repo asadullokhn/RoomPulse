@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"roompulse/internal/domain"
+	"quickroom/internal/domain"
 )
 
 // Notification is one outbox message for the app/admin to surface: grace-window

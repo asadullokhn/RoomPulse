@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"roompulse/internal/api"
-	"roompulse/internal/store"
-	syncsvc "roompulse/internal/sync"
-	"roompulse/internal/zoom"
+	"quickroom/internal/api"
+	"quickroom/internal/store"
+	syncsvc "quickroom/internal/sync"
+	"quickroom/internal/zoom"
 )
 
 // newTestHandler wires a full server over the in-memory store, a temp SQLite DB,

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"roompulse/internal/domain"
+	"quickroom/internal/domain"
 )
 
 // Overstay is a booking that has ended while the room is still occupied — the

@@ -1,4 +1,4 @@
-// Package domain holds RoomPulse's local model. Zoom stays the booking source
+// Package domain holds QuickRoom's local model. Zoom stays the booking source
 // of truth; these types are what the app reasons about (rooms + reservations
 // joined to beacon identity).
 package domain
@@ -40,7 +40,7 @@ const (
 	CheckedOut   CheckInStatus = "checked_out"
 )
 
-// ReservationStatus is RoomPulse's view of a booking's lifecycle.
+// ReservationStatus is QuickRoom's view of a booking's lifecycle.
 type ReservationStatus string
 
 const (

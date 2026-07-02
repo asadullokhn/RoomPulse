@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"roompulse/internal/domain"
+	"quickroom/internal/domain"
 )
 
 func TestUtilizationReport(t *testing.T) {

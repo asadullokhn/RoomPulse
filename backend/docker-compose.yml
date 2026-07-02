@@ -1,8 +1,8 @@
 services:
-  roompulse:
+  quickroom:
     build: .
-    image: roompulse-backend:latest
-    container_name: roompulse
+    image: quickroom-backend:latest
+    container_name: quickroom
     ports:
       - "8080:8080"
     environment:
@@ -18,7 +18,7 @@ services:
       ZOOM_REDIRECT_URI: "http://localhost:8080/oauth/callback"
       ZOOM_TOKEN_FILE: "/data/zoom_token.json"
       # SQLite file for the durable device registry (persisted via the /data volume).
-      DB_PATH: "/data/roompulse.db"
+      DB_PATH: "/data/quickroom.db"
       # Fill these via a .env file next to this compose (gitignored). For "user"
       # mode only CLIENT_ID/SECRET are needed; "live" also needs ACCOUNT_ID.
       ZOOM_ACCOUNT_ID: "${ZOOM_ACCOUNT_ID:-}"
@@ -26,21 +26,21 @@ services:
       ZOOM_CLIENT_SECRET: "${ZOOM_CLIENT_SECRET:-}"
       ZOOM_LOCATION_ID: "${ZOOM_LOCATION_ID:-}"
     volumes:
-      - roompulse_token:/data   # persists the OAuth token across restarts
+      - quickroom_token:/data   # persists the OAuth token across restarts
     restart: unless-stopped
 
   # Public tunnel: exposes the backend at https://room.teztun.uz so the phones
   # reach it from anywhere. Needs TEZTUN_TOKEN in .env (mint at app.teztun.uz/tokens).
   tunnel:
     image: teztun-client:latest
-    container_name: roompulse-tunnel
+    container_name: quickroom-tunnel
     depends_on:
-      - roompulse
+      - quickroom
     environment:
       TEZTUN_TOKEN: "${TEZTUN_TOKEN:-}"
       TEZTUN_NO_UPDATE: "1"
-    command: ["http", "roompulse:8080", "--subdomain", "room"]
+    command: ["http", "quickroom:8080", "--subdomain", "room"]
     restart: unless-stopped
 
 volumes:
-  roompulse_token:
+  quickroom_token:

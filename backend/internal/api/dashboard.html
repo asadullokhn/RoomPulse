@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>RoomPulse</title>
+<title>QuickRoom</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <meta name="theme-color" content="#0A0F1F">
 <meta name="color-scheme" content="dark">
@@ -176,7 +176,7 @@
 <header>
   <a class="brand" href="/">
     <span class="beacon"><i></i></span>
-    <div><h1>Room<b>Pulse</b></h1><div class="tag">Apple Developer Academy · Bali</div></div>
+    <div><h1>Quick<b>Room</b></h1><div class="tag">Apple Developer Academy · Bali</div></div>
   </a>
   <nav class="seg">
     <a href="/" class="on" aria-current="page">Dashboard</a>
@@ -343,7 +343,7 @@ async function refresh() {
         <td class="mono id">${esc(d.device_id)}</td><td>${esc(d.display_name || "—")}</td>
         <td>${room}</td><td class="mono">${fmtAgo(d.last_seen_sec)}</td></tr>`;
     }).join("")}</tbody></table>`
-    : `<div class="empty"><b>No phones yet</b>Open RoomPulse on a phone and turn on auto check-in — it'll appear here within seconds.</div>`;
+    : `<div class="empty"><b>No phones yet</b>Open QuickRoom on a phone and turn on auto check-in — it'll appear here within seconds.</div>`;
 
   // ---- beacons ----
   document.getElementById("beacons").innerHTML = beacons.length ? `

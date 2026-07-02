@@ -14,10 +14,10 @@ import (
 	"strings"
 	"time"
 
-	"roompulse/internal/domain"
-	"roompulse/internal/store"
-	syncsvc "roompulse/internal/sync"
-	"roompulse/internal/zoom"
+	"quickroom/internal/domain"
+	"quickroom/internal/store"
+	syncsvc "quickroom/internal/sync"
+	"quickroom/internal/zoom"
 )
 
 //go:embed dashboard.html

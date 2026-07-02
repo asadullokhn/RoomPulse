@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"roompulse/internal/domain"
+	"quickroom/internal/domain"
 )
 
 func TestIdentityMatch(t *testing.T) {

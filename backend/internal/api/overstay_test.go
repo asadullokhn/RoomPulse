@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"roompulse/internal/domain"
+	"quickroom/internal/domain"
 )
 
 // seedEndedBooking upserts a booking that ended `endedAgo` ago in `ws`, occupied

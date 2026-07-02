@@ -71,7 +71,7 @@ func Load() (Config, error) {
 		ZoomTokenFile:    getenv("ZOOM_TOKEN_FILE", "zoom_token.json"),
 		ZoomSeedFile:     getenv("ZOOM_SEED_FILE", "seed.json"),
 		BeaconsFile:      getenv("BEACONS_FILE", "/data/beacons.json"),
-		DBPath:           getenv("DB_PATH", "/data/roompulse.db"),
+		DBPath:           getenv("DB_PATH", "/data/quickroom.db"),
 	}
 
 	interval, err := time.ParseDuration(getenv("SYNC_INTERVAL", "60s"))

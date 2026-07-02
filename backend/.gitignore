@@ -1,8 +1,8 @@
 .env
 zoom_token.json
 /out/
-/roompulse
+/quickroom
 # Local SQLite device registry (WAL/SHM sidecars included)
-roompulse.db
-roompulse.db-wal
-roompulse.db-shm
+quickroom.db
+quickroom.db-wal
+quickroom.db-shm

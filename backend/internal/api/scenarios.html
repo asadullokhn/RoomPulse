@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>RoomPulse · Scenarios</title>
+<title>QuickRoom · Scenarios</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <meta name="theme-color" content="#0A0F1F">
 <meta name="color-scheme" content="dark">
@@ -141,7 +141,7 @@
 <header>
   <a class="brand" href="/">
     <span class="beacon"><i></i></span>
-    <div><h1>Room<b>Pulse</b></h1><div class="tag">Apple Developer Academy · Bali</div></div>
+    <div><h1>Quick<b>Room</b></h1><div class="tag">Apple Developer Academy · Bali</div></div>
   </a>
   <nav class="seg">
     <a href="/">Dashboard</a>
@@ -161,10 +161,10 @@
   <div class="lede">
     <div class="eyebrow">The reality of room booking</div>
     <h2>The everyday "what if" cases</h2>
-    <p>Meeting-room booking looks solved on a calendar and breaks the moment people walk around. These are the real situations — the ones that came up in the pitch, and more. Read each, then pick how RoomPulse should answer.</p>
+    <p>Meeting-room booking looks solved on a calendar and breaks the moment people walk around. These are the real situations — the ones that came up in the pitch, and more. Read each, then pick how QuickRoom should answer.</p>
     <div class="answers-note">
       <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg></span>
-      <span><b>Pick your name (or several, if you agree as a group), then choose how RoomPulse should answer each case.</b> The option badged <b>Recommended</b> matches what the real system already does. Hit "Submit answers" and your picks go to Claude — then the next teammate can pick their name and answer on the same device.</span>
+      <span><b>Pick your name (or several, if you agree as a group), then choose how QuickRoom should answer each case.</b> The option badged <b>Recommended</b> matches what the real system already does. Hit "Submit answers" and your picks go to Claude — then the next teammate can pick their name and answer on the same device.</span>
     </div>
   </div>
 
@@ -194,13 +194,13 @@
         <div class="prob"><span>Problem</span>The calendar booking has no idea who is actually in the room.</div>
       </div>
       <div class="picker">
-        <p class="label-sm">How should RoomPulse answer?</p>
+        <p class="label-sm">How should QuickRoom answer?</p>
         <div class="opts">
           <label class="opt rec">
             <input type="radio" name="sc_occupied" value="o1" data-label="Auto-confirm check-in from presence">
             <span class="dot"></span>
             <h3>Auto-confirm check-in from presence <span class="badge">Recommended</span></h3>
-            <p>When RoomPulse detects a phone physically inside the booked room, it drives Zoom check-in on that workspace's reservation (existing heartbeat -> driveReservation path), so the booking reflects that the room is genuinely in use without anyone tapping check-in.</p>
+            <p>When QuickRoom detects a phone physically inside the booked room, it drives Zoom check-in on that workspace's reservation (existing heartbeat -> driveReservation path), so the booking reflects that the room is genuinely in use without anyone tapping check-in.</p>
           </label>
           <label class="opt">
             <input type="radio" name="sc_occupied" value="o2" data-label="Flag booker-versus-occupant mismatch">
@@ -220,7 +220,7 @@
             <h3>Something else</h3>
             <p>Your own answer for this case.</p>
             <div class="custom-wrap">
-              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how QuickRoom should handle this…">
             </div>
           </label>
         </div>
@@ -236,13 +236,13 @@
         <div class="prob"><span>Problem</span>People booked rooms and never showed up, so usable rooms stay blocked.</div>
       </div>
       <div class="picker">
-        <p class="label-sm">How should RoomPulse answer?</p>
+        <p class="label-sm">How should QuickRoom answer?</p>
         <div class="opts">
           <label class="opt rec">
             <input type="radio" name="sc_noshow" value="o1" data-label="Auto-release after no-show grace">
             <span class="dot"></span>
             <h3>Auto-release after no-show grace <span class="badge">Recommended</span></h3>
-            <p>When a booking's start time passes by a set grace window (e.g. 10 min) with zero presence ever detected in the room, RoomPulse marks it no_show and releases the reservation in Zoom so the room frees up automatically. The detection rides the same periodic TTL/reap sweep that already drives check-out.</p>
+            <p>When a booking's start time passes by a set grace window (e.g. 10 min) with zero presence ever detected in the room, QuickRoom marks it no_show and releases the reservation in Zoom so the room frees up automatically. The detection rides the same periodic TTL/reap sweep that already drives check-out.</p>
           </label>
           <label class="opt">
             <input type="radio" name="sc_noshow" value="o2" data-label="Flag no-show, notify before releasing">
@@ -262,7 +262,7 @@
             <h3>Something else</h3>
             <p>Your own answer for this case.</p>
             <div class="custom-wrap">
-              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how QuickRoom should handle this…">
             </div>
           </label>
         </div>
@@ -278,7 +278,7 @@
         <div class="prob"><span>Problem</span>Bookings track the scheduled time, not when the room is actually free again.</div>
       </div>
       <div class="picker">
-        <p class="label-sm">How should RoomPulse answer?</p>
+        <p class="label-sm">How should QuickRoom answer?</p>
         <div class="opts">
           <label class="opt rec">
             <input type="radio" name="sc_overstay" value="o1" data-label="Show occupied past scheduled end">
@@ -304,7 +304,7 @@
             <h3>Something else</h3>
             <p>Your own answer for this case.</p>
             <div class="custom-wrap">
-              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how QuickRoom should handle this…">
             </div>
           </label>
         </div>
@@ -320,19 +320,19 @@
         <div class="prob"><span>Problem</span>Stale recurring reservations quietly hoard rooms no one uses.</div>
       </div>
       <div class="picker">
-        <p class="label-sm">How should RoomPulse answer?</p>
+        <p class="label-sm">How should QuickRoom answer?</p>
         <div class="opts">
           <label class="opt rec">
             <input type="radio" name="sc_ghosthold" value="o1" data-label="Auto-release after empty grace">
             <span class="dot"></span>
             <h3>Auto-release after empty grace <span class="badge">Recommended</span></h3>
-            <p>When a reservation's start passes with the room's occupancy still zero past a short grace window, RoomPulse marks it no_show and drives a Zoom check-out so the room returns to the bookable pool. Reuses the existing ReapLoop timer, AllOccupancy presence count, and driveReservation check-out path.</p>
+            <p>When a reservation's start passes with the room's occupancy still zero past a short grace window, QuickRoom marks it no_show and drives a Zoom check-out so the room returns to the bookable pool. Reuses the existing ReapLoop timer, AllOccupancy presence count, and driveReservation check-out path.</p>
           </label>
           <label class="opt">
             <input type="radio" name="sc_ghosthold" value="o2" data-label="Flag chronic ghost series">
             <span class="dot"></span>
             <h3>Flag chronic ghost series</h3>
-            <p>Using the retained 14-day enter/leave history, detect recurring slots that come up empty week after week and surface them in a report so an admin can cancel the series at the source. RoomPulse can free individual occurrences but can't delete a Zoom recurring booking itself, so escalation is the honest fix.</p>
+            <p>Using the retained 14-day enter/leave history, detect recurring slots that come up empty week after week and surface them in a report so an admin can cancel the series at the source. QuickRoom can free individual occurrences but can't delete a Zoom recurring booking itself, so escalation is the honest fix.</p>
           </label>
           <label class="opt">
             <input type="radio" name="sc_ghosthold" value="o3" data-label="Show held-but-empty as open">
@@ -346,7 +346,7 @@
             <h3>Something else</h3>
             <p>Your own answer for this case.</p>
             <div class="custom-wrap">
-              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how QuickRoom should handle this…">
             </div>
           </label>
         </div>
@@ -362,7 +362,7 @@
         <div class="prob"><span>Problem</span>There's no live view of which rooms are actually available this minute.</div>
       </div>
       <div class="picker">
-        <p class="label-sm">How should RoomPulse answer?</p>
+        <p class="label-sm">How should QuickRoom answer?</p>
         <div class="opts">
           <label class="opt rec">
             <input type="radio" name="sc_roomhunt" value="o1" data-label="Live free-now floor map">
@@ -388,7 +388,7 @@
             <h3>Something else</h3>
             <p>Your own answer for this case.</p>
             <div class="custom-wrap">
-              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how QuickRoom should handle this…">
             </div>
           </label>
         </div>
@@ -404,25 +404,25 @@
         <div class="prob"><span>Problem</span>Hoarding rooms costs nothing, so calendars fill with reservations no one honors.</div>
       </div>
       <div class="picker">
-        <p class="label-sm">How should RoomPulse answer?</p>
+        <p class="label-sm">How should QuickRoom answer?</p>
         <div class="opts">
           <label class="opt rec">
             <input type="radio" name="sc_justincase" value="o1" data-label="Reclaim holds nobody shows for">
             <span class="dot"></span>
             <h3>Reclaim holds nobody shows for <span class="badge">Recommended</span></h3>
-            <p>When a booked slot reaches start-time plus a short grace with zero presence detected in the room, RoomPulse flags it no_show and releases it back to the pool — reusing the same TTL/ReapStale + driveReservation auto-checkout path that already reaps empty rooms. Hoarded slots no one honors free themselves instead of blocking the calendar.</p>
+            <p>When a booked slot reaches start-time plus a short grace with zero presence detected in the room, QuickRoom flags it no_show and releases it back to the pool — reusing the same TTL/ReapStale + driveReservation auto-checkout path that already reaps empty rooms. Hoarded slots no one honors free themselves instead of blocking the calendar.</p>
           </label>
           <label class="opt">
             <input type="radio" name="sc_justincase" value="o2" data-label="Release a booker's parallel holds">
             <span class="dot"></span>
             <h3>Release a booker's parallel holds</h3>
-            <p>Presence proves a person can occupy only one room at a time, so once RoomPulse sees a user actually present in one room it auto-releases that same booker's other overlapping reservations (joined by UserID). The classic 'reserve three rooms just in case' collapses to the one they're physically in.</p>
+            <p>Presence proves a person can occupy only one room at a time, so once QuickRoom sees a user actually present in one room it auto-releases that same booker's other overlapping reservations (joined by UserID). The classic 'reserve three rooms just in case' collapses to the one they're physically in.</p>
           </label>
           <label class="opt">
             <input type="radio" name="sc_justincase" value="o3" data-label="Surface booked-vs-honored per booker">
             <span class="dot"></span>
             <h3>Surface booked-vs-honored per booker</h3>
-            <p>RoomPulse joins each reservation to real presence from the enter/leave event log and publishes a per-person and per-team 'honored vs booked' ratio on the dashboard, making chronic hoarders visible to facilities and peers. It turns 'hoarding costs nothing' into a visible, accountable number without auto-cancelling anything.</p>
+            <p>QuickRoom joins each reservation to real presence from the enter/leave event log and publishes a per-person and per-team 'honored vs booked' ratio on the dashboard, making chronic hoarders visible to facilities and peers. It turns 'hoarding costs nothing' into a visible, accountable number without auto-cancelling anything.</p>
           </label>
           <label class="opt">
             <input type="radio" name="sc_justincase" value="custom" data-label="Something else">
@@ -430,7 +430,7 @@
             <h3>Something else</h3>
             <p>Your own answer for this case.</p>
             <div class="custom-wrap">
-              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how QuickRoom should handle this…">
             </div>
           </label>
         </div>
@@ -446,7 +446,7 @@
         <div class="prob"><span>Problem</span>Bookings and walk-ins collide with no single source of truth for who's really in.</div>
       </div>
       <div class="picker">
-        <p class="label-sm">How should RoomPulse answer?</p>
+        <p class="label-sm">How should QuickRoom answer?</p>
         <div class="opts">
           <label class="opt rec">
             <input type="radio" name="sc_collision" value="o1" data-label="Match occupants to booker">
@@ -472,7 +472,7 @@
             <h3>Something else</h3>
             <p>Your own answer for this case.</p>
             <div class="custom-wrap">
-              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how QuickRoom should handle this…">
             </div>
           </label>
         </div>
@@ -488,7 +488,7 @@
         <div class="prob"><span>Problem</span>Informal, real use is invisible to the system, so it can't reflect or protect it.</div>
       </div>
       <div class="picker">
-        <p class="label-sm">How should RoomPulse answer?</p>
+        <p class="label-sm">How should QuickRoom answer?</p>
         <div class="opts">
           <label class="opt rec">
             <input type="radio" name="sc_nobook" value="o1" data-label="Surface walk-ins as live occupancy">
@@ -514,7 +514,7 @@
             <h3>Something else</h3>
             <p>Your own answer for this case.</p>
             <div class="custom-wrap">
-              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how QuickRoom should handle this…">
             </div>
           </label>
         </div>
@@ -530,7 +530,7 @@
         <div class="prob"><span>Problem</span>Nothing matches the group that's actually there to the size of the room they took.</div>
       </div>
       <div class="picker">
-        <p class="label-sm">How should RoomPulse answer?</p>
+        <p class="label-sm">How should QuickRoom answer?</p>
         <div class="opts">
           <label class="opt rec">
             <input type="radio" name="sc_mismatch" value="o1" data-label="Flag underused rooms live">
@@ -556,7 +556,7 @@
             <h3>Something else</h3>
             <p>Your own answer for this case.</p>
             <div class="custom-wrap">
-              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how QuickRoom should handle this…">
             </div>
           </label>
         </div>
@@ -572,25 +572,25 @@
         <div class="prob"><span>Problem</span>Rigid no-show rules punish normal, everyday lateness.</div>
       </div>
       <div class="picker">
-        <p class="label-sm">How should RoomPulse answer?</p>
+        <p class="label-sm">How should QuickRoom answer?</p>
         <div class="opts">
           <label class="opt rec">
             <input type="radio" name="sc_late" value="o1" data-label="Auto check-in on arrival">
             <span class="dot"></span>
             <h3>Auto check-in on arrival <span class="badge">Recommended</span></h3>
-            <p>Hold the booking through a short grace window and let presence decide: the instant your beacon is seen in the room, RoomPulse fires the Zoom check-in (the same heartbeat path it already uses on entry) and cancels any pending no-show. A few minutes late never costs the room because arrival, not the clock, settles it.</p>
+            <p>Hold the booking through a short grace window and let presence decide: the instant your beacon is seen in the room, QuickRoom fires the Zoom check-in (the same heartbeat path it already uses on entry) and cancels any pending no-show. A few minutes late never costs the room because arrival, not the clock, settles it.</p>
           </label>
           <label class="opt">
             <input type="radio" name="sc_late" value="o2" data-label="Hold until grace window expires">
             <span class="dot"></span>
             <h3>Hold until grace window expires</h3>
-            <p>Do nothing to the reservation at start time. Only after a configurable grace period with the room's live occupancy still at zero does RoomPulse release it or flag a no-show, so a room is never reclaimed unless presence-truth confirms it's genuinely empty-and-late.</p>
+            <p>Do nothing to the reservation at start time. Only after a configurable grace period with the room's live occupancy still at zero does QuickRoom release it or flag a no-show, so a room is never reclaimed unless presence-truth confirms it's genuinely empty-and-late.</p>
           </label>
           <label class="opt">
             <input type="radio" name="sc_late" value="o3" data-label="Make no-show reversible on arrival">
             <span class="dot"></span>
             <h3>Make no-show reversible on arrival</h3>
-            <p>Treat any start-time no-show as provisional rather than final: the moment presence detects you in the room, RoomPulse re-checks you in and pulls the booking back from no-show. Lateness becomes a soft, self-correcting state instead of a hard penalty.</p>
+            <p>Treat any start-time no-show as provisional rather than final: the moment presence detects you in the room, QuickRoom re-checks you in and pulls the booking back from no-show. Lateness becomes a soft, self-correcting state instead of a hard penalty.</p>
           </label>
           <label class="opt">
             <input type="radio" name="sc_late" value="custom" data-label="Something else">
@@ -598,7 +598,7 @@
             <h3>Something else</h3>
             <p>Your own answer for this case.</p>
             <div class="custom-wrap">
-              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how QuickRoom should handle this…">
             </div>
           </label>
         </div>
@@ -614,13 +614,13 @@
         <div class="prob"><span>Problem</span>A device in the room isn't the same as a person actually using it.</div>
       </div>
       <div class="picker">
-        <p class="label-sm">How should RoomPulse answer?</p>
+        <p class="label-sm">How should QuickRoom answer?</p>
         <div class="opts">
           <label class="opt rec">
             <input type="radio" name="sc_laptop" value="o1" data-label="Trust headcount over device holds">
             <span class="dot"></span>
             <h3>Trust headcount over device holds <span class="badge">Recommended</span></h3>
-            <p>RoomPulse counts only the app-phones people carry, so a laptop, TV, or idle gadget adds nothing to a room's live occupancy. When a booking still reads checked-in but the headcount is zero, it drives a check-out and frees the room, so a device alone can never hold it.</p>
+            <p>QuickRoom counts only the app-phones people carry, so a laptop, TV, or idle gadget adds nothing to a room's live occupancy. When a booking still reads checked-in but the headcount is zero, it drives a check-out and frees the room, so a device alone can never hold it.</p>
           </label>
           <label class="opt">
             <input type="radio" name="sc_laptop" value="o2" data-label="Require a zero-headcount grace window">
@@ -640,7 +640,7 @@
             <h3>Something else</h3>
             <p>Your own answer for this case.</p>
             <div class="custom-wrap">
-              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how QuickRoom should handle this…">
             </div>
           </label>
         </div>
@@ -656,7 +656,7 @@
         <div class="prob"><span>Problem</span>Bookings aren't reality, so every utilization number built on them is fiction.</div>
       </div>
       <div class="picker">
-        <p class="label-sm">How should RoomPulse answer?</p>
+        <p class="label-sm">How should QuickRoom answer?</p>
         <div class="opts">
           <label class="opt rec">
             <input type="radio" name="sc_baddata" value="o1" data-label="Measure utilization from presence">
@@ -682,7 +682,7 @@
             <h3>Something else</h3>
             <p>Your own answer for this case.</p>
             <div class="custom-wrap">
-              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how QuickRoom should handle this…">
             </div>
           </label>
         </div>
@@ -702,7 +702,7 @@
 
   </form>
 
-  <footer>RoomPulse · you choose how each case resolves</footer>
+  <footer>QuickRoom · you choose how each case resolves</footer>
 </main>
 
 <script>

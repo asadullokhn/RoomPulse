@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"time"
 
-	"roompulse/internal/domain"
-	"roompulse/internal/zoom"
+	"quickroom/internal/domain"
+	"quickroom/internal/zoom"
 )
 
 // graceDuration returns the no-show grace window for a booking of length d:

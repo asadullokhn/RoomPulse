@@ -1,4 +1,4 @@
-// Command roompulse is the RoomPulse backend prototype: it syncs Zoom Workspace
+// Command quickroom is the QuickRoom backend prototype: it syncs Zoom Workspace
 // reservations into a local mirror and serves them over HTTP.
 //
 // Runs in "mock" mode by default (no Zoom credentials needed). Set ZOOM_MODE=live
@@ -15,11 +15,11 @@ import (
 	"syscall"
 	"time"
 
-	"roompulse/internal/api"
-	"roompulse/internal/config"
-	syncsvc "roompulse/internal/sync"
-	"roompulse/internal/store"
-	"roompulse/internal/zoom"
+	"quickroom/internal/api"
+	"quickroom/internal/config"
+	syncsvc "quickroom/internal/sync"
+	"quickroom/internal/store"
+	"quickroom/internal/zoom"
 )
 
 func main() {

@@ -332,7 +332,7 @@ func saveToken(path string, t *oauthToken) error {
 func randomState() string {
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
-		return hex.EncodeToString([]byte("roompulse-state"))
+		return hex.EncodeToString([]byte("quickroom-state"))
 	}
 	return hex.EncodeToString(b)
 }

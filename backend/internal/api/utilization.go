@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"roompulse/internal/domain"
+	"quickroom/internal/domain"
 )
 
 // Utilization is an at-a-glance booking-health report — the "are rooms actually

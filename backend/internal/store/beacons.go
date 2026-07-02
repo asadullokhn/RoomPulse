@@ -3,7 +3,7 @@ package store
 import (
 	"sort"
 
-	"roompulse/internal/domain"
+	"quickroom/internal/domain"
 )
 
 // SeedBeacons replaces the beacon registry (used at startup).

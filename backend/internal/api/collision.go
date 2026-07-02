@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"roompulse/internal/domain"
+	"quickroom/internal/domain"
 )
 
 // Collision is a live booker-vs-occupant mismatch: a room booked by one person

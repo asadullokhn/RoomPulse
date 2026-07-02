@@ -1,4 +1,4 @@
-module roompulse
+module quickroom
 
 go 1.26
 

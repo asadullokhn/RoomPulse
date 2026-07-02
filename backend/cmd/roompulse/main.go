@@ -69,7 +69,9 @@ func main() {
 
 	apiSrv := api.NewServer(st, db, sync, zc, cfg.ZoomMode, cfg.PresenceTTL, log)
 	apiSrv.ConfigureGrace(cfg.GraceFraction, cfg.GraceMin, cfg.GraceMax)
-	go apiSrv.ReapLoop(rootCtx) // expire stale presence + release no-show bookings
+	apiSrv.ConfigureNotify(cfg.NotifyFirstFraction, cfg.NotifySecondFraction, cfg.NotifySecondEnabled)
+	go apiSrv.ReapLoop(rootCtx)  // expire stale presence (killed/offline phones)
+	go apiSrv.GraceLoop(rootCtx) // grace reminders + no-show release
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,

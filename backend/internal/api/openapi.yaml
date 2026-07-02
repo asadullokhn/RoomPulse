@@ -32,6 +32,8 @@ tags:
     description: Known-device registry and per-room activity history
   - name: Occupancy
     description: Live headcount per room
+  - name: Notifications
+    description: Outbox of grace reminders, no-show releases, and room-freed events
   - name: Diagnostics
     description: Device health + event-log dumps (in-memory, ephemeral)
   - name: Feedback
@@ -200,6 +202,33 @@ paths:
                 type: object
                 properties:
                   occupancy: { type: array, items: { $ref: '#/components/schemas/OccupancyEntry' } }
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: Poll the notification outbox
+      description: |
+        Grace-window "are you coming?" pings, no-show releases, and room-freed
+        events. The mobile app polls with `?recipient=` (its booker id/email);
+        broadcasts (room-freed) have an empty recipient.
+      parameters:
+        - name: recipient
+          in: query
+          required: false
+          description: Filter to one booker (user id or email)
+          schema: { type: string }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, default: 100, maximum: 200 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notifications: { type: array, items: { $ref: '#/components/schemas/Notification' } }
 
   /devices:
     get:
@@ -494,6 +523,18 @@ components:
         workspace_id: { type: string }
         count: { type: integer }
         users: { type: array, items: { type: string } }
+    Notification:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        type: { type: string, enum: [grace_reminder, no_show_released, room_freed] }
+        level: { type: integer, description: reminder ladder step (1 or 2) }
+        workspace_id: { type: string }
+        reservation_id: { type: string }
+        recipient: { type: string, description: booker id/email; empty = broadcast }
+        title: { type: string }
+        body: { type: string }
+        created_at: { type: string, format: date-time }
     DeviceView:
       type: object
       properties:

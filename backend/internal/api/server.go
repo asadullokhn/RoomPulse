@@ -58,6 +58,10 @@ const (
 	maxIDLen       = 128
 	maxNameLen     = 96
 	eventRetention = 14 * 24 * time.Hour // activity history kept this long
+
+	// graceSweepInterval drives grace reminders + no-show release. Finer than the
+	// presence-reap cadence because grace windows on short bookings are minutes.
+	graceSweepInterval = 30 * time.Second
 )
 
 // OAuthFlow is implemented by the user-OAuth Zoom client. When the active
@@ -89,11 +93,18 @@ type Server struct {
 	graceFraction float64
 	graceMin      time.Duration
 	graceMax      time.Duration
+
+	// Notification outbox + grace-reminder ladder (Reno's model).
+	notify              *notifier
+	notifyFirstFrac     float64
+	notifySecondFrac    float64
+	notifySecondEnabled bool
 }
 
 func NewServer(st *store.Memory, db *store.DB, sync *syncsvc.Service, zc zoom.Client, mode string, ttl time.Duration, log *slog.Logger) *Server {
 	s := &Server{store: st, db: db, sync: sync, zoom: zc, mode: mode, ttl: ttl, log: log, diags: newDiagBuffer(50), decisions: newDecisionStore(), scenarioAnswers: newScenarioAnswerStore(), history: newHistoryBuffer(20),
-		graceFraction: 0.10, graceMin: 90 * time.Second, graceMax: 15 * time.Minute}
+		graceFraction: 0.10, graceMin: 90 * time.Second, graceMax: 15 * time.Minute,
+		notify: newNotifier(200), notifyFirstFrac: 0.05, notifySecondFrac: 0.075, notifySecondEnabled: true}
 	if of, ok := zc.(OAuthFlow); ok {
 		s.oauth = of
 	}
@@ -112,6 +123,39 @@ func (s *Server) ConfigureGrace(fraction float64, min, max time.Duration) {
 	}
 	if max > 0 {
 		s.graceMax = max
+	}
+}
+
+// ConfigureNotify sets the grace-reminder ladder: first/second ping fractions of
+// the booking elapsed, and whether the second ping fires (Reno flagged
+// notification fatigue, so it can be turned off).
+func (s *Server) ConfigureNotify(first, second float64, secondEnabled bool) {
+	if first > 0 {
+		s.notifyFirstFrac = first
+	}
+	if second > 0 {
+		s.notifySecondFrac = second
+	}
+	s.notifySecondEnabled = secondEnabled
+}
+
+// GraceLoop drives booking-side maintenance on a short cadence: grace-window
+// reminders then no-show release. Separate from ReapLoop (presence TTL) because
+// grace windows are measured in minutes. Bind ctx to the app's root context.
+func (s *Server) GraceLoop(ctx context.Context) {
+	ticker := time.NewTicker(graceSweepInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			now := time.Now()
+			s.sweepGraceReminders(now)
+			if flagged := s.sweepNoShows(ctx, now); len(flagged) > 0 {
+				s.log.Info("released no-show bookings", "count", len(flagged))
+			}
+		}
 	}
 }
 
@@ -140,9 +184,6 @@ func (s *Server) ReapLoop(ctx context.Context) {
 			}
 			if len(reaped) > 0 {
 				s.log.Info("reaped stale presence", "devices", len(reaped), "ttl", s.ttl)
-			}
-			if flagged := s.sweepNoShows(ctx, now); len(flagged) > 0 {
-				s.log.Info("released no-show bookings", "count", len(flagged))
 			}
 			if err := s.db.PruneEvents(now.Add(-eventRetention)); err != nil {
 				s.log.Warn("prune events", "err", err)
@@ -189,6 +230,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /history", s.postHistory)
 	mux.HandleFunc("GET /history", s.getHistory)
 	mux.HandleFunc("GET /occupancy", s.occupancy)
+	mux.HandleFunc("GET /notifications", s.getNotifications)
 	if s.oauth != nil {
 		mux.HandleFunc("GET /oauth/login", s.oauthLogin)
 		mux.HandleFunc("GET /oauth/callback", s.oauthCallback)

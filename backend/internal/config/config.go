@@ -46,6 +46,13 @@ type Config struct {
 	GraceFraction float64
 	GraceMin      time.Duration
 	GraceMax      time.Duration
+
+	// Grace-reminder ladder (Reno's model): "are you coming?" pings fire at these
+	// fractions of the booking elapsed, before the no-show release at
+	// GraceFraction. The second ping can be disabled to limit notification fatigue.
+	NotifyFirstFraction  float64
+	NotifySecondFraction float64
+	NotifySecondEnabled  bool
 }
 
 func Load() (Config, error) {
@@ -87,6 +94,14 @@ func Load() (Config, error) {
 	if c.GraceMax, err = time.ParseDuration(getenv("GRACE_MAX", "15m")); err != nil {
 		return Config{}, fmt.Errorf("invalid GRACE_MAX: %w", err)
 	}
+
+	if c.NotifyFirstFraction, err = strconv.ParseFloat(getenv("NOTIFY_FIRST_FRACTION", "0.05"), 64); err != nil {
+		return Config{}, fmt.Errorf("invalid NOTIFY_FIRST_FRACTION: %w", err)
+	}
+	if c.NotifySecondFraction, err = strconv.ParseFloat(getenv("NOTIFY_SECOND_FRACTION", "0.075"), 64); err != nil {
+		return Config{}, fmt.Errorf("invalid NOTIFY_SECOND_FRACTION: %w", err)
+	}
+	c.NotifySecondEnabled = getenv("NOTIFY_SECOND_ENABLED", "true") != "false"
 
 	switch c.ZoomMode {
 	case "live":

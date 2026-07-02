@@ -264,7 +264,27 @@ func (s *Server) Handler() http.Handler {
 		mux.HandleFunc("GET /oauth/login", s.oauthLogin)
 		mux.HandleFunc("GET /oauth/callback", s.oauthCallback)
 	}
-	return recovery(s.log, logging(s.log, gzipped(mux)))
+	return recovery(s.log, logging(s.log, cors(gzipped(mux))))
+}
+
+// cors allows the API to be called cross-origin — notably Swagger UI's "Try it
+// out" when the docs are opened from a different host than the one picked in the
+// server dropdown. Safe here: the API is public and carries no cookies/credentials,
+// so "*" exposes nothing a direct request wouldn't. Preflights are answered here
+// since the method+path mux wouldn't match a bare OPTIONS.
+func cors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Add("Vary", "Origin")
+		if r.Method == http.MethodOptions {
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept")
+			w.Header().Set("Access-Control-Max-Age", "600")
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) oauthLogin(w http.ResponseWriter, r *http.Request) {

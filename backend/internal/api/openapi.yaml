@@ -13,6 +13,8 @@ info:
     Modes (`ZOOM_MODE`): `mock` (no creds), `live` (admin server-to-server), `user`
     (your own OAuth). The `/oauth/*` endpoints exist only in `user` mode.
 servers:
+  - url: /
+    description: This origin — the same host that served these docs ("Try it out" stays same-origin)
   - url: https://rp.asadullokhn.uz
     description: Production (Cloudflare-fronted)
   - url: http://localhost:8080

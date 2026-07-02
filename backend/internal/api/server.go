@@ -41,6 +41,9 @@ var scenariosHTML []byte
 //go:embed decide.html
 var decideHTML []byte
 
+//go:embed admin.html
+var adminHTML []byte
+
 //go:embed floor.png
 var floorImage []byte
 
@@ -223,6 +226,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /scenarios", s.scenarios)
 	mux.HandleFunc("GET /scenarios/img/{name}", s.scenarioImage)
 	mux.HandleFunc("GET /decide", s.decide)
+	mux.HandleFunc("GET /admin", s.admin)
 	mux.HandleFunc("POST /decision", s.postDecision)
 	mux.HandleFunc("GET /decision", s.getDecision)
 	mux.HandleFunc("POST /scenario-answers", s.postScenarioAnswers)
@@ -328,6 +332,11 @@ func (s *Server) scenarios(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) decide(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write(decideHTML)
+}
+
+func (s *Server) admin(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(adminHTML)
 }
 
 // scenarioImage serves a scenario's illustration (embedded JPEG). The {name} is a

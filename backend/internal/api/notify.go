@@ -14,7 +14,7 @@ import (
 // in-memory ring with per-key dedup so a reminder fires once, not every sweep.
 type Notification struct {
 	ID            int64     `json:"id"`
-	Type          string    `json:"type"` // grace_reminder | no_show_released | room_freed
+	Type          string    `json:"type"` // grace_reminder | no_show_released | room_freed | collision | overstay
 	Level         int       `json:"level,omitempty"`
 	WorkspaceID   string    `json:"workspace_id,omitempty"`
 	ReservationID string    `json:"reservation_id,omitempty"`

@@ -99,12 +99,17 @@ type Server struct {
 	notifyFirstFrac     float64
 	notifySecondFrac    float64
 	notifySecondEnabled bool
+
+	// Overstay: a room still occupied this long past its booking's end is
+	// flagged (the inverse of a no-show). Set via ConfigureOverstay.
+	overstayGrace time.Duration
 }
 
 func NewServer(st *store.Memory, db *store.DB, sync *syncsvc.Service, zc zoom.Client, mode string, ttl time.Duration, log *slog.Logger) *Server {
 	s := &Server{store: st, db: db, sync: sync, zoom: zc, mode: mode, ttl: ttl, log: log, diags: newDiagBuffer(50), decisions: newDecisionStore(), scenarioAnswers: newScenarioAnswerStore(), history: newHistoryBuffer(20),
 		graceFraction: 0.10, graceMin: 90 * time.Second, graceMax: 15 * time.Minute,
-		notify: newNotifier(200), notifyFirstFrac: 0.05, notifySecondFrac: 0.075, notifySecondEnabled: true}
+		notify: newNotifier(200), notifyFirstFrac: 0.05, notifySecondFrac: 0.075, notifySecondEnabled: true,
+		overstayGrace: 5 * time.Minute}
 	if of, ok := zc.(OAuthFlow); ok {
 		s.oauth = of
 	}
@@ -139,6 +144,14 @@ func (s *Server) ConfigureNotify(first, second float64, secondEnabled bool) {
 	s.notifySecondEnabled = secondEnabled
 }
 
+// ConfigureOverstay sets how long a room may stay occupied past its booking's end
+// before it's flagged as an overstay. Non-positive values are ignored.
+func (s *Server) ConfigureOverstay(grace time.Duration) {
+	if grace > 0 {
+		s.overstayGrace = grace
+	}
+}
+
 // GraceLoop drives booking-side maintenance on a short cadence: grace-window
 // reminders then no-show release. Separate from ReapLoop (presence TTL) because
 // grace windows are measured in minutes. Bind ctx to the app's root context.
@@ -154,6 +167,12 @@ func (s *Server) GraceLoop(ctx context.Context) {
 			s.sweepGraceReminders(now)
 			if flagged := s.sweepNoShows(ctx, now); len(flagged) > 0 {
 				s.log.Info("released no-show bookings", "count", len(flagged))
+			}
+			if conflicts := s.sweepCollisions(now); len(conflicts) > 0 {
+				s.log.Info("booking conflicts flagged", "count", len(conflicts))
+			}
+			if over := s.sweepOverstays(now); len(over) > 0 {
+				s.log.Info("overstays flagged", "count", len(over))
 			}
 		}
 	}
@@ -231,6 +250,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /history", s.getHistory)
 	mux.HandleFunc("GET /occupancy", s.occupancy)
 	mux.HandleFunc("GET /notifications", s.getNotifications)
+	mux.HandleFunc("GET /collisions", s.getCollisions)
+	mux.HandleFunc("GET /overstays", s.getOverstays)
+	mux.HandleFunc("GET /utilization", s.getUtilization)
 	if s.oauth != nil {
 		mux.HandleFunc("GET /oauth/login", s.oauthLogin)
 		mux.HandleFunc("GET /oauth/callback", s.oauthCallback)

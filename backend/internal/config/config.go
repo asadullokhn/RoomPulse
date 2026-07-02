@@ -53,6 +53,10 @@ type Config struct {
 	NotifyFirstFraction  float64
 	NotifySecondFraction float64
 	NotifySecondEnabled  bool
+
+	// OverstayGrace: a room still occupied this long past its booking's end is
+	// flagged as an overstay (the inverse of a no-show).
+	OverstayGrace time.Duration
 }
 
 func Load() (Config, error) {
@@ -102,6 +106,10 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("invalid NOTIFY_SECOND_FRACTION: %w", err)
 	}
 	c.NotifySecondEnabled = getenv("NOTIFY_SECOND_ENABLED", "true") != "false"
+
+	if c.OverstayGrace, err = time.ParseDuration(getenv("OVERSTAY_GRACE", "5m")); err != nil {
+		return Config{}, fmt.Errorf("invalid OVERSTAY_GRACE: %w", err)
+	}
 
 	switch c.ZoomMode {
 	case "live":

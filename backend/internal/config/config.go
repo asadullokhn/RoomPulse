@@ -5,6 +5,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -37,6 +38,14 @@ type Config struct {
 	// DBPath is the SQLite file backing the durable device registry. Defaults
 	// under /data so it persists in the container volume; override for local runs.
 	DBPath string
+
+	// No-show grace: a booking whose start passes by this window with nobody
+	// ever present is auto-released. Grace = GraceFraction of the booking length
+	// (Reno's proportional model), clamped to [GraceMin, GraceMax]. So a 2h
+	// booking at 10% = 12m; a 15m booking clamps up to GraceMin.
+	GraceFraction float64
+	GraceMin      time.Duration
+	GraceMax      time.Duration
 }
 
 func Load() (Config, error) {
@@ -65,6 +74,19 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("invalid PRESENCE_TTL: %w", err)
 	}
 	c.PresenceTTL = ttl
+
+	frac, err := strconv.ParseFloat(getenv("GRACE_FRACTION", "0.10"), 64)
+	if err != nil || frac <= 0 || frac >= 1 {
+		return Config{}, fmt.Errorf("invalid GRACE_FRACTION (want 0<f<1): %q", getenv("GRACE_FRACTION", "0.10"))
+	}
+	c.GraceFraction = frac
+
+	if c.GraceMin, err = time.ParseDuration(getenv("GRACE_MIN", "90s")); err != nil {
+		return Config{}, fmt.Errorf("invalid GRACE_MIN: %w", err)
+	}
+	if c.GraceMax, err = time.ParseDuration(getenv("GRACE_MAX", "15m")); err != nil {
+		return Config{}, fmt.Errorf("invalid GRACE_MAX: %w", err)
+	}
 
 	switch c.ZoomMode {
 	case "live":

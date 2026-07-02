@@ -83,14 +83,36 @@ type Server struct {
 
 	scenarioAnswers *scenarioAnswerStore // chosen answer per scenario (in-memory, for GET /scenario-answers)
 	history         *historyBuffer       // full device event-log dumps (in-memory, for GET /history)
+
+	// No-show grace model (Reno's proportional window). Set from config via
+	// ConfigureGrace; defaults applied in NewServer.
+	graceFraction float64
+	graceMin      time.Duration
+	graceMax      time.Duration
 }
 
 func NewServer(st *store.Memory, db *store.DB, sync *syncsvc.Service, zc zoom.Client, mode string, ttl time.Duration, log *slog.Logger) *Server {
-	s := &Server{store: st, db: db, sync: sync, zoom: zc, mode: mode, ttl: ttl, log: log, diags: newDiagBuffer(50), decisions: newDecisionStore(), scenarioAnswers: newScenarioAnswerStore(), history: newHistoryBuffer(20)}
+	s := &Server{store: st, db: db, sync: sync, zoom: zc, mode: mode, ttl: ttl, log: log, diags: newDiagBuffer(50), decisions: newDecisionStore(), scenarioAnswers: newScenarioAnswerStore(), history: newHistoryBuffer(20),
+		graceFraction: 0.10, graceMin: 90 * time.Second, graceMax: 15 * time.Minute}
 	if of, ok := zc.(OAuthFlow); ok {
 		s.oauth = of
 	}
 	return s
+}
+
+// ConfigureGrace overrides the no-show grace model (proportional fraction of the
+// booking length, clamped to [min,max]). Non-positive values are ignored so
+// callers can override selectively.
+func (s *Server) ConfigureGrace(fraction float64, min, max time.Duration) {
+	if fraction > 0 {
+		s.graceFraction = fraction
+	}
+	if min > 0 {
+		s.graceMin = min
+	}
+	if max > 0 {
+		s.graceMax = max
+	}
 }
 
 // ReapLoop periodically expires devices not seen within the TTL and reflects
@@ -118,6 +140,9 @@ func (s *Server) ReapLoop(ctx context.Context) {
 			}
 			if len(reaped) > 0 {
 				s.log.Info("reaped stale presence", "devices", len(reaped), "ttl", s.ttl)
+			}
+			if flagged := s.sweepNoShows(ctx, now); len(flagged) > 0 {
+				s.log.Info("released no-show bookings", "count", len(flagged))
 			}
 			if err := s.db.PruneEvents(now.Add(-eventRetention)); err != nil {
 				s.log.Warn("prune events", "err", err)

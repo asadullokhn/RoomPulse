@@ -68,7 +68,8 @@ func main() {
 	go runSyncLoop(rootCtx, sync, cfg.SyncInterval, log)
 
 	apiSrv := api.NewServer(st, db, sync, zc, cfg.ZoomMode, cfg.PresenceTTL, log)
-	go apiSrv.ReapLoop(rootCtx) // expire stale presence (killed/offline phones)
+	apiSrv.ConfigureGrace(cfg.GraceFraction, cfg.GraceMin, cfg.GraceMax)
+	go apiSrv.ReapLoop(rootCtx) // expire stale presence + release no-show bookings
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,

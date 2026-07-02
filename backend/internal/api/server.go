@@ -5,7 +5,7 @@ package api
 import (
 	"compress/gzip"
 	"context"
-	_ "embed"
+	"embed"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -15,8 +15,8 @@ import (
 	"time"
 
 	"roompulse/internal/domain"
-	syncsvc "roompulse/internal/sync"
 	"roompulse/internal/store"
+	syncsvc "roompulse/internal/sync"
 	"roompulse/internal/zoom"
 )
 
@@ -38,6 +38,9 @@ var hardwareHTML []byte
 //go:embed scenarios.html
 var scenariosHTML []byte
 
+//go:embed decide.html
+var decideHTML []byte
+
 //go:embed floor.png
 var floorImage []byte
 
@@ -46,6 +49,9 @@ var floorData []byte // raw Zoom workspace export (rooms + polygons)
 
 //go:embed favicon.svg
 var faviconSVG []byte
+
+//go:embed scenarios/*.jpg
+var scenarioImages embed.FS // one illustration per scenario, served at /scenarios/img/{id}
 
 const (
 	maxBody        = 1 << 20 // 1 MiB request body cap
@@ -64,18 +70,23 @@ type OAuthFlow interface {
 
 // Server wires handlers over the store, sync service and Zoom client.
 type Server struct {
-	store *store.Memory
-	db    *store.DB // durable device registry (SQLite)
-	sync  *syncsvc.Service
-	zoom  zoom.Client
-	oauth OAuthFlow // non-nil only in user mode
-	mode  string
-	ttl   time.Duration // presence stale-after window
-	log   *slog.Logger
+	store     *store.Memory
+	db        *store.DB // durable device registry (SQLite)
+	sync      *syncsvc.Service
+	zoom      zoom.Client
+	oauth     OAuthFlow // non-nil only in user mode
+	mode      string
+	ttl       time.Duration // presence stale-after window
+	log       *slog.Logger
+	diags     *diagBuffer    // recent device diagnostics (in-memory, for GET /diag)
+	decisions *decisionStore // next-step choices from /decide (in-memory, for GET /decision)
+
+	scenarioAnswers *scenarioAnswerStore // chosen answer per scenario (in-memory, for GET /scenario-answers)
+	history         *historyBuffer       // full device event-log dumps (in-memory, for GET /history)
 }
 
 func NewServer(st *store.Memory, db *store.DB, sync *syncsvc.Service, zc zoom.Client, mode string, ttl time.Duration, log *slog.Logger) *Server {
-	s := &Server{store: st, db: db, sync: sync, zoom: zc, mode: mode, ttl: ttl, log: log}
+	s := &Server{store: st, db: db, sync: sync, zoom: zc, mode: mode, ttl: ttl, log: log, diags: newDiagBuffer(50), decisions: newDecisionStore(), scenarioAnswers: newScenarioAnswerStore(), history: newHistoryBuffer(20)}
 	if of, ok := zc.(OAuthFlow); ok {
 		s.oauth = of
 	}
@@ -125,9 +136,17 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /battery", s.battery)
 	mux.HandleFunc("GET /hardware", s.hardware)
 	mux.HandleFunc("GET /scenarios", s.scenarios)
+	mux.HandleFunc("GET /scenarios/img/{name}", s.scenarioImage)
+	mux.HandleFunc("GET /decide", s.decide)
+	mux.HandleFunc("POST /decision", s.postDecision)
+	mux.HandleFunc("GET /decision", s.getDecision)
+	mux.HandleFunc("POST /scenario-answers", s.postScenarioAnswers)
+	mux.HandleFunc("GET /scenario-answers", s.getScenarioAnswers)
 	mux.HandleFunc("GET /floor/image", s.floorImageHandler)
 	mux.HandleFunc("GET /floor/rooms", s.floorRooms)
 	mux.HandleFunc("GET /info", s.info)
+	mux.HandleFunc("GET /docs", s.docs)
+	mux.HandleFunc("GET /openapi.yaml", s.openapiYAML)
 	mux.HandleFunc("GET /health/live", s.live)
 	mux.HandleFunc("GET /health/ready", s.live)
 	mux.HandleFunc("POST /sync", s.runSync)
@@ -140,6 +159,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /reservations/{id}/check-out", s.checkOut)
 	mux.HandleFunc("POST /presence", s.presence)
 	mux.HandleFunc("POST /presence/heartbeat", s.heartbeat)
+	mux.HandleFunc("POST /diag", s.postDiag)
+	mux.HandleFunc("GET /diag", s.getDiag)
+	mux.HandleFunc("POST /history", s.postHistory)
+	mux.HandleFunc("GET /history", s.getHistory)
 	mux.HandleFunc("GET /occupancy", s.occupancy)
 	if s.oauth != nil {
 		mux.HandleFunc("GET /oauth/login", s.oauthLogin)
@@ -211,6 +234,42 @@ func (s *Server) hardware(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) scenarios(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write(scenariosHTML)
+}
+
+func (s *Server) decide(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(decideHTML)
+}
+
+// scenarioImage serves a scenario's illustration (embedded JPEG). The {name} is a
+// scenario id; restricting it to lowercase letters keeps it inside the embedded
+// scenarios/ directory (no path traversal) and matches the ids used in scenarios.html.
+func (s *Server) scenarioImage(w http.ResponseWriter, r *http.Request) {
+	name := strings.TrimSuffix(r.PathValue("name"), ".jpg")
+	if !isScenarioName(name) {
+		writeError(w, http.StatusNotFound, "not found")
+		return
+	}
+	data, err := scenarioImages.ReadFile("scenarios/" + name + ".jpg")
+	if err != nil {
+		writeError(w, http.StatusNotFound, "not found")
+		return
+	}
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	_, _ = w.Write(data)
+}
+
+func isScenarioName(name string) bool {
+	if name == "" || len(name) > 32 {
+		return false
+	}
+	for _, c := range name {
+		if c < 'a' || c > 'z' {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Server) floorImageHandler(w http.ResponseWriter, _ *http.Request) {

@@ -121,7 +121,7 @@
     .phases { grid-template-columns: 1fr; }
     .lede h2 { font-size: 25px; }
   }
-  @media (max-width: 560px) { main { padding: 22px 14px 48px; } header { padding: 11px 14px; } .brand .tag { display: none; } }
+  @media (max-width: 560px) { main { padding: 22px 14px 48px; } header { padding: 11px 14px; } .brand .tag { display: none; } nav.seg { order: 3; width: 100%; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; } nav.seg::-webkit-scrollbar { display: none; } .right { order: 2; } }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
 </style>
 </head>
@@ -138,6 +138,7 @@
     <a href="/battery">Battery</a>
     <a href="/hardware">Hardware</a>
     <a href="/scenarios">Scenarios</a>
+    <a href="/decide">Next</a>
   </nav>
   <div class="right">
     <span class="chip" id="conn"><span class="led"></span><span id="conn-text">connecting…</span></span>

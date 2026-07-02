@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RoomPulse · Next step</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta name="theme-color" content="#0A0F1F">
+<meta name="color-scheme" content="dark">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #0A0F1F; --ink-2: #0C1428; --panel: #111A33; --panel-2: #16203C;
+    --line: rgba(150,170,220,.12); --line-soft: rgba(150,170,220,.07);
+    --text: #EAEEFB; --muted: #818DB4; --faint: #5C668A;
+    --signal: #2FE6B0; --signal-dim: rgba(47,230,176,.14); --signal-line: rgba(47,230,176,.4);
+    --amber: #F4B740; --amber-dim: rgba(244,183,64,.14); --amber-line: rgba(244,183,64,.4);
+    --r: 14px;
+    --f-display: "Space Grotesk", system-ui, sans-serif;
+    --f-body: "IBM Plex Sans", system-ui, sans-serif;
+    --f-mono: "IBM Plex Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--text); font-family: var(--f-body); font-size: 14px; line-height: 1.55;
+    background:
+      radial-gradient(900px 500px at 82% -8%, rgba(47,230,176,.10), transparent 60%),
+      radial-gradient(800px 520px at 10% 0%, rgba(47,230,176,.06), transparent 55%),
+      linear-gradient(180deg, var(--ink-2), var(--ink) 38%);
+    background-attachment: fixed; min-height: 100vh; }
+
+  header { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 13px 22px; border-bottom: 1px solid var(--line);
+    background: rgba(10,15,31,.72); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+  .brand { display: flex; align-items: center; gap: 11px; text-decoration: none; color: inherit; }
+  .beacon { position: relative; width: 11px; height: 11px; flex: none; }
+  .beacon i { position: absolute; inset: 0; margin: auto; width: 9px; height: 9px; border-radius: 50%;
+    background: #2FE6B0; box-shadow: 0 0 12px #2FE6B0; }
+  .beacon::before, .beacon::after { content: ""; position: absolute; inset: -2px; border-radius: 50%;
+    border: 1.5px solid #2FE6B0; opacity: 0; animation: ping 2.6s cubic-bezier(.2,.6,.3,1) infinite; }
+  .beacon::after { animation-delay: 1.3s; }
+  @keyframes ping { 0% { transform: scale(.7); opacity: .7; } 80%,100% { transform: scale(2.6); opacity: 0; } }
+  .brand h1 { font-family: var(--f-display); font-size: 18px; font-weight: 700; letter-spacing: .2px; margin: 0; }
+  .brand h1 b { color: #2FE6B0; }
+  .brand .tag { font-size: 11px; color: var(--muted); margin-top: 1px; letter-spacing: .2px; }
+  .seg { display: flex; gap: 3px; padding: 3px; border: 1px solid var(--line); border-radius: 999px; background: rgba(150,170,220,.06); flex-wrap: wrap; }
+  .seg a { font-family: var(--f-mono); font-size: 12px; text-decoration: none; color: var(--muted); padding: 7px 14px; border-radius: 999px; transition: color .15s, background .15s; white-space: nowrap; }
+  .seg a.on { background: rgba(47,230,176,.14); color: #2FE6B0; }
+  .seg a:hover:not(.on) { color: var(--text); }
+  .right { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .chip { font-family: var(--f-mono); font-size: 11px; color: var(--muted); border: 1px solid var(--line);
+    border-radius: 999px; padding: 5px 11px; display: inline-flex; gap: 6px; align-items: center; }
+  .chip .led { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); }
+  .chip.live .led { background: #2FE6B0; box-shadow: 0 0 8px #2FE6B0; }
+  .chip.down { color: var(--amber); border-color: rgba(244,183,64,.4); }
+  .chip.down .led { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+
+  main { padding: 30px 24px 64px; max-width: 760px; margin: 0 auto; }
+  .eyebrow { font-family: var(--f-mono); font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 2px; color: var(--signal); margin: 0 0 12px; }
+  .lede h2 { font-family: var(--f-display); font-size: 30px; font-weight: 700; letter-spacing: -.4px; margin: 0 0 10px; line-height: 1.1; }
+  .lede p { font-size: 15px; color: var(--muted); margin: 0; }
+
+  .pick-note { margin-top: 18px; display: flex; gap: 10px; align-items: flex-start; font-size: 13.5px; color: var(--muted);
+    background: var(--panel); border: 1px solid var(--line); border-left: 2px solid var(--signal); border-radius: 10px; padding: 13px 15px; }
+  .pick-note b { color: var(--text); } .pick-note .ni { color: var(--signal); flex: none; margin-top: 1px; } .pick-note .ni svg { width: 18px; height: 18px; display: block; }
+
+  .opts { display: grid; gap: 12px; margin-top: 28px; }
+  .opt { position: relative; display: block; cursor: pointer;
+    background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line);
+    border-radius: var(--r); padding: 16px 18px 16px 50px; transition: border-color .15s, background .15s, box-shadow .15s; }
+  .opt:hover { border-color: var(--signal-line); }
+  .opt > input { position: absolute; opacity: 0; pointer-events: none; }
+  .opt .dot { position: absolute; left: 18px; top: 19px; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--faint); transition: border-color .15s; }
+  .opt .dot::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--signal); transform: scale(0); transition: transform .15s; }
+  .opt > input:checked ~ .dot { border-color: var(--signal); }
+  .opt > input:checked ~ .dot::after { transform: scale(1); }
+  .opt:has(input:checked) { border-color: var(--signal); background: linear-gradient(180deg, rgba(47,230,176,.09), var(--panel)); box-shadow: inset 0 0 0 1px var(--signal-line); }
+  .opt h3 { font-family: var(--f-display); font-weight: 600; font-size: 16px; margin: 0 0 6px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .opt p { margin: 0 0 9px; font-size: 13px; color: var(--muted); }
+  .opt .tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .opt .t { font-family: var(--f-mono); font-size: 10px; text-transform: uppercase; letter-spacing: .6px; color: var(--faint); border: 1px solid var(--line); border-radius: 999px; padding: 3px 8px; }
+  .badge { font-family: var(--f-mono); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .8px; color: var(--ink); background: var(--signal); border-radius: 999px; padding: 3px 9px; }
+  .opt.rec { border-color: var(--signal-line); }
+
+  .custom-wrap { margin: 12px 0 0; }
+  input.txt, textarea { width: 100%; background: var(--ink-2); border: 1px solid var(--line); border-radius: 10px;
+    color: var(--text); font-family: var(--f-body); font-size: 14px; padding: 11px 13px; resize: vertical; }
+  input.txt::placeholder, textarea::placeholder { color: var(--faint); }
+  input.txt:focus, textarea:focus { outline: none; border-color: var(--signal-line); }
+
+  .note-field { margin-top: 20px; }
+  .label-sm { font-family: var(--f-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 1.4px; color: var(--muted); margin: 0 0 8px; }
+
+  .actions { margin-top: 20px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .btn { font-family: var(--f-display); font-weight: 600; font-size: 14px; color: var(--ink); background: var(--signal);
+    border: none; border-radius: 11px; padding: 12px 24px; cursor: pointer; transition: opacity .15s, transform .05s; }
+  .btn:hover { opacity: .92; } .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .hint { font-size: 12.5px; color: var(--faint); }
+  .hint.err { color: var(--amber); }
+
+  .ok-banner { display: none; margin-top: 18px; gap: 11px; align-items: flex-start; font-size: 14px; color: var(--text);
+    background: var(--signal-dim); border: 1px solid var(--signal-line); border-radius: 12px; padding: 15px 16px; }
+  .ok-banner.show { display: flex; }
+  .ok-banner .ni { color: var(--signal); flex: none; margin-top: 1px; } .ok-banner .ni svg { width: 20px; height: 20px; display: block; }
+  .ok-banner b { color: var(--signal); }
+
+  footer { text-align: center; color: var(--faint); font-size: 11.5px; font-family: var(--f-mono); padding: 34px 0 0; }
+
+  @media (max-width: 560px) { main { padding: 22px 14px 48px; } header { padding: 11px 14px; } .brand .tag { display: none; } nav.seg { order: 3; width: 100%; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; } nav.seg::-webkit-scrollbar { display: none; } .right { order: 2; } .lede h2 { font-size: 25px; } }
+  @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
+</style>
+</head>
+<body>
+<header>
+  <a class="brand" href="/">
+    <span class="beacon"><i></i></span>
+    <div><h1>Room<b>Pulse</b></h1><div class="tag">Apple Developer Academy · Bali</div></div>
+  </a>
+  <nav class="seg">
+    <a href="/">Dashboard</a>
+    <a href="/floor">Floor plan</a>
+    <a href="/how">How it works</a>
+    <a href="/battery">Battery</a>
+    <a href="/hardware">Hardware</a>
+    <a href="/scenarios">Scenarios</a>
+    <a href="/decide" class="on" aria-current="page">Next</a>
+  </nav>
+  <div class="right">
+    <span class="chip" id="conn"><span class="led"></span><span id="conn-text">connecting…</span></span>
+  </div>
+</header>
+
+<main>
+  <div class="lede">
+    <div class="eyebrow">Decision · where we go next</div>
+    <h2>What should we build next?</h2>
+    <p>The core tech is proven — beacon, phone-as-beacon, background check-in, clean room handoff, fast hidden backend. What's left is making it land as a product and a pitch. Pick a direction (or write your own) and I'll pick it up.</p>
+    <div class="pick-note">
+      <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.6 6.5L21 9.3l-5 4.3 1.5 6.6L12 16.9 6.5 20.2 8 13.6 3 9.3l6.4-.8z"/></svg></span>
+      <span><b>My pick: Answer the scenarios.</b> The tech already works, so depth is what wins the pitch now — and it's fully in our control, with no external dependency. Real Zoom is the bigger swing but waits on credentials. Your call, though.</span>
+    </div>
+  </div>
+
+  <form id="form" class="opts">
+
+    <label class="opt rec">
+      <input type="radio" name="choice" value="scenarios" data-label="Answer the scenarios">
+      <span class="dot"></span>
+      <h3>Answer the scenarios <span class="badge">Recommended</span></h3>
+      <p>Implement and publish how RoomPulse handles the 12 edge cases on the Scenarios page — booked-but-occupied, no-shows, overstays, two-teams-one-room. The page already promises these answers.</p>
+      <div class="tags"><span class="t">Product depth</span><span class="t">No dependencies</span><span class="t">Fully in our control</span></div>
+    </label>
+
+    <label class="opt">
+      <input type="radio" name="choice" value="zoom" data-label="Real Zoom integration">
+      <span class="dot"></span>
+      <h3>Real Zoom integration</h3>
+      <p>Swap mock Zoom for the real thing — a walk-up check-in drives an actual Zoom room reservation. The biggest "it's really integrated" leap.</p>
+      <div class="tags"><span class="t">High impact</span><span class="t">Needs Zoom app + creds</span></div>
+    </label>
+
+    <label class="opt">
+      <input type="radio" name="choice" value="demo" data-label="Lock the live demo">
+      <span class="dot"></span>
+      <h3>Lock the live demo</h3>
+      <p>Calibrate the beacon at 1&nbsp;m, bulletproof the walk-up → check-in → walk-away flow, and tighten the pitch story. Lowest effort, highest pitch-day reliability.</p>
+      <div class="tags"><span class="t">Low effort</span><span class="t">Pitch-ready</span></div>
+    </label>
+
+    <label class="opt">
+      <input type="radio" name="choice" value="config" data-label="Configurable beacons + admin">
+      <span class="dot"></span>
+      <h3>Configurable beacons + admin</h3>
+      <p>Backend multi-beacon-per-room model plus an owner UI to assign beacons to rooms without reflashing. Groundwork for real deployments.</p>
+      <div class="tags"><span class="t">Infrastructure</span><span class="t">For real rollout</span></div>
+    </label>
+
+    <label class="opt">
+      <input type="radio" name="choice" value="custom" data-label="Custom">
+      <span class="dot"></span>
+      <h3>Something else</h3>
+      <p>Your own direction — tell me what to focus on next.</p>
+      <div class="custom-wrap" id="custom-wrap">
+        <input class="txt" id="custom-text" type="text" maxlength="500" placeholder="e.g. add a real-time floor heatmap, or harden multi-room flapping…">
+      </div>
+    </label>
+
+    <div class="note-field">
+      <p class="label-sm">Anything to add <span style="text-transform:none;letter-spacing:0;color:var(--faint)">(optional — deadline, constraints, why)</span></p>
+      <textarea id="note" rows="3" maxlength="1000" placeholder="Pitch is in 2 weeks · I have Zoom admin access · keep it simple…"></textarea>
+    </div>
+
+    <div class="actions">
+      <button class="btn" id="submit" type="button">Send to Claude</button>
+      <span class="hint" id="hint">Pick one option above.</span>
+    </div>
+
+    <div class="ok-banner" id="ok">
+      <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg></span>
+      <span id="ok-text"></span>
+    </div>
+
+  </form>
+
+  <footer>RoomPulse · your call shapes the next build</footer>
+</main>
+
+<script>
+  function setConn(ok) {
+    var c = document.getElementById("conn");
+    c.className = "chip " + (ok ? "live" : "down");
+    document.getElementById("conn-text").textContent = ok ? "Live" : "Offline";
+  }
+  function ping() { fetch("/health/live").then(function (r) { setConn(r.ok); }).catch(function () { setConn(false); }); }
+  ping(); setInterval(ping, 10000);
+
+  var hint = document.getElementById("hint");
+  var customText = document.getElementById("custom-text");
+
+  document.querySelectorAll('input[name=choice]').forEach(function (el) {
+    el.addEventListener("change", function () {
+      hint.textContent = ""; hint.classList.remove("err");
+    });
+  });
+
+  // Typing in the custom box selects the "Something else" option — so the box
+  // can sit visible without forcing a separate tap to choose it.
+  function pickCustom() {
+    document.querySelector('input[value="custom"]').checked = true;
+    hint.textContent = ""; hint.classList.remove("err");
+  }
+  customText.addEventListener("focus", pickCustom);
+  customText.addEventListener("input", pickCustom);
+
+  document.getElementById("submit").addEventListener("click", function () {
+    var sel = document.querySelector('input[name=choice]:checked');
+    if (!sel) { hint.textContent = "Pick one option first."; hint.classList.add("err"); return; }
+    var choice = sel.value;
+    var label = sel.getAttribute("data-label") || choice;
+    var custom = customText.value.trim();
+    var note = document.getElementById("note").value.trim();
+    if (choice === "custom" && !custom) { hint.textContent = "Tell me what to focus on."; hint.classList.add("err"); customText.focus(); return; }
+
+    var btn = document.getElementById("submit");
+    btn.disabled = true; btn.textContent = "Sending…"; hint.textContent = ""; hint.classList.remove("err");
+
+    fetch("/decision", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ choice: choice, label: label, custom: custom, note: note })
+    }).then(function (r) {
+      if (!r.ok) throw new Error("bad status");
+      return r.json();
+    }).then(function () {
+      var shown = choice === "custom" ? custom : label;
+      document.getElementById("ok-text").innerHTML = "<b>Got it.</b> Recorded “" + shown.replace(/</g, "&lt;") + "” — Claude will pick this up. You can close this page.";
+      document.getElementById("ok").classList.add("show");
+      btn.textContent = "Sent ✓";
+    }).catch(function () {
+      btn.disabled = false; btn.textContent = "Send to Claude";
+      hint.textContent = "Couldn't send — check your connection and try again."; hint.classList.add("err");
+    });
+  });
+</script>
+</body>
+</html>

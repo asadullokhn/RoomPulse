@@ -57,28 +57,83 @@
   .chip.down { color: var(--amber); border-color: rgba(244,183,64,.4); }
   .chip.down .led { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
 
-  main { padding: 30px 24px 64px; max-width: 1040px; margin: 0 auto; }
+  main { padding: 30px 24px 64px; max-width: 860px; margin: 0 auto; }
   .eyebrow { font-family: var(--f-mono); font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 2px; color: var(--signal); margin: 0 0 12px; }
   .lede h2 { font-family: var(--f-display); font-size: 30px; font-weight: 700; letter-spacing: -.4px; margin: 0 0 10px; line-height: 1.1; }
-  .lede p { font-size: 15px; color: var(--muted); max-width: 680px; margin: 0; }
+  .lede p { font-size: 15px; color: var(--muted); max-width: 700px; margin: 0; }
 
   .answers-note { margin-top: 18px; display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--muted);
     background: var(--panel); border: 1px solid var(--line); border-left: 2px solid var(--signal); border-radius: 10px; padding: 13px 15px; }
   .answers-note b { color: var(--text); } .answers-note .ni { color: var(--signal); flex: none; margin-top: 1px; } .answers-note .ni svg { width: 16px; height: 16px; display: block; }
 
-  .block { margin-top: 34px; }
-  .cases { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-  .case { background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; display: flex; flex-direction: column; }
+  /* who is answering */
+  .who { margin-top: 18px; background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; }
+  .who .label-sm { margin: 0 0 12px; }
+  .who-row { display: flex; gap: 9px; flex-wrap: wrap; }
+  .who-chip { font-family: var(--f-display); font-weight: 600; font-size: 13.5px; color: var(--text); background: rgba(150,170,220,.06); border: 1px solid var(--line); border-radius: 999px; padding: 9px 17px; cursor: pointer; transition: color .15s, background .15s, border-color .15s; }
+  .who-chip:hover { border-color: var(--signal-line); }
+  .who-chip.on { background: rgba(47,230,176,.14); border-color: var(--signal); color: var(--signal); }
+  .who-other { display: none; margin-top: 12px; }
+  .who-other.show { display: block; }
+  .who-other input { max-width: 280px; }
+
+  /* one problem case + its answer-picker */
+  .scenario { margin-top: 30px; }
+  .case { background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line); border-radius: var(--r); padding: 18px; }
   .ctag { font-family: var(--f-mono); font-size: 10px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--faint); margin-bottom: 9px; }
   .case h3 { font-family: var(--f-display); font-weight: 600; font-size: 16.5px; margin: 0 0 8px; }
-  .case > p { font-size: 13px; color: var(--muted); margin: 0 0 13px; line-height: 1.55; flex: 1; }
+  .case > p { font-size: 13.5px; color: var(--muted); margin: 0 0 13px; line-height: 1.55; }
   .prob { font-size: 12.5px; color: var(--text); background: var(--red-dim); border: 1px solid var(--red-line); border-radius: 9px; padding: 9px 12px; line-height: 1.5; }
   .prob span { font-family: var(--f-mono); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .8px; color: var(--red); margin-right: 6px; }
 
+  /* full-bleed illustration banner across the top of each case card */
+  .case-img { display: block; width: calc(100% + 36px); height: auto; margin: -18px -18px 15px;
+    border-radius: var(--r) var(--r) 0 0; border-bottom: 1px solid var(--line); background: var(--ink-2); }
+
+  .picker { margin-top: 14px; }
+  .label-sm { font-family: var(--f-mono); font-size: 11px; text-transform: uppercase; letter-spacing: 1.4px; color: var(--muted); margin: 0 0 10px; }
+
+  .opts { display: grid; gap: 10px; }
+  .opt { position: relative; display: block; cursor: pointer;
+    background: linear-gradient(180deg, var(--panel-2), var(--panel)); border: 1px solid var(--line);
+    border-radius: var(--r); padding: 15px 18px 15px 50px; transition: border-color .15s, background .15s, box-shadow .15s; }
+  .opt:hover { border-color: var(--signal-line); }
+  /* hide the radio ONLY when it is a direct child — never the nested custom text box */
+  .opt > input { position: absolute; opacity: 0; pointer-events: none; }
+  .opt .dot { position: absolute; left: 18px; top: 18px; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--faint); transition: border-color .15s; }
+  .opt .dot::after { content: ""; position: absolute; inset: 3px; border-radius: 50%; background: var(--signal); transform: scale(0); transition: transform .15s; }
+  .opt > input:checked ~ .dot { border-color: var(--signal); }
+  .opt > input:checked ~ .dot::after { transform: scale(1); }
+  .opt:has(input:checked) { border-color: var(--signal); background: linear-gradient(180deg, rgba(47,230,176,.09), var(--panel)); box-shadow: inset 0 0 0 1px var(--signal-line); }
+  .opt h3 { font-family: var(--f-display); font-weight: 600; font-size: 15.5px; margin: 0 0 6px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .opt p { margin: 0; font-size: 13px; color: var(--muted); }
+  .badge { font-family: var(--f-mono); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .8px; color: var(--ink); background: var(--signal); border-radius: 999px; padding: 3px 9px; }
+  .opt.rec { border-color: var(--signal-line); }
+
+  .custom-wrap { margin: 12px 0 0; }
+  input.txt { width: 100%; background: var(--ink-2); border: 1px solid var(--line); border-radius: 10px;
+    color: var(--text); font-family: var(--f-body); font-size: 14px; padding: 11px 13px; }
+  input.txt::placeholder { color: var(--faint); }
+  input.txt:focus { outline: none; border-color: var(--signal-line); }
+
+  .submit-bar { margin-top: 40px; padding-top: 26px; border-top: 1px solid var(--line); }
+  .actions { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  .btn { font-family: var(--f-display); font-weight: 600; font-size: 14px; color: var(--ink); background: var(--signal);
+    border: none; border-radius: 11px; padding: 12px 24px; cursor: pointer; transition: opacity .15s, transform .05s; }
+  .btn:hover { opacity: .92; } .btn:active { transform: translateY(1px); }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .hint { font-size: 12.5px; color: var(--faint); }
+  .hint.err { color: var(--amber); }
+
+  .ok-banner { display: none; margin-top: 18px; gap: 11px; align-items: flex-start; font-size: 14px; color: var(--text);
+    background: var(--signal-dim); border: 1px solid var(--signal-line); border-radius: 12px; padding: 15px 16px; }
+  .ok-banner.show { display: flex; }
+  .ok-banner .ni { color: var(--signal); flex: none; margin-top: 1px; } .ok-banner .ni svg { width: 20px; height: 20px; display: block; }
+  .ok-banner b { color: var(--signal); }
+
   footer { text-align: center; color: var(--faint); font-size: 11.5px; font-family: var(--f-mono); padding: 34px 0 0; }
 
-  @media (max-width: 820px) { .cases { grid-template-columns: 1fr; } .lede h2 { font-size: 25px; } }
-  @media (max-width: 560px) { main { padding: 22px 14px 48px; } header { padding: 11px 14px; } .brand .tag { display: none; } }
+  @media (max-width: 560px) { main { padding: 22px 14px 48px; } header { padding: 11px 14px; } .brand .tag { display: none; } nav.seg { order: 3; width: 100%; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; } nav.seg::-webkit-scrollbar { display: none; } .right { order: 2; } .lede h2 { font-size: 25px; } }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
 </style>
 </head>
@@ -95,6 +150,7 @@
     <a href="/battery">Battery</a>
     <a href="/hardware">Hardware</a>
     <a href="/scenarios" class="on" aria-current="page">Scenarios</a>
+    <a href="/decide">Next</a>
   </nav>
   <div class="right">
     <span class="chip" id="conn"><span class="led"></span><span id="conn-text">connecting…</span></span>
@@ -105,104 +161,548 @@
   <div class="lede">
     <div class="eyebrow">The reality of room booking</div>
     <h2>The everyday "what if" cases</h2>
-    <p>Meeting-room booking looks solved on a calendar and breaks the moment people walk around. These are the real situations — the ones that came up in the pitch, and more. First the problems, plainly.</p>
+    <p>Meeting-room booking looks solved on a calendar and breaks the moment people walk around. These are the real situations — the ones that came up in the pitch, and more. Read each, then pick how RoomPulse should answer.</p>
     <div class="answers-note">
       <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg></span>
-      <span><b>Answers come next.</b> How RoomPulse solves each of these will be added from the real system — not guesses. The problems are framed first so the solution speaks for itself.</span>
+      <span><b>Pick your name (or several, if you agree as a group), then choose how RoomPulse should answer each case.</b> The option badged <b>Recommended</b> matches what the real system already does. Hit "Submit answers" and your picks go to Claude — then the next teammate can pick their name and answer on the same device.</span>
     </div>
   </div>
 
-  <section class="block">
-    <div class="cases">
+  <div class="who">
+    <p class="label-sm">Who's answering? <span style="text-transform:none;letter-spacing:0;color:var(--faint)">— pick one or several</span></p>
+    <div class="who-row" id="who-row">
+      <button type="button" class="who-chip" data-name="Ali">Ali</button>
+      <button type="button" class="who-chip" data-name="Abu">Abu</button>
+      <button type="button" class="who-chip" data-name="Diyora">Diyora</button>
+      <button type="button" class="who-chip" data-name="Rei">Rei</button>
+      <button type="button" class="who-chip" data-name="Reno">Reno</button>
+      <button type="button" class="who-chip" data-name="__other" id="who-other-chip">Other</button>
+    </div>
+    <div class="who-other" id="who-other">
+      <input class="txt" id="who-other-input" type="text" maxlength="48" placeholder="Your name…">
+    </div>
+  </div>
 
+  <form id="form">
+
+    <section class="scenario" data-sc="occupied">
       <div class="case">
-        <div class="ctag">Booking ≠ reality</div>
+        <img class="case-img" src="/scenarios/img/occupied.jpg" alt="A person at the door of a booked room finds another group already inside" width="1344" height="768" loading="lazy" decoding="async">
+        <div class="ctag">01 · Booking ≠ reality</div>
         <h3>Booked room is occupied</h3>
         <p>You booked a meeting room, but when you arrive, someone else is already inside. The system says it's yours; reality says "good luck knocking."</p>
         <div class="prob"><span>Problem</span>The calendar booking has no idea who is actually in the room.</div>
       </div>
+      <div class="picker">
+        <p class="label-sm">How should RoomPulse answer?</p>
+        <div class="opts">
+          <label class="opt rec">
+            <input type="radio" name="sc_occupied" value="o1" data-label="Auto-confirm check-in from presence">
+            <span class="dot"></span>
+            <h3>Auto-confirm check-in from presence <span class="badge">Recommended</span></h3>
+            <p>When RoomPulse detects a phone physically inside the booked room, it drives Zoom check-in on that workspace's reservation (existing heartbeat -> driveReservation path), so the booking reflects that the room is genuinely in use without anyone tapping check-in.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_occupied" value="o2" data-label="Flag booker-versus-occupant mismatch">
+            <span class="dot"></span>
+            <h3>Flag booker-versus-occupant mismatch</h3>
+            <p>Compare the present user IDs from AllOccupancy against the reservation's booker (UserID/UserEmail); if the booking holder isn't among the people actually inside, mark the booking as occupied-by-others so staff can spot squatters or wrong-room use.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_occupied" value="o3" data-label="Surface live headcount beside booking">
+            <span class="dot"></span>
+            <h3>Surface live headcount beside booking</h3>
+            <p>Show the real-time occupancy count and names from /occupancy next to each calendar booking on the floor and dashboard, presenting 'booked by X, N people currently inside' side by side without forcing any check-in state change.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_occupied" value="custom" data-label="Something else">
+            <span class="dot"></span>
+            <h3>Something else</h3>
+            <p>Your own answer for this case.</p>
+            <div class="custom-wrap">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+            </div>
+          </label>
+        </div>
+      </div>
+    </section>
 
+    <section class="scenario" data-sc="noshow">
       <div class="case">
-        <div class="ctag">No-shows</div>
+        <img class="case-img" src="/scenarios/img/noshow.jpg" alt="Empty meeting rooms still locked as reserved while a person stands outside" width="1344" height="768" loading="lazy" decoding="async">
+        <div class="ctag">02 · No-shows</div>
         <h3>Empty room is still marked booked</h3>
         <p>You need a room now. You walk past rooms that are physically empty, but the booking system shows every one of them as reserved.</p>
         <div class="prob"><span>Problem</span>People booked rooms and never showed up, so usable rooms stay blocked.</div>
       </div>
+      <div class="picker">
+        <p class="label-sm">How should RoomPulse answer?</p>
+        <div class="opts">
+          <label class="opt rec">
+            <input type="radio" name="sc_noshow" value="o1" data-label="Auto-release after no-show grace">
+            <span class="dot"></span>
+            <h3>Auto-release after no-show grace <span class="badge">Recommended</span></h3>
+            <p>When a booking's start time passes by a set grace window (e.g. 10 min) with zero presence ever detected in the room, RoomPulse marks it no_show and releases the reservation in Zoom so the room frees up automatically. The detection rides the same periodic TTL/reap sweep that already drives check-out.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_noshow" value="o2" data-label="Flag no-show, notify before releasing">
+            <span class="dot"></span>
+            <h3>Flag no-show, notify before releasing</h3>
+            <p>After the grace window with no detected presence, mark the booking no_show and surface it as reclaimable on the floor view while pinging the booker, but only release it to Zoom on confirmation or a second longer timeout. This avoids cancelling someone who is merely running late.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_noshow" value="o3" data-label="Open room to walk-in claim">
+            <span class="dot"></span>
+            <h3>Open room to walk-in claim</h3>
+            <p>Once flagged no-show, stop treating the booking as blocking: the room shows available and the first person who physically walks in claims it via presence, which auto-releases the ghost reservation. Leans entirely on presence-truth instead of a hard upfront cancel.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_noshow" value="custom" data-label="Something else">
+            <span class="dot"></span>
+            <h3>Something else</h3>
+            <p>Your own answer for this case.</p>
+            <div class="custom-wrap">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+            </div>
+          </label>
+        </div>
+      </div>
+    </section>
 
+    <section class="scenario" data-sc="overstay">
       <div class="case">
-        <div class="ctag">Overstay</div>
+        <img class="case-img" src="/scenarios/img/overstay.jpg" alt="A person waits outside a room checking a watch while a meeting runs past time" width="1344" height="768" loading="lazy" decoding="async">
+        <div class="ctag">03 · Overstay</div>
         <h3>The meeting that won't end</h3>
         <p>Your slot has started, but the previous group is still inside and in no hurry to leave. You hover outside, checking your watch.</p>
         <div class="prob"><span>Problem</span>Bookings track the scheduled time, not when the room is actually free again.</div>
       </div>
+      <div class="picker">
+        <p class="label-sm">How should RoomPulse answer?</p>
+        <div class="opts">
+          <label class="opt rec">
+            <input type="radio" name="sc_overstay" value="o1" data-label="Show occupied past scheduled end">
+            <span class="dot"></span>
+            <h3>Show occupied past scheduled end <span class="badge">Recommended</span></h3>
+            <p>When the clock passes the booked end time but heartbeats still show bodies in the room, keep it displayed as occupied on the floor and dashboard instead of flipping to free. The room only turns available once presence actually clears via a leave heartbeat or the TTL reap, so 'free again' comes from real bodies, not the calendar.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_overstay" value="o2" data-label="Alert next booker on overstay">
+            <span class="dot"></span>
+            <h3>Alert next booker on overstay</h3>
+            <p>Detect overstay when occupancy is still above zero after a reservation's end time, log an overstay event, and notify the incoming back-to-back booker that the room is physically still in use. They learn it before walking in, instead of finding the previous meeting still running.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_overstay" value="o3" data-label="Hold booking until room empties">
+            <span class="dot"></span>
+            <h3>Hold booking until room empties</h3>
+            <p>Skip the auto-check-out at the scheduled end time and keep the reservation checked-in while live presence shows people inside, releasing it only when the room empties via a leave heartbeat or TTL reap. The booking's released-at then reflects the true free-again moment rather than the planned slot.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_overstay" value="custom" data-label="Something else">
+            <span class="dot"></span>
+            <h3>Something else</h3>
+            <p>Your own answer for this case.</p>
+            <div class="custom-wrap">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+            </div>
+          </label>
+        </div>
+      </div>
+    </section>
 
+    <section class="scenario" data-sc="ghosthold">
       <div class="case">
-        <div class="ctag">Stale bookings</div>
+        <img class="case-img" src="/scenarios/img/ghosthold.jpg" alt="An empty room held by a faded recurring calendar booking nobody attends" width="1344" height="768" loading="lazy" decoding="async">
+        <div class="ctag">04 · Stale bookings</div>
         <h3>Ghost recurring holds</h3>
         <p>A weekly hold from a project that wrapped months ago still owns the room every Tuesday at 10. Nobody ever comes — but nobody can book it either.</p>
         <div class="prob"><span>Problem</span>Stale recurring reservations quietly hoard rooms no one uses.</div>
       </div>
+      <div class="picker">
+        <p class="label-sm">How should RoomPulse answer?</p>
+        <div class="opts">
+          <label class="opt rec">
+            <input type="radio" name="sc_ghosthold" value="o1" data-label="Auto-release after empty grace">
+            <span class="dot"></span>
+            <h3>Auto-release after empty grace <span class="badge">Recommended</span></h3>
+            <p>When a reservation's start passes with the room's occupancy still zero past a short grace window, RoomPulse marks it no_show and drives a Zoom check-out so the room returns to the bookable pool. Reuses the existing ReapLoop timer, AllOccupancy presence count, and driveReservation check-out path.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_ghosthold" value="o2" data-label="Flag chronic ghost series">
+            <span class="dot"></span>
+            <h3>Flag chronic ghost series</h3>
+            <p>Using the retained 14-day enter/leave history, detect recurring slots that come up empty week after week and surface them in a report so an admin can cancel the series at the source. RoomPulse can free individual occurrences but can't delete a Zoom recurring booking itself, so escalation is the honest fix.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_ghosthold" value="o3" data-label="Show held-but-empty as open">
+            <span class="dot"></span>
+            <h3>Show held-but-empty as open</h3>
+            <p>Keep the booking but render any zero-occupancy held room as available-now on the floor view, so the first walk-in's detected presence claims it and drives check-in on the existing reservation. The ghost hold never blocks real use, exactly as today's heartbeat check-in flow already works.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_ghosthold" value="custom" data-label="Something else">
+            <span class="dot"></span>
+            <h3>Something else</h3>
+            <p>Your own answer for this case.</p>
+            <div class="custom-wrap">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+            </div>
+          </label>
+        </div>
+      </div>
+    </section>
 
+    <section class="scenario" data-sc="roomhunt">
       <div class="case">
-        <div class="ctag">Real-time gap</div>
+        <img class="case-img" src="/scenarios/img/roomhunt.jpg" alt="A person walking a corridor of closed doors searching for a free room" width="1344" height="768" loading="lazy" decoding="async">
+        <div class="ctag">05 · Real-time gap</div>
         <h3>The ten-minute room hunt</h3>
         <p>You just need somewhere for a quick call. You wander the floor opening doors, because the system shows everything booked and nothing about what's free right now.</p>
         <div class="prob"><span>Problem</span>There's no live view of which rooms are actually available this minute.</div>
       </div>
+      <div class="picker">
+        <p class="label-sm">How should RoomPulse answer?</p>
+        <div class="opts">
+          <label class="opt rec">
+            <input type="radio" name="sc_roomhunt" value="o1" data-label="Live free-now floor map">
+            <span class="dot"></span>
+            <h3>Live free-now floor map <span class="badge">Recommended</span></h3>
+            <p>Paint every room on the floor plan Free, In-use, or Booked by fusing live beacon occupancy (/occupancy) with the current Zoom reservation window, auto-refreshing every few seconds. One glance shows which rooms are actually open this minute instead of walking the corridor.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_roomhunt" value="o2" data-label="Find a free room now">
+            <span class="dot"></span>
+            <h3>Find a free room now</h3>
+            <p>A one-tap query that returns rooms with zero live presence AND no active reservation, optionally filtered by capacity or screen and ranked by floor/zone. Answers 'where can I go right now' directly from presence truth rather than guessing.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_roomhunt" value="o3" data-label="Flag booked-but-empty ghost rooms">
+            <span class="dot"></span>
+            <h3>Flag booked-but-empty ghost rooms</h3>
+            <p>Surface rooms reserved for the current slot but showing zero presence past a short grace window (booker never checked in or was TTL-reaped) as 'available now, likely no-show.' Turns dead ghost bookings back into reclaimable inventory during the hunt.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_roomhunt" value="custom" data-label="Something else">
+            <span class="dot"></span>
+            <h3>Something else</h3>
+            <p>Your own answer for this case.</p>
+            <div class="custom-wrap">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+            </div>
+          </label>
+        </div>
+      </div>
+    </section>
 
+    <section class="scenario" data-sc="justincase">
       <div class="case">
-        <div class="ctag">Hoarding</div>
+        <img class="case-img" src="/scenarios/img/justincase.jpg" alt="One person holding several booked rooms at once while only one is used" width="1344" height="768" loading="lazy" decoding="async">
+        <div class="ctag">06 · Hoarding</div>
         <h3>Booked "just in case"</h3>
         <p>Someone reserves three slots across the day to be safe, uses one, and releases none. Multiply that by a team and the floor is "full" by 9am.</p>
         <div class="prob"><span>Problem</span>Hoarding rooms costs nothing, so calendars fill with reservations no one honors.</div>
       </div>
+      <div class="picker">
+        <p class="label-sm">How should RoomPulse answer?</p>
+        <div class="opts">
+          <label class="opt rec">
+            <input type="radio" name="sc_justincase" value="o1" data-label="Reclaim holds nobody shows for">
+            <span class="dot"></span>
+            <h3>Reclaim holds nobody shows for <span class="badge">Recommended</span></h3>
+            <p>When a booked slot reaches start-time plus a short grace with zero presence detected in the room, RoomPulse flags it no_show and releases it back to the pool — reusing the same TTL/ReapStale + driveReservation auto-checkout path that already reaps empty rooms. Hoarded slots no one honors free themselves instead of blocking the calendar.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_justincase" value="o2" data-label="Release a booker's parallel holds">
+            <span class="dot"></span>
+            <h3>Release a booker's parallel holds</h3>
+            <p>Presence proves a person can occupy only one room at a time, so once RoomPulse sees a user actually present in one room it auto-releases that same booker's other overlapping reservations (joined by UserID). The classic 'reserve three rooms just in case' collapses to the one they're physically in.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_justincase" value="o3" data-label="Surface booked-vs-honored per booker">
+            <span class="dot"></span>
+            <h3>Surface booked-vs-honored per booker</h3>
+            <p>RoomPulse joins each reservation to real presence from the enter/leave event log and publishes a per-person and per-team 'honored vs booked' ratio on the dashboard, making chronic hoarders visible to facilities and peers. It turns 'hoarding costs nothing' into a visible, accountable number without auto-cancelling anything.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_justincase" value="custom" data-label="Something else">
+            <span class="dot"></span>
+            <h3>Something else</h3>
+            <p>Your own answer for this case.</p>
+            <div class="custom-wrap">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+            </div>
+          </label>
+        </div>
+      </div>
+    </section>
 
+    <section class="scenario" data-sc="collision">
       <div class="case">
-        <div class="ctag">Collisions</div>
+        <img class="case-img" src="/scenarios/img/collision.jpg" alt="Two groups approaching the same room from opposite sides at once" width="1344" height="768" loading="lazy" decoding="async">
+        <div class="ctag">07 · Collisions</div>
         <h3>Two teams, one room</h3>
         <p>You walk in for your booking and another group is already setting up, equally certain the room is theirs. Now it's a standoff.</p>
         <div class="prob"><span>Problem</span>Bookings and walk-ins collide with no single source of truth for who's really in.</div>
       </div>
+      <div class="picker">
+        <p class="label-sm">How should RoomPulse answer?</p>
+        <div class="opts">
+          <label class="opt rec">
+            <input type="radio" name="sc_collision" value="o1" data-label="Match occupants to booker">
+            <span class="dot"></span>
+            <h3>Match occupants to booker <span class="badge">Recommended</span></h3>
+            <p>When phones enter a booked room, compare the live presence set (the display names/devices actually inside) against the reservation's booker before acting: auto check-in only if the booker is among those present, otherwise hold check-in and flag the room as a booking-vs-occupant mismatch on the floor view.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_collision" value="o2" data-label="Let presence override the booking">
+            <span class="dot"></span>
+            <h3>Let presence override the booking</h3>
+            <p>Treat the bodies in the room as the source of truth: if a different group occupies a booked slot, never check the no-show booker in, surface the real headcount as the occupant, and release the stale reservation so it stops blocking the room.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_collision" value="o3" data-label="First team in holds it">
+            <span class="dot"></span>
+            <h3>First team in holds it</h3>
+            <p>Whoever is physically present first owns the room for that slot regardless of who booked; a late-arriving booker sees it as occupied, and the room only frees when those occupants leave or the TTL reaper checks them out.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_collision" value="custom" data-label="Something else">
+            <span class="dot"></span>
+            <h3>Something else</h3>
+            <p>Your own answer for this case.</p>
+            <div class="custom-wrap">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+            </div>
+          </label>
+        </div>
+      </div>
+    </section>
 
+    <section class="scenario" data-sc="nobook">
       <div class="case">
-        <div class="ctag">Invisible use</div>
+        <img class="case-img" src="/scenarios/img/nobook.jpg" alt="A group using a room informally with no reservation the system can see" width="1344" height="768" loading="lazy" decoding="async">
+        <div class="ctag">08 · Invisible use</div>
         <h3>Grabbed without booking</h3>
         <p>You take an empty room for a quick sync without booking it. Ten minutes in, someone with a reservation opens the door and you're out.</p>
         <div class="prob"><span>Problem</span>Informal, real use is invisible to the system, so it can't reflect or protect it.</div>
       </div>
+      <div class="picker">
+        <p class="label-sm">How should RoomPulse answer?</p>
+        <div class="opts">
+          <label class="opt rec">
+            <input type="radio" name="sc_nobook" value="o1" data-label="Surface walk-ins as live occupancy">
+            <span class="dot"></span>
+            <h3>Surface walk-ins as live occupancy <span class="badge">Recommended</span></h3>
+            <p>Treat sustained beacon presence in an unbooked room as real occupancy: mark it busy-by-presence with a "walk-in / no booking" tag and live headcount on the floor and /occupancy views, so anyone scanning for a free room sees it is genuinely in use. Pure presence-truth, no Zoom write, and it auto-clears on leave or TTL.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_nobook" value="o2" data-label="Offer one-tap walk-in claim">
+            <span class="dot"></span>
+            <h3>Offer one-tap walk-in claim</h3>
+            <p>When the app detects you are physically in an unbooked room, prompt you to create or claim a short walk-in reservation in Zoom so the calendar reflects reality and a later booker can not silently evict you. Presence then drives its check-out automatically when you leave or the TTL expires.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_nobook" value="o3" data-label="Log walk-in sessions for utilization">
+            <span class="dot"></span>
+            <h3>Log walk-in sessions for utilization</h3>
+            <p>Record every unbooked-but-occupied session as enter/leave plus headcount events even when no reservation ever existed, so the room's real usage appears in history and analytics. Turns invisible informal use into honest utilization data for facilities.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_nobook" value="custom" data-label="Something else">
+            <span class="dot"></span>
+            <h3>Something else</h3>
+            <p>Your own answer for this case.</p>
+            <div class="custom-wrap">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+            </div>
+          </label>
+        </div>
+      </div>
+    </section>
 
+    <section class="scenario" data-sc="mismatch">
       <div class="case">
-        <div class="ctag">Mismatch</div>
+        <img class="case-img" src="/scenarios/img/mismatch.jpg" alt="Two people in a large room while a crowd overflows a small one nearby" width="1344" height="768" loading="lazy" decoding="async">
+        <div class="ctag">09 · Mismatch</div>
         <h3>Eight-person room for two</h3>
         <p>A quick 1:1 settles into the big room while a team of eight circles the floor with nowhere to land.</p>
         <div class="prob"><span>Problem</span>Nothing matches the group that's actually there to the size of the room they took.</div>
       </div>
+      <div class="picker">
+        <p class="label-sm">How should RoomPulse answer?</p>
+        <div class="opts">
+          <label class="opt rec">
+            <input type="radio" name="sc_mismatch" value="o1" data-label="Flag underused rooms live">
+            <span class="dot"></span>
+            <h3>Flag underused rooms live <span class="badge">Recommended</span></h3>
+            <p>Compare each room's live headcount to its capacity and badge the oversized ones (e.g. 2/8) on the floor and dashboard, so facilities and the next booker can see a pair sitting in an eight-seat room. Purely observational - presence-truth surfaces the waste without evicting anyone mid-meeting.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_mismatch" value="o2" data-label="Suggest a right-sized swap">
+            <span class="dot"></span>
+            <h3>Suggest a right-sized swap</h3>
+            <p>When live headcount stays far below capacity and a smaller room is free, the app nudges the small group to move and offers the freed big room to a team that has nowhere to land. A voluntary suggestion driven by real presence, never an automatic eviction.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_mismatch" value="o3" data-label="Log mismatches for rebalancing">
+            <span class="dot"></span>
+            <h3>Log mismatches for rebalancing</h3>
+            <p>Record the headcount-to-capacity ratio for every occupied room over time so facilities can see which rooms are chronically mis-booked and resize or re-map inventory. Tunes the building from real usage instead of interrupting any single meeting.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_mismatch" value="custom" data-label="Something else">
+            <span class="dot"></span>
+            <h3>Something else</h3>
+            <p>Your own answer for this case.</p>
+            <div class="custom-wrap">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+            </div>
+          </label>
+        </div>
+      </div>
+    </section>
 
+    <section class="scenario" data-sc="late">
       <div class="case">
-        <div class="ctag">Lateness</div>
+        <img class="case-img" src="/scenarios/img/late.jpg" alt="A person hurrying toward a room as the clock shows just past the start time" width="1344" height="768" loading="lazy" decoding="async">
+        <div class="ctag">10 · Lateness</div>
         <h3>You're a few minutes late</h3>
         <p>You arrive five minutes after the start — and your room has already been handed off, or flagged a no-show.</p>
         <div class="prob"><span>Problem</span>Rigid no-show rules punish normal, everyday lateness.</div>
       </div>
+      <div class="picker">
+        <p class="label-sm">How should RoomPulse answer?</p>
+        <div class="opts">
+          <label class="opt rec">
+            <input type="radio" name="sc_late" value="o1" data-label="Auto check-in on arrival">
+            <span class="dot"></span>
+            <h3>Auto check-in on arrival <span class="badge">Recommended</span></h3>
+            <p>Hold the booking through a short grace window and let presence decide: the instant your beacon is seen in the room, RoomPulse fires the Zoom check-in (the same heartbeat path it already uses on entry) and cancels any pending no-show. A few minutes late never costs the room because arrival, not the clock, settles it.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_late" value="o2" data-label="Hold until grace window expires">
+            <span class="dot"></span>
+            <h3>Hold until grace window expires</h3>
+            <p>Do nothing to the reservation at start time. Only after a configurable grace period with the room's live occupancy still at zero does RoomPulse release it or flag a no-show, so a room is never reclaimed unless presence-truth confirms it's genuinely empty-and-late.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_late" value="o3" data-label="Make no-show reversible on arrival">
+            <span class="dot"></span>
+            <h3>Make no-show reversible on arrival</h3>
+            <p>Treat any start-time no-show as provisional rather than final: the moment presence detects you in the room, RoomPulse re-checks you in and pulls the booking back from no-show. Lateness becomes a soft, self-correcting state instead of a hard penalty.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_late" value="custom" data-label="Something else">
+            <span class="dot"></span>
+            <h3>Something else</h3>
+            <p>Your own answer for this case.</p>
+            <div class="custom-wrap">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+            </div>
+          </label>
+        </div>
+      </div>
+    </section>
 
+    <section class="scenario" data-sc="laptop">
       <div class="case">
-        <div class="ctag">Ghost presence</div>
+        <img class="case-img" src="/scenarios/img/laptop.jpg" alt="An empty room with only a glowing laptop left on the table" width="1344" height="768" loading="lazy" decoding="async">
+        <div class="ctag">11 · Ghost presence</div>
         <h3>A laptop "holds" the room</h3>
         <p>The person stepped out, but their laptop (or phone) is still on the table — so the room reads as busy while it sits empty.</p>
         <div class="prob"><span>Problem</span>A device in the room isn't the same as a person actually using it.</div>
       </div>
+      <div class="picker">
+        <p class="label-sm">How should RoomPulse answer?</p>
+        <div class="opts">
+          <label class="opt rec">
+            <input type="radio" name="sc_laptop" value="o1" data-label="Trust headcount over device holds">
+            <span class="dot"></span>
+            <h3>Trust headcount over device holds <span class="badge">Recommended</span></h3>
+            <p>RoomPulse counts only the app-phones people carry, so a laptop, TV, or idle gadget adds nothing to a room's live occupancy. When a booking still reads checked-in but the headcount is zero, it drives a check-out and frees the room, so a device alone can never hold it.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_laptop" value="o2" data-label="Require a zero-headcount grace window">
+            <span class="dot"></span>
+            <h3>Require a zero-headcount grace window</h3>
+            <p>Don't release on a single empty reading: require zero present phones for a short grace window before driving check-out or marking no-show. This absorbs brief BLE dropouts so a real meeting where someone briefly stepped out isn't evicted, while a laptop-only 'hold' still times out.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_laptop" value="o3" data-label="Re-confirm a lone lingering phone">
+            <span class="dot"></span>
+            <h3>Re-confirm a lone lingering phone</h3>
+            <p>If the only presence left in a room is one device that keeps heartbeating past the reservation's end time, send a 'still in the room?' push and reap it on no response. This catches the true ghost case where our own sensor, a forgotten phone, keeps a room checked in.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_laptop" value="custom" data-label="Something else">
+            <span class="dot"></span>
+            <h3>Something else</h3>
+            <p>Your own answer for this case.</p>
+            <div class="custom-wrap">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+            </div>
+          </label>
+        </div>
+      </div>
+    </section>
 
+    <section class="scenario" data-sc="baddata">
       <div class="case">
-        <div class="ctag">Bad data</div>
+        <img class="case-img" src="/scenarios/img/baddata.jpg" alt="Inflated booking charts floating above meeting rooms that sit empty" width="1344" height="768" loading="lazy" decoding="async">
+        <div class="ctag">12 · Bad data</div>
         <h3>Nobody knows the real usage</h3>
         <p>Facilities sees rooms 90% "booked" and plans a new floor — while half of them sit empty most afternoons.</p>
         <div class="prob"><span>Problem</span>Bookings aren't reality, so every utilization number built on them is fiction.</div>
       </div>
+      <div class="picker">
+        <p class="label-sm">How should RoomPulse answer?</p>
+        <div class="opts">
+          <label class="opt rec">
+            <input type="radio" name="sc_baddata" value="o1" data-label="Measure utilization from presence">
+            <span class="dot"></span>
+            <h3>Measure utilization from presence <span class="badge">Recommended</span></h3>
+            <p>Build the utilization report off the presence events log (actual occupied minutes and headcount per room) instead of Zoom bookings, so facilities planning rests on who was really in the room, not who reserved it.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_baddata" value="o2" data-label="Flag booked-versus-actual gaps">
+            <span class="dot"></span>
+            <h3>Flag booked-versus-actual gaps</h3>
+            <p>For each reservation, join its booked window against presence events to surface no-shows, ghost bookings, and rooms booked-but-empty, giving facilities a per-room 'reserved vs actually used' delta that exposes where the numbers lie.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_baddata" value="o3" data-label="Report real headcount against capacity">
+            <span class="dot"></span>
+            <h3>Report real headcount against capacity</h3>
+            <p>Track peak and average headcount per room from live occupancy counts and contrast it with the room's capacity, exposing oversized rooms used by one or two people and small rooms that overflow, so right-sizing uses bodies in seats.</p>
+          </label>
+          <label class="opt">
+            <input type="radio" name="sc_baddata" value="custom" data-label="Something else">
+            <span class="dot"></span>
+            <h3>Something else</h3>
+            <p>Your own answer for this case.</p>
+            <div class="custom-wrap">
+              <input class="txt sc-custom" type="text" maxlength="500" placeholder="Type how RoomPulse should handle this…">
+            </div>
+          </label>
+        </div>
+      </div>
+    </section>
 
+    <div class="submit-bar">
+      <div class="actions">
+        <button class="btn" id="submit" type="button">Submit answers</button>
+        <span class="hint" id="hint">0 of 12 answered</span>
+      </div>
+      <div class="ok-banner" id="ok">
+        <span class="ni"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg></span>
+        <span id="ok-text"></span>
+      </div>
     </div>
-  </section>
 
-  <footer>RoomPulse · the problems, before the solution</footer>
+  </form>
+
+  <footer>RoomPulse · you choose how each case resolves</footer>
 </main>
 
 <script>
@@ -213,6 +713,157 @@
   }
   function ping() { fetch("/health/live").then(function (r) { setConn(r.ok); }).catch(function () { setConn(false); }); }
   ping(); setInterval(ping, 10000);
+
+  var hint = document.getElementById("hint");
+  var sections = document.querySelectorAll("section.scenario");
+  var ok = document.getElementById("ok");
+
+  function escapeHtml(s) {
+    return s.replace(/[&<>"]/g, function (c) { return ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" })[c]; });
+  }
+  function hideBanner() { ok.classList.remove("show"); }
+
+  // --- who is answering (pick one or several teammates) ---
+  var whoChips = document.querySelectorAll(".who-chip");
+  var otherWrap = document.getElementById("who-other");
+  var otherInput = document.getElementById("who-other-input");
+  var otherChip = document.getElementById("who-other-chip");
+
+  function selectedNames() {
+    var names = [];
+    whoChips.forEach(function (c) {
+      if (!c.classList.contains("on")) return;
+      if (c.getAttribute("data-name") === "__other") {
+        var v = otherInput.value.trim();
+        if (v) names.push(v);
+      } else {
+        names.push(c.getAttribute("data-name"));
+      }
+    });
+    return names;
+  }
+
+  whoChips.forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      var on = chip.classList.toggle("on");   // multi-select: each chip toggles independently
+      if (chip.getAttribute("data-name") === "__other") {
+        otherWrap.classList.toggle("show", on);
+        if (on) otherInput.focus();
+      }
+      hideBanner(); updateHint();
+    });
+  });
+  otherInput.addEventListener("input", function () {
+    otherChip.classList.add("on");
+    otherWrap.classList.add("show");
+    hideBanner(); updateHint();
+  });
+
+  // --- answers ---
+  function answeredCount() {
+    var n = 0;
+    sections.forEach(function (sec) { if (sec.querySelector("input[type=radio]:checked")) n++; });
+    return n;
+  }
+  function updateHint() {
+    hint.classList.remove("err");
+    var who = selectedNames();
+    var prefix = who.length ? who.join(", ") + " · " : "";
+    hint.textContent = prefix + answeredCount() + " of 12 answered";
+  }
+
+  document.querySelectorAll("section.scenario input[type=radio]").forEach(function (el) {
+    el.addEventListener("change", function () { hideBanner(); updateHint(); });
+  });
+
+  // Typing in a case's custom box selects that case's "Something else" option,
+  // so the box can sit visible without a separate tap. The radio is the direct
+  // child of the same .opt; the text box is nested, so it stays clickable.
+  document.querySelectorAll(".sc-custom").forEach(function (box) {
+    function pick() {
+      var radio = box.closest(".opt").querySelector("input[type=radio]");
+      if (radio) radio.checked = true;
+      hideBanner(); updateHint();
+    }
+    box.addEventListener("focus", pick);
+    box.addEventListener("input", pick);
+  });
+
+  // After a submit, clear everything so the next teammate can answer fresh.
+  function resetForm() {
+    document.querySelectorAll("section.scenario input[type=radio]").forEach(function (r) { r.checked = false; });
+    document.querySelectorAll(".sc-custom").forEach(function (b) { b.value = ""; });
+    whoChips.forEach(function (c) { c.classList.remove("on"); });
+    otherWrap.classList.remove("show"); otherInput.value = "";
+    updateHint();
+  }
+
+  document.getElementById("submit").addEventListener("click", function () {
+    var btn = this;
+    var names = selectedNames();
+    if (names.length === 0) {
+      if (otherChip.classList.contains("on")) {
+        hint.textContent = "Type the name for “Other”, or unselect it."; otherInput.focus();
+      } else {
+        hint.textContent = "Pick at least one name first.";
+        document.getElementById("who-row").scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+      hint.classList.add("err");
+      return;
+    }
+    var answers = [];
+    var emptyCustom = null;
+    sections.forEach(function (sec) {
+      var sel = sec.querySelector("input[type=radio]:checked");
+      if (!sel) return;
+      var box = sec.querySelector(".sc-custom");
+      var customText = box ? box.value.trim() : "";
+      var id = sec.getAttribute("data-sc");
+      if (sel.value === "custom") {
+        if (!customText) { if (!emptyCustom) emptyCustom = box; return; }
+        answers.push({ scenario_id: id, choice: customText, custom: customText, note: "" });
+      } else {
+        answers.push({ scenario_id: id, choice: sel.getAttribute("data-label"), custom: "", note: "" });
+      }
+    });
+
+    if (emptyCustom) {
+      hint.textContent = "Type your answer for the case you marked “Something else.”";
+      hint.classList.add("err");
+      emptyCustom.focus();
+      return;
+    }
+    if (answers.length === 0) {
+      hint.textContent = "Answer at least one case first.";
+      hint.classList.add("err");
+      return;
+    }
+
+    btn.disabled = true; btn.textContent = "Sending…"; hint.textContent = ""; hint.classList.remove("err");
+
+    fetch("/scenario-answers", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ names: names, answers: answers })
+    }).then(function (r) {
+      if (!r.ok) throw new Error("bad status");
+      return r.json();
+    }).then(function () {
+      var label = escapeHtml(names.join(", "));
+      document.getElementById("ok-text").innerHTML =
+        "<b>Saved for " + label + " — thank you!</b> Recorded " + answers.length +
+        " of 12 case" + (answers.length === 1 ? "" : "s") +
+        (names.length > 1 ? " for each of you" : "") + ". Pass the phone to the next teammate, or close the page.";
+      ok.classList.add("show");
+      resetForm();
+      btn.disabled = false; btn.textContent = "Submit answers";
+    }).catch(function () {
+      btn.disabled = false; btn.textContent = "Submit answers";
+      hint.textContent = "Couldn't save — check your connection and try again."; hint.classList.add("err");
+    });
+  });
+
+  updateHint();
 </script>
 </body>
 </html>

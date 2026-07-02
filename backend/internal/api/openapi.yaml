@@ -1,0 +1,635 @@
+openapi: 3.1.0
+info:
+  title: QuickRoom API
+  version: "0.1.0"
+  description: |
+    Presence-aware meeting-room backend. Bluetooth iBeacons + the phone detect who is
+    physically in a room; the backend reflects that onto Zoom Workspace reservations
+    (auto check-in / check-out) and exposes live occupancy.
+
+    Zoom stays the booking source of truth; this service keeps a faithful local mirror
+    and drives reservation state from real presence.
+
+    Modes (`ZOOM_MODE`): `mock` (no creds), `live` (admin server-to-server), `user`
+    (your own OAuth). The `/oauth/*` endpoints exist only in `user` mode.
+servers:
+  - url: https://rp.asadullokhn.uz
+    description: Production (Cloudflare-fronted)
+  - url: http://localhost:8080
+    description: Local
+tags:
+  - name: Health
+    description: Liveness, readiness, and service info
+  - name: Sync
+    description: Pull Zoom workspaces + reservations into the local mirror
+  - name: Presence
+    description: Ingest phone presence and drive reservation check-in/out
+  - name: Reservations
+    description: Local mirror of Zoom reservations + manual check-in/out
+  - name: Rooms & Beacons
+    description: Rooms and the room↔iBeacon registry
+  - name: Devices & Events
+    description: Known-device registry and per-room activity history
+  - name: Occupancy
+    description: Live headcount per room
+  - name: Diagnostics
+    description: Device health + event-log dumps (in-memory, ephemeral)
+  - name: Feedback
+    description: Choices submitted from the pitch site (in-memory)
+  - name: Floor
+    description: Floor-plan projection and image
+  - name: Auth
+    description: Zoom user-OAuth (user mode only)
+
+paths:
+  /health/live:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      responses:
+        "200": { description: Alive, content: { application/json: { schema: { $ref: '#/components/schemas/Health' } } } }
+  /health/ready:
+    get:
+      tags: [Health]
+      summary: Readiness probe
+      responses:
+        "200": { description: Ready, content: { application/json: { schema: { $ref: '#/components/schemas/Health' } } } }
+  /info:
+    get:
+      tags: [Health]
+      summary: Service info (Zoom mode + authorization state)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Info' }
+
+  /sync:
+    post:
+      tags: [Sync]
+      summary: Run one Zoom sync
+      description: Pulls workspaces → rooms, then today's reservations, into the local mirror.
+      responses:
+        "200": { description: Synced, content: { application/json: { schema: { $ref: '#/components/schemas/SyncResult' } } } }
+        "502": { $ref: '#/components/responses/BadGateway' }
+
+  /rooms:
+    get:
+      tags: [Rooms & Beacons]
+      summary: List rooms
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rooms: { type: array, items: { $ref: '#/components/schemas/Room' } }
+  /beacons:
+    get:
+      tags: [Rooms & Beacons]
+      summary: List the room↔iBeacon registry
+      description: The mobile app polls this to learn which beacons to range/monitor.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  beacons: { type: array, items: { $ref: '#/components/schemas/BeaconEntry' } }
+
+  /reservations:
+    get:
+      tags: [Reservations]
+      summary: List reservations (local mirror)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reservations: { type: array, items: { $ref: '#/components/schemas/Reservation' } }
+  /reservations/{id}/check-in:
+    post:
+      tags: [Reservations]
+      summary: Check a reservation in
+      description: Sends the event to Zoom, then reflects it locally.
+      parameters: [ { $ref: '#/components/parameters/ReservationId' } ]
+      responses:
+        "200": { description: Updated reservation, content: { application/json: { schema: { $ref: '#/components/schemas/Reservation' } } } }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "502": { $ref: '#/components/responses/BadGateway' }
+  /reservations/{id}/check-out:
+    post:
+      tags: [Reservations]
+      summary: Check a reservation out
+      parameters: [ { $ref: '#/components/parameters/ReservationId' } ]
+      responses:
+        "200": { description: Updated reservation, content: { application/json: { schema: { $ref: '#/components/schemas/Reservation' } } } }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "502": { $ref: '#/components/responses/BadGateway' }
+
+  /presence:
+    post:
+      tags: [Presence]
+      summary: Ingest an arrive/leave event
+      description: |
+        Records a phone's `entered`/`exited` event for a room, updates headcount
+        (newest-wins to drop out-of-order flaps), and best-effort drives the matching
+        reservation's check-in/out. Returns the updated reservation, or a status object
+        when the room has no reservation or the event was stale.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PresenceRequest' }
+      responses:
+        "200":
+          description: Applied, recorded, or stale-ignored
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/Reservation'
+                  - $ref: '#/components/schemas/StatusResult'
+        "400": { $ref: '#/components/responses/BadRequest' }
+        "422": { $ref: '#/components/responses/Unprocessable' }
+        "502": { $ref: '#/components/responses/BadGateway' }
+  /presence/heartbeat:
+    post:
+      tags: [Presence]
+      summary: Reconcile a device's current room
+      description: |
+        Idempotent full-state heartbeat (not a delta): reports the device's CURRENT room
+        (`""` = none). A lost message can't strand a user — the next heartbeat corrects it.
+        Called by the iOS app every few seconds.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HeartbeatRequest' }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  room: { type: string, description: Echo of the current workspace id ("" = none) }
+        "400": { $ref: '#/components/responses/BadRequest' }
+        "422": { $ref: '#/components/responses/Unprocessable' }
+
+  /occupancy:
+    get:
+      tags: [Occupancy]
+      summary: Live headcount per room
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  occupancy: { type: array, items: { $ref: '#/components/schemas/OccupancyEntry' } }
+
+  /devices:
+    get:
+      tags: [Devices & Events]
+      summary: Known-device registry (durable)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  devices: { type: array, items: { $ref: '#/components/schemas/DeviceView' } }
+  /events:
+    get:
+      tags: [Devices & Events]
+      summary: A room's recent presence activity
+      parameters:
+        - name: workspace_id
+          in: query
+          required: true
+          schema: { type: string, maxLength: 128 }
+        - name: limit
+          in: query
+          required: false
+          schema: { type: integer, default: 30, minimum: 1, maximum: 200 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events: { type: array, items: { $ref: '#/components/schemas/EventView' } }
+        "400": { $ref: '#/components/responses/BadRequest' }
+
+  /diag:
+    get:
+      tags: [Diagnostics]
+      summary: Recent device diagnostics (newest first)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reports: { type: array, items: { $ref: '#/components/schemas/DiagReport' } }
+    post:
+      tags: [Diagnostics]
+      summary: Submit a device diagnostics snapshot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DiagReportInput' }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+        "400": { $ref: '#/components/responses/BadRequest' }
+        "422": { $ref: '#/components/responses/Unprocessable' }
+  /history:
+    get:
+      tags: [Diagnostics]
+      summary: Recent device event-log dumps
+      parameters:
+        - name: format
+          in: query
+          required: false
+          description: "`text` renders the newest dump as a plain timeline; default is JSON."
+          schema: { type: string, enum: [text] }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reports: { type: array, items: { $ref: '#/components/schemas/HistoryReport' } }
+            text/plain:
+              schema: { type: string }
+    post:
+      tags: [Diagnostics]
+      summary: Submit a device event-log dump
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HistoryReportInput' }
+      responses:
+        "200":
+          description: Stored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  events: { type: integer }
+        "400": { $ref: '#/components/responses/BadRequest' }
+        "422": { $ref: '#/components/responses/Unprocessable' }
+
+  /decision:
+    get:
+      tags: [Feedback]
+      summary: Latest next-step choice + history
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  latest: { $ref: '#/components/schemas/Decision' }
+                  history: { type: array, items: { $ref: '#/components/schemas/Decision' } }
+    post:
+      tags: [Feedback]
+      summary: Submit a next-step choice
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DecisionInput' }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+        "400": { $ref: '#/components/responses/BadRequest' }
+        "422": { $ref: '#/components/responses/Unprocessable' }
+  /scenario-answers:
+    get:
+      tags: [Feedback]
+      summary: Every teammate's scenario answers, grouped by name
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  by_person:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      additionalProperties: { $ref: '#/components/schemas/ScenarioAnswer' }
+    post:
+      tags: [Feedback]
+      summary: Record scenario answers for one or several submitters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScenarioAnswersInput' }
+      responses:
+        "200":
+          description: Stored
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  people: { type: integer }
+                  stored: { type: integer }
+        "400": { $ref: '#/components/responses/BadRequest' }
+        "422": { $ref: '#/components/responses/Unprocessable' }
+
+  /floor/rooms:
+    get:
+      tags: [Floor]
+      summary: Floor-plan rooms (polygons + calibration)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/FloorRooms' }
+  /floor/image:
+    get:
+      tags: [Floor]
+      summary: Floor-plan background image (PNG)
+      responses:
+        "200": { description: PNG, content: { image/png: { schema: { type: string, format: binary } } } }
+
+  /oauth/login:
+    get:
+      tags: [Auth]
+      summary: Begin Zoom user-OAuth (user mode only)
+      responses:
+        "302": { description: Redirect to Zoom's consent screen }
+  /oauth/callback:
+    get:
+      tags: [Auth]
+      summary: Zoom OAuth redirect target (user mode only)
+      parameters:
+        - { name: code, in: query, schema: { type: string } }
+        - { name: state, in: query, schema: { type: string } }
+        - { name: error, in: query, schema: { type: string } }
+      responses:
+        "200": { description: Authorized }
+        "400": { $ref: '#/components/responses/BadRequest' }
+        "502": { $ref: '#/components/responses/BadGateway' }
+
+components:
+  parameters:
+    ReservationId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+  responses:
+    Ok:
+      description: OK
+      content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
+    BadRequest:
+      description: Malformed request body
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unprocessable:
+      description: Validation failed
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    NotFound:
+      description: Not found
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    BadGateway:
+      description: Upstream (Zoom) error
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+  schemas:
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+      required: [error]
+    StatusResult:
+      type: object
+      properties:
+        status: { type: string, example: ok }
+        workspace_id: { type: string }
+    Health:
+      type: object
+      properties:
+        status: { type: string, example: ok }
+    Info:
+      type: object
+      properties:
+        zoom_mode: { type: string, enum: [mock, live, user] }
+        authorized: { type: boolean }
+    SyncResult:
+      type: object
+      properties:
+        rooms: { type: integer }
+        reservations: { type: integer }
+        synced_at: { type: string, format: date-time }
+    Room:
+      type: object
+      properties:
+        room_id: { type: string }
+        zoom_workspace_id: { type: string }
+        name: { type: string }
+        floor: { type: string }
+        capacity: { type: integer }
+        has_tv: { type: boolean }
+        is_zoom_room: { type: boolean }
+        beacon_uuid: { type: string }
+        beacon_major: { type: integer }
+        beacon_minor: { type: integer }
+    BeaconEntry:
+      type: object
+      properties:
+        workspace_id: { type: string }
+        uuid: { type: string }
+        major: { type: integer }
+        minor: { type: integer }
+        name: { type: string, description: Joined room name }
+    Reservation:
+      type: object
+      properties:
+        reservation_id: { type: string }
+        room_id: { type: string }
+        zoom_workspace_id: { type: string }
+        user_id: { type: string }
+        user_email: { type: string }
+        start_time: { type: string, format: date-time }
+        end_time: { type: string, format: date-time }
+        status: { type: string, enum: [booked, no_show, released] }
+        check_in_status: { type: string, enum: [not_checked_in, checked_in, checked_out] }
+    OccupancyEntry:
+      type: object
+      properties:
+        workspace_id: { type: string }
+        count: { type: integer }
+        users: { type: array, items: { type: string } }
+    DeviceView:
+      type: object
+      properties:
+        device_id: { type: string }
+        display_name: { type: string }
+        workspace_id: { type: string, description: "\"\" = not in any room" }
+        last_seen_sec: { type: integer, description: Seconds since last seen }
+    EventView:
+      type: object
+      properties:
+        kind: { type: string, enum: [enter, leave] }
+        name: { type: string }
+        actor: { type: string, description: device id or user id }
+        ago_sec: { type: integer }
+    PresenceRequest:
+      type: object
+      required: [workspace_id, user_id, event_type]
+      properties:
+        workspace_id: { type: string, maxLength: 128 }
+        user_id: { type: string, maxLength: 128 }
+        display_name: { type: string, maxLength: 96 }
+        event_type: { type: string, enum: [entered, exited] }
+        confidence: { type: number, format: double }
+        event_ts: { type: integer, format: int64, description: Epoch millis on the device }
+    HeartbeatRequest:
+      type: object
+      required: [device_id]
+      properties:
+        device_id: { type: string, maxLength: 128 }
+        display_name: { type: string, maxLength: 96 }
+        workspace_id: { type: string, maxLength: 128, description: "\"\" = not in any room" }
+        ts: { type: integer, format: int64 }
+    DiagRow:
+      type: object
+      properties:
+        label: { type: string }
+        value: { type: string }
+        level: { type: string }
+        hint: { type: string }
+    DiagReportInput:
+      type: object
+      required: [device_id]
+      properties:
+        device_id: { type: string, maxLength: 128 }
+        display_name: { type: string, maxLength: 96 }
+        summary: { type: string, maxLength: 200 }
+        ready: { type: boolean }
+        rows: { type: array, items: { $ref: '#/components/schemas/DiagRow' } }
+        line: { type: string, maxLength: 500 }
+    DiagReport:
+      allOf:
+        - $ref: '#/components/schemas/DiagReportInput'
+        - type: object
+          properties:
+            received_at: { type: string, format: date-time }
+    HistoryEvent:
+      type: object
+      properties:
+        ts: { type: integer, format: int64, description: Epoch millis on the device }
+        kind: { type: string }
+        detail: { type: string }
+    HistoryReportInput:
+      type: object
+      required: [device_id]
+      properties:
+        device_id: { type: string, maxLength: 128 }
+        name: { type: string, maxLength: 96 }
+        events: { type: array, items: { $ref: '#/components/schemas/HistoryEvent' } }
+    HistoryReport:
+      allOf:
+        - $ref: '#/components/schemas/HistoryReportInput'
+        - type: object
+          properties:
+            received_at: { type: string, format: date-time }
+    DecisionInput:
+      type: object
+      required: [choice]
+      properties:
+        choice: { type: string, maxLength: 32, description: "option key: scenarios|zoom|demo|config|custom" }
+        label: { type: string, maxLength: 120 }
+        custom: { type: string, maxLength: 500 }
+        note: { type: string, maxLength: 1000 }
+    Decision:
+      allOf:
+        - $ref: '#/components/schemas/DecisionInput'
+        - type: object
+          properties:
+            received_at: { type: string, format: date-time }
+    ScenarioAnswer:
+      type: object
+      properties:
+        name: { type: string }
+        scenario_id: { type: string }
+        choice: { type: string }
+        custom: { type: string }
+        note: { type: string }
+        received_at: { type: string, format: date-time }
+    ScenarioAnswersInput:
+      type: object
+      required: [answers]
+      properties:
+        names: { type: array, items: { type: string }, description: One or several submitters }
+        name: { type: string, description: Legacy single submitter }
+        answers:
+          type: array
+          items:
+            type: object
+            required: [scenario_id]
+            properties:
+              scenario_id: { type: string, maxLength: 64 }
+              choice: { type: string, maxLength: 160 }
+              custom: { type: string, maxLength: 500 }
+              note: { type: string, maxLength: 1000 }
+    FloorRooms:
+      type: object
+      properties:
+        rooms:
+          type: array
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              points: { type: array, items: { type: array, items: { type: number } } }
+              kind: { type: string, enum: [room, workspace] }
+              capacity: { type: integer }
+              screens: { type: integer }
+              busy: { type: boolean }
+        view_box:
+          type: object
+          properties:
+            x: { type: number }
+            y: { type: number }
+            w: { type: number }
+            h: { type: number }
+        image:
+          type: object
+          properties:
+            w: { type: integer }
+            h: { type: integer }

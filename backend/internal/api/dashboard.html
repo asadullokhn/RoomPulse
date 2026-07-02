@@ -167,7 +167,7 @@
   @media (max-width: 860px) { .vitals { grid-template-columns: repeat(2, 1fr); } }
   @media (max-width: 560px) {
     main { padding: 20px 14px 48px; } header { padding: 12px 14px; }
-    .brand .tag { display: none; }
+    .brand .tag { display: none; } nav.seg { order: 3; width: 100%; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; } nav.seg::-webkit-scrollbar { display: none; } .right { order: 2; }
   }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
 </style>
@@ -185,6 +185,7 @@
     <a href="/battery">Battery</a>
     <a href="/hardware">Hardware</a>
     <a href="/scenarios">Scenarios</a>
+    <a href="/decide">Next</a>
   </nav>
   <div class="right">
     <span class="chip" id="conn"><span class="led"></span><span id="conn-text">connecting…</span></span>

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"quickroom/internal/api"
+	"quickroom/internal/appleauth"
 	"quickroom/internal/config"
 	syncsvc "quickroom/internal/sync"
 	"quickroom/internal/store"
@@ -53,6 +54,18 @@ func main() {
 	st.SeedBeacons(beacons)
 	log.Info("beacon registry seeded", "count", len(beacons))
 
+	// Reload persisted app-native bookings (Zoom sync below only covers
+	// zoom-sourced reservations; app bookings have no external source to
+	// recover from, so they must be reloaded from SQLite here).
+	appRes, err := db.AppReservations()
+	if err != nil {
+		log.Warn("load app reservations", "err", err)
+	}
+	for _, r := range appRes {
+		st.UpsertReservation(r)
+	}
+	log.Info("app reservations reloaded", "count", len(appRes))
+
 	sync := syncsvc.New(zc, st, cfg.ZoomLocationID, log)
 
 	// Initial sync so the API has data immediately.
@@ -67,7 +80,8 @@ func main() {
 	defer stop()
 	go runSyncLoop(rootCtx, sync, cfg.SyncInterval, log)
 
-	apiSrv := api.NewServer(st, db, sync, zc, cfg.ZoomMode, cfg.PresenceTTL, log)
+	appleVerifier := appleauth.NewVerifier(cfg.AppleBundleID, nil)
+	apiSrv := api.NewServer(st, db, sync, zc, cfg.ZoomMode, cfg.PresenceTTL, appleVerifier, cfg.SessionTTL, log)
 	apiSrv.ConfigureGrace(cfg.GraceFraction, cfg.GraceMin, cfg.GraceMax)
 	apiSrv.ConfigureNotify(cfg.NotifyFirstFraction, cfg.NotifySecondFraction, cfg.NotifySecondEnabled)
 	apiSrv.ConfigureOverstay(cfg.OverstayGrace)

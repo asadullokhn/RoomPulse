@@ -147,3 +147,61 @@ func TestCancelSomeoneElsesReservationForbidden(t *testing.T) {
 		t.Fatalf("cancel-someone-else's status = %d, want 403", cancelRec.Code)
 	}
 }
+
+func TestAdminCancelAnyReservation(t *testing.T) {
+	h, verifier := newTestHandlerWithVerifier(t)
+	token, jwksURL := signAppleToken(t, "test.bundle.id", "apple-sub-admin-cancel", "owner@example.com")
+	verifier.KeysURL = jwksURL
+
+	authBody, _ := json.Marshal(map[string]string{"identity_token": token})
+	authReq := httptest.NewRequest(http.MethodPost, "/auth/apple", bytes.NewReader(authBody))
+	authRec := httptest.NewRecorder()
+	h.ServeHTTP(authRec, authReq)
+	var authResp struct {
+		SessionToken string `json:"session_token"`
+	}
+	_ = json.Unmarshal(authRec.Body.Bytes(), &authResp)
+
+	start := time.Now().Add(96 * time.Hour)
+	end := start.Add(time.Hour)
+	createBody, _ := json.Marshal(map[string]any{
+		"workspace_id": "ws-agung", "start_time": start.Format(time.RFC3339), "end_time": end.Format(time.RFC3339),
+	})
+	createReq := httptest.NewRequest(http.MethodPost, "/reservations", bytes.NewReader(createBody))
+	createReq.Header.Set("Authorization", "Bearer "+authResp.SessionToken)
+	createRec := httptest.NewRecorder()
+	h.ServeHTTP(createRec, createReq)
+	var created struct {
+		ReservationID string `json:"reservation_id"`
+	}
+	if err := json.Unmarshal(createRec.Body.Bytes(), &created); err != nil || created.ReservationID == "" {
+		t.Fatalf("create response = %s", createRec.Body.String())
+	}
+
+	// No Authorization header — admin cancel is unauthenticated by design.
+	cancelReq := httptest.NewRequest(http.MethodPost, "/admin/reservations/"+created.ReservationID+"/cancel", nil)
+	cancelRec := httptest.NewRecorder()
+	h.ServeHTTP(cancelRec, cancelReq)
+	if cancelRec.Code != http.StatusOK {
+		t.Fatalf("admin cancel status = %d, body = %s, want 200", cancelRec.Code, cancelRec.Body.String())
+	}
+	var cancelled struct {
+		Status string `json:"status"`
+	}
+	if err := json.Unmarshal(cancelRec.Body.Bytes(), &cancelled); err != nil || cancelled.Status != "cancelled" {
+		t.Fatalf("admin cancel response = %s, want status=cancelled", cancelRec.Body.String())
+	}
+}
+
+func TestAdminCancelZoomSourcedForbidden(t *testing.T) {
+	h := newTestHandler(t)
+
+	// res-petang is seeded by the mock Zoom client — Zoom-sourced, not
+	// cancellable through the admin app-booking endpoint.
+	cancelReq := httptest.NewRequest(http.MethodPost, "/admin/reservations/res-petang/cancel", nil)
+	cancelRec := httptest.NewRecorder()
+	h.ServeHTTP(cancelRec, cancelReq)
+	if cancelRec.Code != http.StatusForbidden {
+		t.Fatalf("admin cancel zoom-sourced status = %d, want 403", cancelRec.Code)
+	}
+}

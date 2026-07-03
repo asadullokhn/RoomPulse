@@ -122,3 +122,23 @@ func (s *Server) cancelReservation(w http.ResponseWriter, r *http.Request) {
 	s.upsertReservation(res)
 	writeJSON(w, http.StatusOK, res)
 }
+
+// adminCancelReservation cancels any app-sourced booking regardless of
+// owner — the admin-facing counterpart to cancelReservation, which is
+// scoped to the caller's own booking via session. Unauthenticated, like
+// every other admin endpoint in this codebase.
+func (s *Server) adminCancelReservation(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	res, ok := s.store.Reservation(id)
+	if !ok {
+		writeError(w, http.StatusNotFound, "reservation not found")
+		return
+	}
+	if res.Source != "app" {
+		writeError(w, http.StatusForbidden, "not cancellable this way")
+		return
+	}
+	res.Status = domain.StatusCancelled
+	s.upsertReservation(res)
+	writeJSON(w, http.StatusOK, res)
+}

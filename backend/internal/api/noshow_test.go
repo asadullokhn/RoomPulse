@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"quickroom/internal/appleauth"
 	"quickroom/internal/domain"
 	"quickroom/internal/store"
 	syncsvc "quickroom/internal/sync"
@@ -50,7 +51,7 @@ func newNoShowServer(t *testing.T, now time.Time) *Server {
 	if _, err := sy.Run(context.Background(), now); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
-	return NewServer(st, db, sy, zc, "mock", 30*time.Minute, log)
+	return NewServer(st, db, sy, zc, "mock", 30*time.Minute, appleauth.NewVerifier("test.bundle.id", nil), time.Hour, log)
 }
 
 func TestSweepNoShowsReleasesExpiredEmptyBooking(t *testing.T) {

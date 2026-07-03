@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"quickroom/internal/appleauth"
 	"quickroom/internal/domain"
 	"quickroom/internal/store"
 	syncsvc "quickroom/internal/sync"
@@ -97,13 +98,18 @@ type Server struct {
 	// Overstay: a room still occupied this long past its booking's end is
 	// flagged (the inverse of a no-show). Set via ConfigureOverstay.
 	overstayGrace time.Duration
+
+	// Sign in with Apple + sessions.
+	appleVerifier *appleauth.Verifier
+	sessionTTL    time.Duration
 }
 
-func NewServer(st *store.Memory, db *store.DB, sync *syncsvc.Service, zc zoom.Client, mode string, ttl time.Duration, log *slog.Logger) *Server {
+func NewServer(st *store.Memory, db *store.DB, sync *syncsvc.Service, zc zoom.Client, mode string, ttl time.Duration, appleVerifier *appleauth.Verifier, sessionTTL time.Duration, log *slog.Logger) *Server {
 	s := &Server{store: st, db: db, sync: sync, zoom: zc, mode: mode, ttl: ttl, log: log, diags: newDiagBuffer(50), decisions: newDecisionStore(), scenarioAnswers: newScenarioAnswerStore(), history: newHistoryBuffer(20),
 		graceFraction: 0.10, graceMin: 90 * time.Second, graceMax: 15 * time.Minute,
 		notify: newNotifier(200), notifyFirstFrac: 0.05, notifySecondFrac: 0.075, notifySecondEnabled: true,
-		overstayGrace: 5 * time.Minute}
+		overstayGrace: 5 * time.Minute,
+		appleVerifier: appleVerifier, sessionTTL: sessionTTL}
 	if of, ok := zc.(OAuthFlow); ok {
 		s.oauth = of
 	}
@@ -252,6 +258,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /collisions", s.getCollisions)
 	mux.HandleFunc("GET /overstays", s.getOverstays)
 	mux.HandleFunc("GET /utilization", s.getUtilization)
+	mux.HandleFunc("POST /auth/apple", s.postAppleAuth)
+	mux.HandleFunc("POST /auth/logout", s.authMiddleware(s.postLogout))
+	mux.HandleFunc("GET /reservations/mine", s.authMiddleware(s.listMyReservations))
+	mux.HandleFunc("POST /reservations", s.authMiddleware(s.createReservation))
+	mux.HandleFunc("POST /reservations/{id}/cancel", s.authMiddleware(s.cancelReservation))
 	if s.oauth != nil {
 		mux.HandleFunc("GET /oauth/login", s.oauthLogin)
 		mux.HandleFunc("GET /oauth/callback", s.oauthCallback)

@@ -47,7 +47,7 @@ tags:
   - name: Floor
     description: Floor-plan projection and image
   - name: Auth
-    description: Zoom user-OAuth (user mode only)
+    description: Sign in with Apple (mobile app sessions) and Zoom user-OAuth (user mode only)
 
 paths:
   /health/live:
@@ -123,6 +123,57 @@ paths:
                 type: object
                 properties:
                   reservations: { type: array, items: { $ref: '#/components/schemas/Reservation' } }
+    post:
+      tags: [Reservations]
+      summary: Book a room (QuickRoom-native booking)
+      description: |
+        Creates an app-sourced reservation (source == "app") — not a real Zoom
+        reservation. Rejects the request if the room is already booked in that
+        window by either a Zoom-synced or another app-sourced reservation.
+      security: [{ sessionToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workspace_id, start_time, end_time]
+              properties:
+                workspace_id: { type: string }
+                start_time: { type: string, format: date-time }
+                end_time: { type: string, format: date-time }
+      responses:
+        "200": { description: Booked, content: { application/json: { schema: { $ref: '#/components/schemas/Reservation' } } } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "409": { description: The room is already booked in that window, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        "422": { $ref: '#/components/responses/Unprocessable' }
+  /reservations/mine:
+    get:
+      tags: [Reservations]
+      summary: List the signed-in user's own bookings
+      security: [{ sessionToken: [] }]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reservations: { type: array, items: { $ref: '#/components/schemas/Reservation' } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+  /reservations/{id}/cancel:
+    post:
+      tags: [Reservations]
+      summary: Cancel your own app-sourced booking
+      security: [{ sessionToken: [] }]
+      parameters: [ { $ref: '#/components/parameters/ReservationId' } ]
+      responses:
+        "200": { description: Cancelled, content: { application/json: { schema: { $ref: '#/components/schemas/Reservation' } } } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { description: "Not your reservation, or it isn't app-sourced", content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        "404": { $ref: '#/components/responses/NotFound' }
   /reservations/{id}/check-in:
     post:
       tags: [Reservations]
@@ -471,6 +522,45 @@ paths:
       responses:
         "200": { description: PNG, content: { image/png: { schema: { type: string, format: binary } } } }
 
+  /auth/apple:
+    post:
+      tags: [Auth]
+      summary: Sign in with Apple
+      description: Verifies an Apple identity token (obtained on-device via ASAuthorizationAppleIDProvider) and issues a session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [identity_token]
+              properties:
+                identity_token:
+                  type: string
+                  description: The JWT identityToken from Apple's on-device sign-in.
+                name:
+                  type: string
+                  description: The user's display name. Apple only sends this on the very first authorization — forward it then.
+      responses:
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  session_token: { type: string }
+                  user: { $ref: '#/components/schemas/User' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "422": { $ref: '#/components/responses/Unprocessable' }
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Sign out
+      security: [{ sessionToken: [] }]
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+
   /oauth/login:
     get:
       tags: [Auth]
@@ -491,6 +581,11 @@ paths:
         "502": { $ref: '#/components/responses/BadGateway' }
 
 components:
+  securitySchemes:
+    sessionToken:
+      type: http
+      scheme: bearer
+      description: "Opaque session token returned by POST /auth/apple. Send as `Authorization: Bearer <token>`."
   parameters:
     ReservationId:
       name: id
@@ -503,6 +598,9 @@ components:
       content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } }
     BadRequest:
       description: Malformed request body
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Unauthorized:
+      description: Missing, invalid, or expired session
       content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
     Unprocessable:
       description: Validation failed
@@ -570,8 +668,17 @@ components:
         user_email: { type: string }
         start_time: { type: string, format: date-time }
         end_time: { type: string, format: date-time }
-        status: { type: string, enum: [booked, no_show, released] }
+        status: { type: string, enum: [booked, no_show, released, cancelled] }
         check_in_status: { type: string, enum: [not_checked_in, checked_in, checked_out] }
+        source: { type: string, enum: [zoom, app], description: "zoom = mirrored from Zoom; app = booked via POST /reservations" }
+        booked_by_user_id: { type: string, description: set only when source == app }
+    User:
+      type: object
+      properties:
+        user_id: { type: string }
+        email: { type: string }
+        name: { type: string }
+        created_at: { type: string, format: date-time }
     OccupancyEntry:
       type: object
       properties:

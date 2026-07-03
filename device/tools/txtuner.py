@@ -105,7 +105,120 @@ def find_port():
     return candidates[0]
 
 
-PAGE = "<h1>page comes in Task 4</h1>"
+PAGE = """<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Beacon TX Tuner</title>
+<style>
+  * { box-sizing: border-box; margin: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, system-ui, sans-serif; background: #0b1220; color: #e8eef7;
+         padding: max(16px, env(safe-area-inset-top)) 16px 32px; max-width: 480px; margin: 0 auto; }
+  h1 { font-size: 17px; margin: 6px 0 14px; color: #7dd3c8; font-weight: 600; }
+  .card { background: #141d30; border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .tx-now { font-size: 44px; font-weight: 700; line-height: 1.1; }
+  .tx-now small { font-size: 18px; color: #8fa3bf; font-weight: 400; }
+  .meta { color: #8fa3bf; font-size: 13px; margin-top: 6px; }
+  .barwrap { height: 8px; background: #0b1220; border-radius: 4px; overflow: hidden; margin-top: 14px; }
+  #bar { height: 100%; width: 0%; background: #35b8a5; border-radius: 4px; }
+  #banner { font-size: 14px; min-height: 20px; margin-top: 10px; }
+  #banner.ok { color: #6ee7b7; } #banner.err { color: #fda4af; }
+  .primary { display: grid; gap: 10px; margin-bottom: 12px; }
+  .secondary { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  button { border: 1px solid #26314a; background: #182238; color: #e8eef7; border-radius: 12px;
+           padding: 14px 12px; font-size: 16px; font-weight: 600; }
+  button .lbl { display: block; font-size: 12px; font-weight: 400; color: #8fa3bf; margin-top: 2px; }
+  button.active { border-color: #35b8a5; background: #143029; }
+  button:disabled { opacity: .45; }
+  .secondary button { padding: 12px 4px; font-size: 15px; }
+</style>
+</head>
+<body>
+<h1>RoomPulse beacon &mdash; TX tuner</h1>
+<div class="card">
+  <div class="tx-now"><span id="tx">&ndash;</span> <small>dBm</small></div>
+  <div class="meta" id="meta">connecting&hellip;</div>
+  <div class="barwrap"><div id="bar"></div></div>
+  <div id="banner"></div>
+</div>
+<div class="primary" id="primary"></div>
+<div class="secondary" id="secondary"></div>
+<script>
+const LABELS = {"8": "max range", "0": "tag default", "-12": "C6 floor",
+                "-16": "room start", "-20": "room tight"};
+const PRIMARY = [8, 0, -12, -16, -20];
+const SECONDARY = [7, 6, 5, 4, 3, 2, -4, -8, -40];
+let busy = false;
+const $ = (id) => document.getElementById(id);
+const fmt = (n) => (n > 0 ? "+" + n : String(n));
+
+function buttons() {
+  for (const [ids, levels] of [["primary", PRIMARY], ["secondary", SECONDARY]]) {
+    $(ids).innerHTML = levels.map((l) =>
+      `<button data-level="${l}" onclick="setTx(${l})">${fmt(l)} dBm` +
+      (LABELS[l] ? `<span class="lbl">${LABELS[l]}</span>` : "") + `</button>`).join("");
+  }
+}
+
+function render(s) {
+  $("tx").textContent = fmt(s.tx);
+  $("meta").textContent = `minor ${s.minor} · adv ${s.adv} ms · major ${s.major}`;
+  document.querySelectorAll("button").forEach((b) =>
+    b.classList.toggle("active", Number(b.dataset.level) === s.tx));
+}
+
+function banner(text, ok) {
+  const el = $("banner");
+  el.textContent = text;
+  el.className = text ? (ok ? "ok" : "err") : "";
+}
+
+function setDisabled(v) {
+  document.querySelectorAll("button").forEach((b) => (b.disabled = v));
+}
+
+async function refresh() {
+  try {
+    const r = await fetch("/api/state");
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "HTTP " + r.status);
+    render(data);
+  } catch (e) { banner(e.message, false); }
+}
+
+async function setTx(level) {
+  if (busy) return;
+  busy = true; setDisabled(true); banner("");
+  const bar = $("bar");
+  bar.style.transition = "none"; bar.style.width = "0%";
+  void bar.offsetWidth;
+  bar.style.transition = "width 1.4s cubic-bezier(.2,.7,.3,1)";
+  bar.style.width = "88%";
+  try {
+    const r = await fetch("/api/tx", { method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ level }) });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "HTTP " + r.status);
+    bar.style.transition = "width .2s"; bar.style.width = "100%";
+    render(data);
+    banner("Applied " + fmt(level) + " dBm", true);
+  } catch (e) {
+    bar.style.transition = "width .2s"; bar.style.width = "0%";
+    banner(e.message, false);
+  } finally {
+    setTimeout(() => { bar.style.transition = "width .3s"; bar.style.width = "0%";
+                       busy = false; setDisabled(false); }, 700);
+  }
+}
+
+buttons();
+refresh();
+</script>
+</body>
+</html>
+"""
 
 
 class Handler(BaseHTTPRequestHandler):

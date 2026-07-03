@@ -82,6 +82,10 @@ type Server struct {
 	// Overstay: a room still occupied this long past its booking's end is
 	// flagged (the inverse of a no-show). Set via ConfigureOverstay.
 	overstayGrace time.Duration
+
+	// BeaconsFile path for persisting admin beacon-mapping edits. Empty
+	// disables persistence (in-memory only) — set via ConfigureBeaconsFile.
+	beaconsFile string
 }
 
 func NewServer(st *store.Memory, db *store.DB, sync *syncsvc.Service, zc zoom.Client, mode string, ttl time.Duration, log *slog.Logger) *Server {
@@ -121,6 +125,13 @@ func (s *Server) ConfigureNotify(first, second float64, secondEnabled bool) {
 		s.notifySecondFrac = second
 	}
 	s.notifySecondEnabled = secondEnabled
+}
+
+// ConfigureBeaconsFile sets the path admin beacon-mapping edits persist to.
+// Empty disables persistence (edits apply in-memory only for the process's
+// lifetime).
+func (s *Server) ConfigureBeaconsFile(path string) {
+	s.beaconsFile = path
 }
 
 // ConfigureOverstay sets how long a room may stay occupied past its booking's end
@@ -214,6 +225,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /sync", s.runSync)
 	mux.HandleFunc("GET /rooms", s.listRooms)
 	mux.HandleFunc("GET /beacons", s.listBeacons)
+	mux.HandleFunc("PUT /beacons/{workspace_id}", s.putBeacon)
+	mux.HandleFunc("DELETE /beacons/{workspace_id}", s.deleteBeacon)
 	mux.HandleFunc("GET /devices", s.listDevices)
 	mux.HandleFunc("GET /events", s.listEvents)
 	mux.HandleFunc("GET /reservations", s.listReservations)
@@ -407,26 +420,6 @@ func (s *Server) listReservations(w http.ResponseWriter, _ *http.Request) {
 // listBeacons returns the room↔iBeacon registry, each entry joined to its room
 // name. The mobile app polls this to learn which beacons to range/monitor, so
 // rooms can be added or re-mapped without shipping a new build.
-func (s *Server) listBeacons(w http.ResponseWriter, _ *http.Request) {
-	type entry struct {
-		WorkspaceID string `json:"workspace_id"`
-		UUID        string `json:"uuid"`
-		Major       int    `json:"major"`
-		Minor       int    `json:"minor"`
-		Name        string `json:"name"`
-	}
-	bs := s.store.Beacons()
-	out := make([]entry, 0, len(bs))
-	for _, b := range bs {
-		name := ""
-		if room, ok := s.store.RoomByWorkspace(b.WorkspaceID); ok {
-			name = room.Name
-		}
-		out = append(out, entry{WorkspaceID: b.WorkspaceID, UUID: b.UUID, Major: b.Major, Minor: b.Minor, Name: name})
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"beacons": out})
-}
-
 // listEvents returns a room's recent presence activity (the floor modal's
 // history). Requires a workspace_id query param.
 func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {

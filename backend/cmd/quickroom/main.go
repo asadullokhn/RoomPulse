@@ -71,6 +71,7 @@ func main() {
 	apiSrv.ConfigureGrace(cfg.GraceFraction, cfg.GraceMin, cfg.GraceMax)
 	apiSrv.ConfigureNotify(cfg.NotifyFirstFraction, cfg.NotifySecondFraction, cfg.NotifySecondEnabled)
 	apiSrv.ConfigureOverstay(cfg.OverstayGrace)
+	apiSrv.ConfigureBeaconsFile(cfg.BeaconsFile)
 	go apiSrv.ReapLoop(rootCtx)  // expire stale presence (killed/offline phones)
 	go apiSrv.GraceLoop(rootCtx) // grace reminders + no-show release
 

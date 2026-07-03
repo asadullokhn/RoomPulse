@@ -5,6 +5,7 @@ package config
 import (
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -37,6 +38,25 @@ type Config struct {
 	// DBPath is the SQLite file backing the durable device registry. Defaults
 	// under /data so it persists in the container volume; override for local runs.
 	DBPath string
+
+	// No-show grace: a booking whose start passes by this window with nobody
+	// ever present is auto-released. Grace = GraceFraction of the booking length
+	// (Reno's proportional model), clamped to [GraceMin, GraceMax]. So a 2h
+	// booking at 10% = 12m; a 15m booking clamps up to GraceMin.
+	GraceFraction float64
+	GraceMin      time.Duration
+	GraceMax      time.Duration
+
+	// Grace-reminder ladder (Reno's model): "are you coming?" pings fire at these
+	// fractions of the booking elapsed, before the no-show release at
+	// GraceFraction. The second ping can be disabled to limit notification fatigue.
+	NotifyFirstFraction  float64
+	NotifySecondFraction float64
+	NotifySecondEnabled  bool
+
+	// OverstayGrace: a room still occupied this long past its booking's end is
+	// flagged as an overstay (the inverse of a no-show).
+	OverstayGrace time.Duration
 }
 
 func Load() (Config, error) {
@@ -51,7 +71,7 @@ func Load() (Config, error) {
 		ZoomTokenFile:    getenv("ZOOM_TOKEN_FILE", "zoom_token.json"),
 		ZoomSeedFile:     getenv("ZOOM_SEED_FILE", "seed.json"),
 		BeaconsFile:      getenv("BEACONS_FILE", "/data/beacons.json"),
-		DBPath:           getenv("DB_PATH", "/data/roompulse.db"),
+		DBPath:           getenv("DB_PATH", "/data/quickroom.db"),
 	}
 
 	interval, err := time.ParseDuration(getenv("SYNC_INTERVAL", "60s"))
@@ -65,6 +85,31 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("invalid PRESENCE_TTL: %w", err)
 	}
 	c.PresenceTTL = ttl
+
+	frac, err := strconv.ParseFloat(getenv("GRACE_FRACTION", "0.10"), 64)
+	if err != nil || frac <= 0 || frac >= 1 {
+		return Config{}, fmt.Errorf("invalid GRACE_FRACTION (want 0<f<1): %q", getenv("GRACE_FRACTION", "0.10"))
+	}
+	c.GraceFraction = frac
+
+	if c.GraceMin, err = time.ParseDuration(getenv("GRACE_MIN", "90s")); err != nil {
+		return Config{}, fmt.Errorf("invalid GRACE_MIN: %w", err)
+	}
+	if c.GraceMax, err = time.ParseDuration(getenv("GRACE_MAX", "15m")); err != nil {
+		return Config{}, fmt.Errorf("invalid GRACE_MAX: %w", err)
+	}
+
+	if c.NotifyFirstFraction, err = strconv.ParseFloat(getenv("NOTIFY_FIRST_FRACTION", "0.05"), 64); err != nil {
+		return Config{}, fmt.Errorf("invalid NOTIFY_FIRST_FRACTION: %w", err)
+	}
+	if c.NotifySecondFraction, err = strconv.ParseFloat(getenv("NOTIFY_SECOND_FRACTION", "0.075"), 64); err != nil {
+		return Config{}, fmt.Errorf("invalid NOTIFY_SECOND_FRACTION: %w", err)
+	}
+	c.NotifySecondEnabled = getenv("NOTIFY_SECOND_ENABLED", "true") != "false"
+
+	if c.OverstayGrace, err = time.ParseDuration(getenv("OVERSTAY_GRACE", "5m")); err != nil {
+		return Config{}, fmt.Errorf("invalid OVERSTAY_GRACE: %w", err)
+	}
 
 	switch c.ZoomMode {
 	case "live":

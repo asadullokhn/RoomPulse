@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"roompulse/internal/domain"
+	"quickroom/internal/domain"
 )
 
 // Memory holds rooms, reservations, and live presence keyed by ID.

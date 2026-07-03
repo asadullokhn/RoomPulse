@@ -1,5 +1,5 @@
 // Package sync pulls Zoom workspaces + reservations and projects them into the
-// local store. This is the prototype's whole point: prove RoomPulse can keep a
+// local store. This is the prototype's whole point: prove QuickRoom can keep a
 // faithful local mirror of Zoom (the source of truth) to drive beacon logic on.
 package sync
 
@@ -9,9 +9,9 @@ import (
 	"log/slog"
 	"time"
 
-	"roompulse/internal/domain"
-	"roompulse/internal/store"
-	"roompulse/internal/zoom"
+	"quickroom/internal/domain"
+	"quickroom/internal/store"
+	"quickroom/internal/zoom"
 )
 
 // Service syncs Zoom -> local store.

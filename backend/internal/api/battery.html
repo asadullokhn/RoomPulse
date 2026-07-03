@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>RoomPulse · Battery</title>
+<title>QuickRoom · Battery</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <meta name="theme-color" content="#0A0F1F">
 <meta name="color-scheme" content="dark">
@@ -140,7 +140,7 @@
     .scale { margin-left: 134px; }
     .lede h2 { font-size: 25px; }
   }
-  @media (max-width: 560px) { main { padding: 22px 14px 48px; } header { padding: 11px 14px; } .brand .tag { display: none; } .brow { grid-template-columns: 96px 1fr 66px; gap: 8px; } .scale { margin-left: 104px; } }
+  @media (max-width: 560px) { main { padding: 22px 14px 48px; } header { padding: 11px 14px; } .brand .tag { display: none; } nav.seg { order: 3; width: 100%; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; } nav.seg::-webkit-scrollbar { display: none; } .right { order: 2; } .brow { grid-template-columns: 96px 1fr 66px; gap: 8px; } .scale { margin-left: 104px; } }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
 </style>
 </head>
@@ -148,7 +148,7 @@
 <header>
   <a class="brand" href="/">
     <span class="beacon"><i></i></span>
-    <div><h1>Room<b>Pulse</b></h1><div class="tag">Apple Developer Academy · Bali</div></div>
+    <div><h1>Quick<b>Room</b></h1><div class="tag">Apple Developer Academy · Bali</div></div>
   </a>
   <nav class="seg">
     <a href="/">Dashboard</a>
@@ -157,6 +157,7 @@
     <a href="/battery" class="on" aria-current="page">Battery</a>
     <a href="/hardware">Hardware</a>
     <a href="/scenarios">Scenarios</a>
+    <a href="/decide">Next</a>
   </nav>
   <div class="right">
     <span class="chip" id="conn"><span class="led"></span><span id="conn-text">connecting…</span></span>
@@ -256,7 +257,7 @@
     </div>
   </section>
 
-  <footer>RoomPulse · powering the beacons</footer>
+  <footer>QuickRoom · powering the beacons</footer>
 </main>
 
 <script>

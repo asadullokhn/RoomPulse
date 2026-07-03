@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>RoomPulse · How it works</title>
+<title>QuickRoom · How it works</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <meta name="theme-color" content="#0A0F1F">
 <meta name="color-scheme" content="dark">
@@ -121,7 +121,7 @@
     .phases { grid-template-columns: 1fr; }
     .lede h2 { font-size: 25px; }
   }
-  @media (max-width: 560px) { main { padding: 22px 14px 48px; } header { padding: 11px 14px; } .brand .tag { display: none; } }
+  @media (max-width: 560px) { main { padding: 22px 14px 48px; } header { padding: 11px 14px; } .brand .tag { display: none; } nav.seg { order: 3; width: 100%; flex-wrap: nowrap; overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; } nav.seg::-webkit-scrollbar { display: none; } .right { order: 2; } }
   @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; } }
 </style>
 </head>
@@ -129,7 +129,7 @@
 <header>
   <a class="brand" href="/">
     <span class="beacon"><i></i></span>
-    <div><h1>Room<b>Pulse</b></h1><div class="tag">Apple Developer Academy · Bali</div></div>
+    <div><h1>Quick<b>Room</b></h1><div class="tag">Apple Developer Academy · Bali</div></div>
   </a>
   <nav class="seg">
     <a href="/">Dashboard</a>
@@ -138,6 +138,7 @@
     <a href="/battery">Battery</a>
     <a href="/hardware">Hardware</a>
     <a href="/scenarios">Scenarios</a>
+    <a href="/decide">Next</a>
   </nav>
   <div class="right">
     <span class="chip" id="conn"><span class="led"></span><span id="conn-text">connecting…</span></span>
@@ -148,7 +149,7 @@
   <div class="lede">
     <div class="eyebrow">How it works</div>
     <h2>From a beacon to a live floor plan</h2>
-    <p>RoomPulse turns Bluetooth proximity into live room presence. Here's the path data takes today — and where it's headed as we move from a prototype to real hardware and real bookings.</p>
+    <p>QuickRoom turns Bluetooth proximity into live room presence. Here's the path data takes today — and where it's headed as we move from a prototype to real hardware and real bookings.</p>
   </div>
 
   <section class="block">
@@ -164,13 +165,13 @@
       <div class="node">
         <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="6.5" y="2" width="11" height="20" rx="2.6"/><path d="M10.5 18.5h3"/></svg></div>
         <div class="nt">Your phone</div>
-        <div class="nd">The RoomPulse app ranges nearby beacons and decides which room you're in — even with the app closed.</div>
+        <div class="nd">The QuickRoom app ranges nearby beacons and decides which room you're in — even with the app closed.</div>
         <div class="nc">Core Location</div>
       </div>
       <div class="arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M12 5l7 7-7 7"/></svg></div>
       <div class="node">
         <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="7" rx="1.6"/><rect x="3" y="13" width="18" height="7" rx="1.6"/><path d="M6.5 7.5h.01M6.5 16.5h.01"/></svg></div>
-        <div class="nt">RoomPulse backend</div>
+        <div class="nt">QuickRoom backend</div>
         <div class="nd">Receives presence heartbeats, tracks live occupancy and history, and drives check-in / out.</div>
         <div class="nc">Go · SQLite</div>
       </div>
@@ -227,7 +228,7 @@
     </div>
   </section>
 
-  <footer>RoomPulse · prototype</footer>
+  <footer>QuickRoom · prototype</footer>
 </main>
 
 <script>

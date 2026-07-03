@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"roompulse/internal/domain"
+	"quickroom/internal/domain"
 )
 
 // orgUUID is the shared building/organization iBeacon UUID (Major=floor, Minor=room).

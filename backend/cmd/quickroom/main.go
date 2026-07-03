@@ -1,4 +1,4 @@
-// Command roompulse is the RoomPulse backend prototype: it syncs Zoom Workspace
+// Command quickroom is the QuickRoom backend prototype: it syncs Zoom Workspace
 // reservations into a local mirror and serves them over HTTP.
 //
 // Runs in "mock" mode by default (no Zoom credentials needed). Set ZOOM_MODE=live
@@ -15,11 +15,11 @@ import (
 	"syscall"
 	"time"
 
-	"roompulse/internal/api"
-	"roompulse/internal/config"
-	syncsvc "roompulse/internal/sync"
-	"roompulse/internal/store"
-	"roompulse/internal/zoom"
+	"quickroom/internal/api"
+	"quickroom/internal/config"
+	syncsvc "quickroom/internal/sync"
+	"quickroom/internal/store"
+	"quickroom/internal/zoom"
 )
 
 func main() {
@@ -68,7 +68,11 @@ func main() {
 	go runSyncLoop(rootCtx, sync, cfg.SyncInterval, log)
 
 	apiSrv := api.NewServer(st, db, sync, zc, cfg.ZoomMode, cfg.PresenceTTL, log)
-	go apiSrv.ReapLoop(rootCtx) // expire stale presence (killed/offline phones)
+	apiSrv.ConfigureGrace(cfg.GraceFraction, cfg.GraceMin, cfg.GraceMax)
+	apiSrv.ConfigureNotify(cfg.NotifyFirstFraction, cfg.NotifySecondFraction, cfg.NotifySecondEnabled)
+	apiSrv.ConfigureOverstay(cfg.OverstayGrace)
+	go apiSrv.ReapLoop(rootCtx)  // expire stale presence (killed/offline phones)
+	go apiSrv.GraceLoop(rootCtx) // grace reminders + no-show release
 
 	srv := &http.Server{
 		Addr:              cfg.HTTPAddr,

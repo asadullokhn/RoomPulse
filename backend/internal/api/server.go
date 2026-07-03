@@ -5,7 +5,7 @@ package api
 import (
 	"compress/gzip"
 	"context"
-	_ "embed"
+	"embed"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -14,17 +14,11 @@ import (
 	"strings"
 	"time"
 
-	"roompulse/internal/domain"
-	syncsvc "roompulse/internal/sync"
-	"roompulse/internal/store"
-	"roompulse/internal/zoom"
+	"quickroom/internal/domain"
+	"quickroom/internal/store"
+	syncsvc "quickroom/internal/sync"
+	"quickroom/internal/zoom"
 )
-
-//go:embed dashboard.html
-var dashboardHTML []byte
-
-//go:embed floor.html
-var floorHTML []byte
 
 //go:embed how.html
 var howHTML []byte
@@ -38,6 +32,9 @@ var hardwareHTML []byte
 //go:embed scenarios.html
 var scenariosHTML []byte
 
+//go:embed decide.html
+var decideHTML []byte
+
 //go:embed floor.png
 var floorImage []byte
 
@@ -47,11 +44,18 @@ var floorData []byte // raw Zoom workspace export (rooms + polygons)
 //go:embed favicon.svg
 var faviconSVG []byte
 
+//go:embed scenarios/*.jpg
+var scenarioImages embed.FS // one illustration per scenario, served at /scenarios/img/{id}
+
 const (
 	maxBody        = 1 << 20 // 1 MiB request body cap
 	maxIDLen       = 128
 	maxNameLen     = 96
 	eventRetention = 14 * 24 * time.Hour // activity history kept this long
+
+	// graceSweepInterval drives grace reminders + no-show release. Finer than the
+	// presence-reap cadence because grace windows on short bookings are minutes.
+	graceSweepInterval = 30 * time.Second
 )
 
 // OAuthFlow is implemented by the user-OAuth Zoom client. When the active
@@ -64,22 +68,108 @@ type OAuthFlow interface {
 
 // Server wires handlers over the store, sync service and Zoom client.
 type Server struct {
-	store *store.Memory
-	db    *store.DB // durable device registry (SQLite)
-	sync  *syncsvc.Service
-	zoom  zoom.Client
-	oauth OAuthFlow // non-nil only in user mode
-	mode  string
-	ttl   time.Duration // presence stale-after window
-	log   *slog.Logger
+	store     *store.Memory
+	db        *store.DB // durable device registry (SQLite)
+	sync      *syncsvc.Service
+	zoom      zoom.Client
+	oauth     OAuthFlow // non-nil only in user mode
+	mode      string
+	ttl       time.Duration // presence stale-after window
+	log       *slog.Logger
+	diags     *diagBuffer    // recent device diagnostics (in-memory, for GET /diag)
+	decisions *decisionStore // next-step choices from /decide (in-memory, for GET /decision)
+
+	scenarioAnswers *scenarioAnswerStore // chosen answer per scenario (in-memory, for GET /scenario-answers)
+	history         *historyBuffer       // full device event-log dumps (in-memory, for GET /history)
+
+	// No-show grace model (Reno's proportional window). Set from config via
+	// ConfigureGrace; defaults applied in NewServer.
+	graceFraction float64
+	graceMin      time.Duration
+	graceMax      time.Duration
+
+	// Notification outbox + grace-reminder ladder (Reno's model).
+	notify              *notifier
+	notifyFirstFrac     float64
+	notifySecondFrac    float64
+	notifySecondEnabled bool
+
+	// Overstay: a room still occupied this long past its booking's end is
+	// flagged (the inverse of a no-show). Set via ConfigureOverstay.
+	overstayGrace time.Duration
 }
 
 func NewServer(st *store.Memory, db *store.DB, sync *syncsvc.Service, zc zoom.Client, mode string, ttl time.Duration, log *slog.Logger) *Server {
-	s := &Server{store: st, db: db, sync: sync, zoom: zc, mode: mode, ttl: ttl, log: log}
+	s := &Server{store: st, db: db, sync: sync, zoom: zc, mode: mode, ttl: ttl, log: log, diags: newDiagBuffer(50), decisions: newDecisionStore(), scenarioAnswers: newScenarioAnswerStore(), history: newHistoryBuffer(20),
+		graceFraction: 0.10, graceMin: 90 * time.Second, graceMax: 15 * time.Minute,
+		notify: newNotifier(200), notifyFirstFrac: 0.05, notifySecondFrac: 0.075, notifySecondEnabled: true,
+		overstayGrace: 5 * time.Minute}
 	if of, ok := zc.(OAuthFlow); ok {
 		s.oauth = of
 	}
 	return s
+}
+
+// ConfigureGrace overrides the no-show grace model (proportional fraction of the
+// booking length, clamped to [min,max]). Non-positive values are ignored so
+// callers can override selectively.
+func (s *Server) ConfigureGrace(fraction float64, min, max time.Duration) {
+	if fraction > 0 {
+		s.graceFraction = fraction
+	}
+	if min > 0 {
+		s.graceMin = min
+	}
+	if max > 0 {
+		s.graceMax = max
+	}
+}
+
+// ConfigureNotify sets the grace-reminder ladder: first/second ping fractions of
+// the booking elapsed, and whether the second ping fires (Reno flagged
+// notification fatigue, so it can be turned off).
+func (s *Server) ConfigureNotify(first, second float64, secondEnabled bool) {
+	if first > 0 {
+		s.notifyFirstFrac = first
+	}
+	if second > 0 {
+		s.notifySecondFrac = second
+	}
+	s.notifySecondEnabled = secondEnabled
+}
+
+// ConfigureOverstay sets how long a room may stay occupied past its booking's end
+// before it's flagged as an overstay. Non-positive values are ignored.
+func (s *Server) ConfigureOverstay(grace time.Duration) {
+	if grace > 0 {
+		s.overstayGrace = grace
+	}
+}
+
+// GraceLoop drives booking-side maintenance on a short cadence: grace-window
+// reminders then no-show release. Separate from ReapLoop (presence TTL) because
+// grace windows are measured in minutes. Bind ctx to the app's root context.
+func (s *Server) GraceLoop(ctx context.Context) {
+	ticker := time.NewTicker(graceSweepInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			now := time.Now()
+			s.sweepGraceReminders(now)
+			if flagged := s.sweepNoShows(ctx, now); len(flagged) > 0 {
+				s.log.Info("released no-show bookings", "count", len(flagged))
+			}
+			if conflicts := s.sweepCollisions(now); len(conflicts) > 0 {
+				s.log.Info("booking conflicts flagged", "count", len(conflicts))
+			}
+			if over := s.sweepOverstays(now); len(over) > 0 {
+				s.log.Info("overstays flagged", "count", len(over))
+			}
+		}
+	}
 }
 
 // ReapLoop periodically expires devices not seen within the TTL and reflects
@@ -118,16 +208,29 @@ func (s *Server) ReapLoop(ctx context.Context) {
 // Handler builds the routed mux.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /{$}", s.dashboard)
+	mux.HandleFunc("GET /{$}", s.spaIndex)
+	mux.HandleFunc("GET /admin", s.spaIndex)
+	mux.HandleFunc("GET /floor", s.spaIndex)
+	mux.Handle("GET /assets/", http.FileServerFS(webDist))
 	mux.HandleFunc("GET /favicon.svg", s.favicon)
-	mux.HandleFunc("GET /floor", s.floor)
 	mux.HandleFunc("GET /how", s.how)
 	mux.HandleFunc("GET /battery", s.battery)
 	mux.HandleFunc("GET /hardware", s.hardware)
 	mux.HandleFunc("GET /scenarios", s.scenarios)
+	mux.HandleFunc("GET /scenarios/img/{name}", s.scenarioImage)
+	mux.HandleFunc("GET /decide", s.decide)
+	mux.HandleFunc("POST /decision", s.postDecision)
+	mux.HandleFunc("GET /decision", s.getDecision)
+	mux.HandleFunc("POST /scenario-answers", s.postScenarioAnswers)
+	mux.HandleFunc("GET /scenario-answers", s.getScenarioAnswers)
 	mux.HandleFunc("GET /floor/image", s.floorImageHandler)
 	mux.HandleFunc("GET /floor/rooms", s.floorRooms)
 	mux.HandleFunc("GET /info", s.info)
+	mux.HandleFunc("GET /docs", s.docs)
+	mux.HandleFunc("GET /docs/swagger-ui.css", s.docsAsset(swaggerCSS, "text/css; charset=utf-8"))
+	mux.HandleFunc("GET /docs/swagger-ui-bundle.js", s.docsAsset(swaggerBundleJS, "application/javascript; charset=utf-8"))
+	mux.HandleFunc("GET /docs/swagger-ui-standalone-preset.js", s.docsAsset(swaggerPresetJS, "application/javascript; charset=utf-8"))
+	mux.HandleFunc("GET /openapi.yaml", s.openapiYAML)
 	mux.HandleFunc("GET /health/live", s.live)
 	mux.HandleFunc("GET /health/ready", s.live)
 	mux.HandleFunc("POST /sync", s.runSync)
@@ -140,12 +243,40 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /reservations/{id}/check-out", s.checkOut)
 	mux.HandleFunc("POST /presence", s.presence)
 	mux.HandleFunc("POST /presence/heartbeat", s.heartbeat)
+	mux.HandleFunc("POST /diag", s.postDiag)
+	mux.HandleFunc("GET /diag", s.getDiag)
+	mux.HandleFunc("POST /history", s.postHistory)
+	mux.HandleFunc("GET /history", s.getHistory)
 	mux.HandleFunc("GET /occupancy", s.occupancy)
+	mux.HandleFunc("GET /notifications", s.getNotifications)
+	mux.HandleFunc("GET /collisions", s.getCollisions)
+	mux.HandleFunc("GET /overstays", s.getOverstays)
+	mux.HandleFunc("GET /utilization", s.getUtilization)
 	if s.oauth != nil {
 		mux.HandleFunc("GET /oauth/login", s.oauthLogin)
 		mux.HandleFunc("GET /oauth/callback", s.oauthCallback)
 	}
-	return recovery(s.log, logging(s.log, gzipped(mux)))
+	return recovery(s.log, logging(s.log, cors(gzipped(mux))))
+}
+
+// cors allows the API to be called cross-origin — notably Swagger UI's "Try it
+// out" when the docs are opened from a different host than the one picked in the
+// server dropdown. Safe here: the API is public and carries no cookies/credentials,
+// so "*" exposes nothing a direct request wouldn't. Preflights are answered here
+// since the method+path mux wouldn't match a bare OPTIONS.
+func cors(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Add("Vary", "Origin")
+		if r.Method == http.MethodOptions {
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Accept")
+			w.Header().Set("Access-Control-Max-Age", "600")
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) oauthLogin(w http.ResponseWriter, r *http.Request) {
@@ -177,20 +308,10 @@ func (s *Server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) dashboard(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write(dashboardHTML)
-}
-
 func (s *Server) favicon(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "image/svg+xml")
 	w.Header().Set("Cache-Control", "public, max-age=86400")
 	_, _ = w.Write(faviconSVG)
-}
-
-func (s *Server) floor(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write(floorHTML)
 }
 
 func (s *Server) how(w http.ResponseWriter, _ *http.Request) {
@@ -211,6 +332,42 @@ func (s *Server) hardware(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) scenarios(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write(scenariosHTML)
+}
+
+func (s *Server) decide(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = w.Write(decideHTML)
+}
+
+// scenarioImage serves a scenario's illustration (embedded JPEG). The {name} is a
+// scenario id; restricting it to lowercase letters keeps it inside the embedded
+// scenarios/ directory (no path traversal) and matches the ids used in scenarios.html.
+func (s *Server) scenarioImage(w http.ResponseWriter, r *http.Request) {
+	name := strings.TrimSuffix(r.PathValue("name"), ".jpg")
+	if !isScenarioName(name) {
+		writeError(w, http.StatusNotFound, "not found")
+		return
+	}
+	data, err := scenarioImages.ReadFile("scenarios/" + name + ".jpg")
+	if err != nil {
+		writeError(w, http.StatusNotFound, "not found")
+		return
+	}
+	w.Header().Set("Content-Type", "image/jpeg")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	_, _ = w.Write(data)
+}
+
+func isScenarioName(name string) bool {
+	if name == "" || len(name) > 32 {
+		return false
+	}
+	for _, c := range name {
+		if c < 'a' || c > 'z' {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *Server) floorImageHandler(w http.ResponseWriter, _ *http.Request) {

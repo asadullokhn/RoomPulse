@@ -7,6 +7,11 @@
 /backend/out/
 /backend/roompulse
 
+# --- Frontend build output / deps ---
+/frontend/node_modules/
+/frontend/dist/
+/backend/internal/api/web/
+
 # --- Xcode (project is generated from project.yml via `xcodegen generate`) ---
 **/build/
 **/build_*/

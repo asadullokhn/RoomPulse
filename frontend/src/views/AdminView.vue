@@ -8,10 +8,11 @@ import AlertsList from '@/components/admin/AlertsList.vue'
 import RoomsGrid from '@/components/admin/RoomsGrid.vue'
 import NotificationsList from '@/components/admin/NotificationsList.vue'
 import BeaconsPanel from '@/components/admin/BeaconsPanel.vue'
+import UsersPanel from '@/components/admin/UsersPanel.vue'
 import { usePoll } from '@/composables/usePoll'
 import { useConnection } from '@/composables/useConnection'
-import { getUtilization, getReservations, getRooms, getOccupancy, getCollisions, getOverstays, getNotifications, getBeacons } from '@/api/client'
-import type { Utilization, Reservation, Room, OccupancyEntry, Collision, Overstay, Notification, Beacon } from '@/api/types'
+import { getUtilization, getReservations, getRooms, getOccupancy, getCollisions, getOverstays, getNotifications, getBeacons, getUsers } from '@/api/client'
+import type { Utilization, Reservation, Room, OccupancyEntry, Collision, Overstay, Notification, Beacon, User } from '@/api/types'
 
 document.title = 'QuickRoom · Admin'
 
@@ -24,6 +25,7 @@ const collisions = ref<Collision[]>([])
 const overstays = ref<Overstay[]>([])
 const notifications = ref<Notification[]>([])
 const beacons = ref<Beacon[]>([])
+const users = ref<User[]>([])
 const loaded = ref(false)
 
 const occByWs = computed(() => {
@@ -41,11 +43,11 @@ function checkLabel(s: string) { return s === 'checked_in' ? 'checked in' : s ==
 
 async function refresh() {
   try {
-    const [u, res, r, occ, col, over, notes, beac] = await Promise.all([
-      getUtilization(), getReservations(), getRooms(), getOccupancy(), getCollisions(), getOverstays(), getNotifications(30), getBeacons(),
+    const [u, res, r, occ, col, over, notes, beac, usrs] = await Promise.all([
+      getUtilization(), getReservations(), getRooms(), getOccupancy(), getCollisions(), getOverstays(), getNotifications(30), getBeacons(), getUsers(),
     ])
     util.value = u; reservations.value = res; rooms.value = r; occupancy.value = occ
-    collisions.value = col; overstays.value = over; notifications.value = notes; beacons.value = beac
+    collisions.value = col; overstays.value = over; notifications.value = notes; beacons.value = beac; users.value = usrs
     markUp(); loaded.value = true
   } catch {
     markDown()
@@ -97,6 +99,11 @@ usePoll(refresh, 4000)
         <section class="block">
           <div class="eyebrow"><span class="n">05</span> Beacons <span class="aside">room ↔ iBeacon assignment</span></div>
           <BeaconsPanel :beacons="beacons" :rooms="rooms" @changed="refresh" />
+        </section>
+
+        <section class="block">
+          <div class="eyebrow"><span class="n">06</span> Users <span class="aside">{{ users.length }} accounts</span></div>
+          <UsersPanel :users="users" @changed="refresh" />
         </section>
       </template>
     </main>

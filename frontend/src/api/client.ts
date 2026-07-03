@@ -1,6 +1,6 @@
 import type {
   Room, Reservation, OccupancyEntry, Device, Beacon, EventEntry,
-  Utilization, Collision, Overstay, Notification, FloorData, Info,
+  Utilization, Collision, Overstay, Notification, FloorData, Info, User,
 } from './types'
 
 async function getJSON<T>(url: string): Promise<T> {
@@ -36,3 +36,15 @@ export const getNotifications = (limit = 30) => getJSON<{ notifications: Notific
 export const getFloorRooms = () => getJSON<FloorData>('/floor/rooms')
 export const getInfo = () => getJSON<Info>('/info')
 export const postSync = () => fetch('/sync', { method: 'POST' })
+export const getUsers = () => getJSON<{ users: User[] }>('/users').then(d => d.users ?? [])
+export const getUserReservations = (userId: string) =>
+  getJSON<{ reservations: Reservation[] }>(`/users/${encodeURIComponent(userId)}/reservations`).then(d => d.reservations ?? [])
+export const deleteUser = (userId: string) =>
+  fetch(`/users/${encodeURIComponent(userId)}`, { method: 'DELETE' }).then(r => {
+    if (!r.ok) throw new Error(r.statusText)
+  })
+export const adminCancelReservation = (reservationId: string) =>
+  fetch(`/admin/reservations/${encodeURIComponent(reservationId)}/cancel`, { method: 'POST' }).then(async r => {
+    if (!r.ok) throw new Error((await r.json().catch(() => ({ error: r.statusText }))).error ?? r.statusText)
+    return r.json() as Promise<Reservation>
+  })

@@ -57,6 +57,12 @@ type Config struct {
 	// OverstayGrace: a room still occupied this long past its booking's end is
 	// flagged as an overstay (the inverse of a no-show).
 	OverstayGrace time.Duration
+
+	// Sign in with Apple: AppleBundleID is checked against the identity
+	// token's aud claim. SessionTTL controls how long an issued session
+	// (opaque bearer token) stays valid.
+	AppleBundleID string
+	SessionTTL    time.Duration
 }
 
 func Load() (Config, error) {
@@ -109,6 +115,12 @@ func Load() (Config, error) {
 
 	if c.OverstayGrace, err = time.ParseDuration(getenv("OVERSTAY_GRACE", "5m")); err != nil {
 		return Config{}, fmt.Errorf("invalid OVERSTAY_GRACE: %w", err)
+	}
+
+	c.AppleBundleID = os.Getenv("APPLE_BUNDLE_ID")
+
+	if c.SessionTTL, err = time.ParseDuration(getenv("SESSION_TTL", "720h")); err != nil { // 30 days
+		return Config{}, fmt.Errorf("invalid SESSION_TTL: %w", err)
 	}
 
 	switch c.ZoomMode {

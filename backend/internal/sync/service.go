@@ -105,6 +105,7 @@ func (s *Service) syncReservations(ctx context.Context, now time.Time) (int, err
 			EndTime:         r.EndTime,
 			Status:          domain.StatusBooked,
 			CheckInStatus:   mapCheckIn(r.CheckInStatus),
+			Source:          "zoom",
 		})
 	}
 	return len(res), nil

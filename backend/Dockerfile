@@ -1,3 +1,9 @@
+# Requires the Vue SPA to be pre-built before this runs: `cd frontend && npm
+# run build`, which writes straight into internal/api/web/dist (see
+# frontend/vite.config.ts) so go:embed picks it up here. Not built as a Docker
+# stage — the deploy dir on the VPS ships only backend/, matching how the
+# vendored Swagger UI assets already work (pre-built, not generated in-image).
+
 # --- build stage ---
 FROM golang:1.26-alpine AS build
 WORKDIR /src

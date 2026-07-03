@@ -20,12 +20,6 @@ import (
 	"quickroom/internal/zoom"
 )
 
-//go:embed dashboard.html
-var dashboardHTML []byte
-
-//go:embed floor.html
-var floorHTML []byte
-
 //go:embed how.html
 var howHTML []byte
 
@@ -40,9 +34,6 @@ var scenariosHTML []byte
 
 //go:embed decide.html
 var decideHTML []byte
-
-//go:embed admin.html
-var adminHTML []byte
 
 //go:embed floor.png
 var floorImage []byte
@@ -217,16 +208,17 @@ func (s *Server) ReapLoop(ctx context.Context) {
 // Handler builds the routed mux.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /{$}", s.dashboard)
+	mux.HandleFunc("GET /{$}", s.spaIndex)
+	mux.HandleFunc("GET /admin", s.spaIndex)
+	mux.HandleFunc("GET /floor", s.spaIndex)
+	mux.Handle("GET /assets/", http.FileServerFS(webDist))
 	mux.HandleFunc("GET /favicon.svg", s.favicon)
-	mux.HandleFunc("GET /floor", s.floor)
 	mux.HandleFunc("GET /how", s.how)
 	mux.HandleFunc("GET /battery", s.battery)
 	mux.HandleFunc("GET /hardware", s.hardware)
 	mux.HandleFunc("GET /scenarios", s.scenarios)
 	mux.HandleFunc("GET /scenarios/img/{name}", s.scenarioImage)
 	mux.HandleFunc("GET /decide", s.decide)
-	mux.HandleFunc("GET /admin", s.admin)
 	mux.HandleFunc("POST /decision", s.postDecision)
 	mux.HandleFunc("GET /decision", s.getDecision)
 	mux.HandleFunc("POST /scenario-answers", s.postScenarioAnswers)
@@ -316,20 +308,10 @@ func (s *Server) oauthCallback(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *Server) dashboard(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write(dashboardHTML)
-}
-
 func (s *Server) favicon(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "image/svg+xml")
 	w.Header().Set("Cache-Control", "public, max-age=86400")
 	_, _ = w.Write(faviconSVG)
-}
-
-func (s *Server) floor(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write(floorHTML)
 }
 
 func (s *Server) how(w http.ResponseWriter, _ *http.Request) {
@@ -355,11 +337,6 @@ func (s *Server) scenarios(w http.ResponseWriter, _ *http.Request) {
 func (s *Server) decide(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	_, _ = w.Write(decideHTML)
-}
-
-func (s *Server) admin(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write(adminHTML)
 }
 
 // scenarioImage serves a scenario's illustration (embedded JPEG). The {name} is a

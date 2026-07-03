@@ -54,7 +54,7 @@ usePoll(refresh, 4000)
 
 <template>
   <div class="page">
-    <AppHeader active="admin" :connected="connected" />
+    <AppHeader :connected="connected" />
     <main>
       <div v-if="!loaded" class="skeleton">Loading admin data…</div>
       <template v-else>

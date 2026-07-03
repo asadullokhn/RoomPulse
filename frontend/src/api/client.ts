@@ -14,6 +14,19 @@ export const getReservations = () => getJSON<{ reservations: Reservation[] }>('/
 export const getOccupancy = () => getJSON<{ occupancy: OccupancyEntry[] }>('/occupancy').then(d => d.occupancy ?? [])
 export const getDevices = () => getJSON<{ devices: Device[] }>('/devices').then(d => d.devices ?? [])
 export const getBeacons = () => getJSON<{ beacons: Beacon[] }>('/beacons').then(d => d.beacons ?? [])
+export const putBeacon = (workspaceId: string, body: { uuid: string; major: number; minor: number }) =>
+  fetch(`/beacons/${encodeURIComponent(workspaceId)}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  }).then(async r => {
+    if (!r.ok) throw new Error((await r.json().catch(() => ({ error: r.statusText }))).error ?? r.statusText)
+    return r.json() as Promise<Beacon>
+  })
+export const deleteBeacon = (workspaceId: string) =>
+  fetch(`/beacons/${encodeURIComponent(workspaceId)}`, { method: 'DELETE' }).then(r => {
+    if (!r.ok) throw new Error(r.statusText)
+  })
 export const getEvents = (workspaceId: string, limit = 25) =>
   getJSON<{ events: EventEntry[] }>(`/events?workspace_id=${encodeURIComponent(workspaceId)}&limit=${limit}`).then(d => d.events ?? [])
 export const getUtilization = () => getJSON<Utilization>('/utilization')

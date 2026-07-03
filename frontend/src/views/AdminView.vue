@@ -7,10 +7,11 @@ import KpiRow from '@/components/admin/KpiRow.vue'
 import AlertsList from '@/components/admin/AlertsList.vue'
 import RoomsGrid from '@/components/admin/RoomsGrid.vue'
 import NotificationsList from '@/components/admin/NotificationsList.vue'
+import BeaconsPanel from '@/components/admin/BeaconsPanel.vue'
 import { usePoll } from '@/composables/usePoll'
 import { useConnection } from '@/composables/useConnection'
-import { getUtilization, getReservations, getRooms, getOccupancy, getCollisions, getOverstays, getNotifications } from '@/api/client'
-import type { Utilization, Reservation, Room, OccupancyEntry, Collision, Overstay, Notification } from '@/api/types'
+import { getUtilization, getReservations, getRooms, getOccupancy, getCollisions, getOverstays, getNotifications, getBeacons } from '@/api/client'
+import type { Utilization, Reservation, Room, OccupancyEntry, Collision, Overstay, Notification, Beacon } from '@/api/types'
 
 document.title = 'QuickRoom · Admin'
 
@@ -22,6 +23,7 @@ const occupancy = ref<OccupancyEntry[]>([])
 const collisions = ref<Collision[]>([])
 const overstays = ref<Overstay[]>([])
 const notifications = ref<Notification[]>([])
+const beacons = ref<Beacon[]>([])
 const loaded = ref(false)
 
 const occByWs = computed(() => {
@@ -39,11 +41,11 @@ function checkLabel(s: string) { return s === 'checked_in' ? 'checked in' : s ==
 
 async function refresh() {
   try {
-    const [u, res, r, occ, col, over, notes] = await Promise.all([
-      getUtilization(), getReservations(), getRooms(), getOccupancy(), getCollisions(), getOverstays(), getNotifications(30),
+    const [u, res, r, occ, col, over, notes, beac] = await Promise.all([
+      getUtilization(), getReservations(), getRooms(), getOccupancy(), getCollisions(), getOverstays(), getNotifications(30), getBeacons(),
     ])
     util.value = u; reservations.value = res; rooms.value = r; occupancy.value = occ
-    collisions.value = col; overstays.value = over; notifications.value = notes
+    collisions.value = col; overstays.value = over; notifications.value = notes; beacons.value = beac
     markUp(); loaded.value = true
   } catch {
     markDown()
@@ -90,6 +92,11 @@ usePoll(refresh, 4000)
         <section class="block">
           <div class="eyebrow"><span class="n">04</span> Notification outbox <span class="aside">{{ notifications.length }} recent</span></div>
           <NotificationsList :notifications="notifications" />
+        </section>
+
+        <section class="block">
+          <div class="eyebrow"><span class="n">05</span> Beacons <span class="aside">room ↔ iBeacon assignment</span></div>
+          <BeaconsPanel :beacons="beacons" :rooms="rooms" @changed="refresh" />
         </section>
       </template>
     </main>

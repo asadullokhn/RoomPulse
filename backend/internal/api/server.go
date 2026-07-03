@@ -21,21 +21,6 @@ import (
 	"quickroom/internal/zoom"
 )
 
-//go:embed how.html
-var howHTML []byte
-
-//go:embed battery.html
-var batteryHTML []byte
-
-//go:embed hardware.html
-var hardwareHTML []byte
-
-//go:embed scenarios.html
-var scenariosHTML []byte
-
-//go:embed decide.html
-var decideHTML []byte
-
 //go:embed floor.png
 var floorImage []byte
 
@@ -102,6 +87,10 @@ type Server struct {
 	// Sign in with Apple + sessions.
 	appleVerifier *appleauth.Verifier
 	sessionTTL    time.Duration
+
+	// BeaconsFile path for persisting admin beacon-mapping edits. Empty
+	// disables persistence (in-memory only) — set via ConfigureBeaconsFile.
+	beaconsFile string
 }
 
 func NewServer(st *store.Memory, db *store.DB, sync *syncsvc.Service, zc zoom.Client, mode string, ttl time.Duration, appleVerifier *appleauth.Verifier, sessionTTL time.Duration, log *slog.Logger) *Server {
@@ -142,6 +131,13 @@ func (s *Server) ConfigureNotify(first, second float64, secondEnabled bool) {
 		s.notifySecondFrac = second
 	}
 	s.notifySecondEnabled = secondEnabled
+}
+
+// ConfigureBeaconsFile sets the path admin beacon-mapping edits persist to.
+// Empty disables persistence (edits apply in-memory only for the process's
+// lifetime).
+func (s *Server) ConfigureBeaconsFile(path string) {
+	s.beaconsFile = path
 }
 
 // ConfigureOverstay sets how long a room may stay occupied past its booking's end
@@ -215,16 +211,9 @@ func (s *Server) ReapLoop(ctx context.Context) {
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.spaIndex)
-	mux.HandleFunc("GET /admin", s.spaIndex)
-	mux.HandleFunc("GET /floor", s.spaIndex)
 	mux.Handle("GET /assets/", http.FileServerFS(webDist))
 	mux.HandleFunc("GET /favicon.svg", s.favicon)
-	mux.HandleFunc("GET /how", s.how)
-	mux.HandleFunc("GET /battery", s.battery)
-	mux.HandleFunc("GET /hardware", s.hardware)
-	mux.HandleFunc("GET /scenarios", s.scenarios)
 	mux.HandleFunc("GET /scenarios/img/{name}", s.scenarioImage)
-	mux.HandleFunc("GET /decide", s.decide)
 	mux.HandleFunc("POST /decision", s.postDecision)
 	mux.HandleFunc("GET /decision", s.getDecision)
 	mux.HandleFunc("POST /scenario-answers", s.postScenarioAnswers)
@@ -242,6 +231,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /sync", s.runSync)
 	mux.HandleFunc("GET /rooms", s.listRooms)
 	mux.HandleFunc("GET /beacons", s.listBeacons)
+	mux.HandleFunc("PUT /beacons/{workspace_id}", s.putBeacon)
+	mux.HandleFunc("DELETE /beacons/{workspace_id}", s.deleteBeacon)
 	mux.HandleFunc("GET /devices", s.listDevices)
 	mux.HandleFunc("GET /events", s.listEvents)
 	mux.HandleFunc("GET /reservations", s.listReservations)
@@ -323,31 +314,6 @@ func (s *Server) favicon(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "image/svg+xml")
 	w.Header().Set("Cache-Control", "public, max-age=86400")
 	_, _ = w.Write(faviconSVG)
-}
-
-func (s *Server) how(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write(howHTML)
-}
-
-func (s *Server) battery(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write(batteryHTML)
-}
-
-func (s *Server) hardware(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write(hardwareHTML)
-}
-
-func (s *Server) scenarios(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write(scenariosHTML)
-}
-
-func (s *Server) decide(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write(decideHTML)
 }
 
 // scenarioImage serves a scenario's illustration (embedded JPEG). The {name} is a
@@ -465,26 +431,6 @@ func (s *Server) listReservations(w http.ResponseWriter, _ *http.Request) {
 // listBeacons returns the room↔iBeacon registry, each entry joined to its room
 // name. The mobile app polls this to learn which beacons to range/monitor, so
 // rooms can be added or re-mapped without shipping a new build.
-func (s *Server) listBeacons(w http.ResponseWriter, _ *http.Request) {
-	type entry struct {
-		WorkspaceID string `json:"workspace_id"`
-		UUID        string `json:"uuid"`
-		Major       int    `json:"major"`
-		Minor       int    `json:"minor"`
-		Name        string `json:"name"`
-	}
-	bs := s.store.Beacons()
-	out := make([]entry, 0, len(bs))
-	for _, b := range bs {
-		name := ""
-		if room, ok := s.store.RoomByWorkspace(b.WorkspaceID); ok {
-			name = room.Name
-		}
-		out = append(out, entry{WorkspaceID: b.WorkspaceID, UUID: b.UUID, Major: b.Major, Minor: b.Minor, Name: name})
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"beacons": out})
-}
-
 // listEvents returns a room's recent presence activity (the floor modal's
 // history). Requires a workspace_id query param.
 func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {

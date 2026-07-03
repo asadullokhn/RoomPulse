@@ -8,15 +8,19 @@ Usage:
     python3 device/tools/txtuner.py [--port /dev/cu.usbmodemXXXX] [--http 8880]
 """
 
+import argparse
 import fcntl
 import glob
+import json
 import os
 import re
+import socket
 import struct
 import sys
 import termios
 import threading
 import time
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 TX_LEVELS = [-40, -20, -16, -12, -8, -4, 0, 2, 3, 4, 5, 6, 7, 8]
 
@@ -99,3 +103,101 @@ def find_port():
     if len(candidates) > 1:
         print(f"Multiple ports found {candidates}, using {candidates[0]}")
     return candidates[0]
+
+
+PAGE = "<h1>page comes in Task 4</h1>"
+
+
+class Handler(BaseHTTPRequestHandler):
+    beacon = None  # assigned in main()
+
+    def _json(self, code, payload):
+        body = json.dumps(payload).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _read_state(self):
+        out = Handler.beacon.exchange("show", r"measured-power")
+        state = parse_show(out)
+        if state is None:
+            raise BeaconError("could not parse beacon state", code=504)
+        return state
+
+    def do_GET(self):
+        if self.path == "/":
+            body = PAGE.encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        elif self.path == "/api/state":
+            try:
+                self._json(200, self._read_state())
+            except BeaconError as e:
+                self._json(e.code, {"error": str(e)})
+        else:
+            self._json(404, {"error": "not found"})
+
+    def do_POST(self):
+        if self.path != "/api/tx":
+            self._json(404, {"error": "not found"})
+            return
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            level = json.loads(self.rfile.read(length))["level"]
+        except (ValueError, KeyError, json.JSONDecodeError):
+            self._json(400, {"error": 'body must be {"level": <dBm>}'})
+            return
+        if level not in TX_LEVELS:
+            self._json(400, {"error": f"level must be one of {TX_LEVELS}"})
+            return
+        try:
+            Handler.beacon.exchange(f"tx {level}", rf"ok tx={level} dBm")
+            self._json(200, self._read_state())
+        except BeaconError as e:
+            self._json(e.code, {"error": str(e)})
+
+    def log_message(self, *args):
+        pass  # keep the terminal clean
+
+
+def lan_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("192.0.2.1", 80))  # UDP connect sends no packets
+        return s.getsockname()[0]
+    except OSError:
+        return "127.0.0.1"
+    finally:
+        s.close()
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--port", help="serial port (default: auto-detect /dev/cu.usbmodem*)")
+    ap.add_argument("--http", type=int, default=8880, help="HTTP port (default 8880)")
+    args = ap.parse_args()
+
+    port = args.port or find_port()
+    Handler.beacon = Beacon(port)
+    try:
+        state = parse_show(Handler.beacon.exchange("show", r"measured-power"))
+    except BeaconError as e:
+        sys.exit(f"Beacon on {port} not responding: {e}")
+    print(f"Beacon on {port}: tx {state['tx']} dBm, minor {state['minor']}, adv {state['adv']} ms")
+
+    host = socket.gethostname()
+    if not host.endswith(".local"):
+        host += ".local"
+    print("Open on your phone (same Wi-Fi):")
+    print(f"  http://{lan_ip()}:{args.http}")
+    print(f"  http://{host}:{args.http}")
+    ThreadingHTTPServer(("0.0.0.0", args.http), Handler).serve_forever()
+
+
+if __name__ == "__main__":
+    main()

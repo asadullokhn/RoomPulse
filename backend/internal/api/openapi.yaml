@@ -109,6 +109,41 @@ paths:
                 type: object
                 properties:
                   beacons: { type: array, items: { $ref: '#/components/schemas/BeaconEntry' } }
+  /beacons/{workspace_id}:
+    put:
+      tags: [Rooms & Beacons]
+      summary: Assign or update a room's beacon mapping
+      parameters:
+        - name: workspace_id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [uuid, major, minor]
+              properties:
+                uuid: { type: string }
+                major: { type: integer, minimum: 0, maximum: 65535 }
+                minor: { type: integer, minimum: 0, maximum: 65535 }
+      responses:
+        "200": { description: Saved, content: { application/json: { schema: { $ref: '#/components/schemas/BeaconEntry' } } } }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "422": { $ref: '#/components/responses/Unprocessable' }
+    delete:
+      tags: [Rooms & Beacons]
+      summary: Remove a room's beacon mapping
+      parameters:
+        - name: workspace_id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+        "404": { $ref: '#/components/responses/NotFound' }
 
   /reservations:
     get:

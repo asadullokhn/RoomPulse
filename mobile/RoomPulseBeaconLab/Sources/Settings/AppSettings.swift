@@ -38,4 +38,10 @@ enum AppSettings {
         get { d.bool(forKey: "notifyOnCheckInOut") }
         set { d.set(newValue, forKey: "notifyOnCheckInOut") }
     }
+
+    /// Base URL of the Mac-side TX tuner bridge (device/tools/txtuner.py).
+    static var tunerBaseURL: String {
+        get { d.string(forKey: "tunerBaseURL") ?? "http://Asadullokhs-MacBook-Pro.local:8880" }
+        set { d.set(newValue, forKey: "tunerBaseURL") }
+    }
 }

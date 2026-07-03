@@ -235,6 +235,31 @@ func (d *DB) UserByID(userID string) (domain.User, bool, error) {
 	return u, true, nil
 }
 
+// Users returns every app account, most-recently-created first.
+func (d *DB) Users() ([]domain.User, error) {
+	rows, err := d.sql.Query(`SELECT user_id, apple_sub, email, name, created_at FROM users ORDER BY created_at DESC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []domain.User{}
+	for rows.Next() {
+		u, err := scanUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, u)
+	}
+	return out, rows.Err()
+}
+
+// DeleteUser removes a user account. Callers are responsible for handling
+// their bookings/sessions first (see Server.deleteUser).
+func (d *DB) DeleteUser(userID string) error {
+	_, err := d.sql.Exec(`DELETE FROM users WHERE user_id = ?`, userID)
+	return err
+}
+
 // CreateSession stores a new session keyed by the SHA-256 hash of its opaque
 // token — the raw token is never persisted, only ever returned once to the
 // caller at sign-in time.
@@ -267,6 +292,14 @@ func (d *DB) SessionUserID(tokenHash string, now time.Time) (string, bool, error
 // token hash isn't found.
 func (d *DB) DeleteSession(tokenHash string) error {
 	_, err := d.sql.Exec(`DELETE FROM sessions WHERE token_hash = ?`, tokenHash)
+	return err
+}
+
+// DeleteSessionsForUser revokes every session belonging to a user (e.g. on
+// account deletion) — unlike DeleteSession, which revokes one session by
+// token hash for a single-device logout.
+func (d *DB) DeleteSessionsForUser(userID string) error {
+	_, err := d.sql.Exec(`DELETE FROM sessions WHERE user_id = ?`, userID)
 	return err
 }
 

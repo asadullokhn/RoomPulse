@@ -48,6 +48,8 @@ tags:
     description: Floor-plan projection and image
   - name: Auth
     description: Sign in with Apple (mobile app sessions) and Zoom user-OAuth (user mode only)
+  - name: Users
+    description: Admin-facing account management — unauthenticated, like the rest of the admin surface
 
 paths:
   /health/live:
@@ -228,6 +230,19 @@ paths:
         "200": { description: Updated reservation, content: { application/json: { schema: { $ref: '#/components/schemas/Reservation' } } } }
         "404": { $ref: '#/components/responses/NotFound' }
         "502": { $ref: '#/components/responses/BadGateway' }
+  /admin/reservations/{id}/cancel:
+    post:
+      tags: [Reservations]
+      summary: Cancel any app-sourced booking (admin)
+      description: |
+        The admin-facing counterpart to `/reservations/{id}/cancel` — not scoped
+        to a session, so it can cancel any user's booking. Unauthenticated, like
+        the rest of the admin surface.
+      parameters: [ { $ref: '#/components/parameters/ReservationId' } ]
+      responses:
+        "200": { description: Cancelled, content: { application/json: { schema: { $ref: '#/components/schemas/Reservation' } } } }
+        "403": { description: Not app-sourced, so not cancellable this way, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        "404": { $ref: '#/components/responses/NotFound' }
 
   /presence:
     post:
@@ -596,6 +611,47 @@ paths:
       responses:
         "200": { $ref: '#/components/responses/Ok' }
 
+  /users:
+    get:
+      tags: [Users]
+      summary: List every app account
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  users: { type: array, items: { $ref: '#/components/schemas/User' } }
+  /users/{id}/reservations:
+    get:
+      tags: [Users]
+      summary: A user's bookings (any status/source)
+      parameters: [ { $ref: '#/components/parameters/UserId' } ]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reservations: { type: array, items: { $ref: '#/components/schemas/Reservation' } }
+        "404": { $ref: '#/components/responses/NotFound' }
+  /users/{id}:
+    delete:
+      tags: [Users]
+      summary: Delete an account
+      description: |
+        Cancels the user's open app-sourced bookings and revokes every session
+        before deleting the account row — a removed account can't be left
+        holding a room or a live session.
+      parameters: [ { $ref: '#/components/parameters/UserId' } ]
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+        "404": { $ref: '#/components/responses/NotFound' }
+
   /oauth/login:
     get:
       tags: [Auth]
@@ -623,6 +679,11 @@ components:
       description: "Opaque session token returned by POST /auth/apple. Send as `Authorization: Bearer <token>`."
   parameters:
     ReservationId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+    UserId:
       name: id
       in: path
       required: true

@@ -1,5 +1,5 @@
 export type CheckInStatus = 'not_checked_in' | 'checked_in' | 'checked_out'
-export type ReservationStatus = 'booked' | 'no_show' | 'released'
+export type ReservationStatus = 'booked' | 'no_show' | 'released' | 'cancelled'
 
 export interface Room {
   room_id: string
@@ -24,6 +24,15 @@ export interface Reservation {
   end_time: string
   status: ReservationStatus
   check_in_status: CheckInStatus
+  source?: 'zoom' | 'app'
+  booked_by_user_id?: string
+}
+
+export interface User {
+  user_id: string
+  email?: string
+  name?: string
+  created_at: string
 }
 
 export interface OccupancyEntry {

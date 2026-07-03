@@ -46,6 +46,42 @@ func TestUserRoundTrip(t *testing.T) {
 	}
 }
 
+func TestUsersListAndDelete(t *testing.T) {
+	db := newTestDB(t)
+	now := time.Now().Truncate(time.Second)
+	db.UpsertUser(domain.User{UserID: "usr_a", AppleSub: "sub-a", Email: "a@example.com", Name: "A", CreatedAt: now})
+	db.UpsertUser(domain.User{UserID: "usr_b", AppleSub: "sub-b", Email: "b@example.com", Name: "B", CreatedAt: now})
+
+	users, err := db.Users()
+	if err != nil {
+		t.Fatalf("Users: %v", err)
+	}
+	if len(users) != 2 {
+		t.Fatalf("Users() returned %d, want 2", len(users))
+	}
+
+	if err := db.CreateSession("hash-a", "usr_a", now, now.Add(time.Hour)); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	if err := db.DeleteSessionsForUser("usr_a"); err != nil {
+		t.Fatalf("DeleteSessionsForUser: %v", err)
+	}
+	if _, ok, err := db.SessionUserID("hash-a", now); err != nil || ok {
+		t.Fatalf("session should be gone after DeleteSessionsForUser: ok=%v err=%v", ok, err)
+	}
+
+	if err := db.DeleteUser("usr_a"); err != nil {
+		t.Fatalf("DeleteUser: %v", err)
+	}
+	if _, ok, err := db.UserByID("usr_a"); err != nil || ok {
+		t.Fatalf("user should be gone after DeleteUser: ok=%v err=%v", ok, err)
+	}
+	users, _ = db.Users()
+	if len(users) != 1 {
+		t.Fatalf("Users() after delete returned %d, want 1", len(users))
+	}
+}
+
 func TestSessionLifecycle(t *testing.T) {
 	db := newTestDB(t)
 	now := time.Now()

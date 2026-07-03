@@ -22,6 +22,13 @@ func (m *Memory) SetBeacon(b domain.Beacon) {
 	m.beacons[b.WorkspaceID] = b
 }
 
+// RemoveBeacon deletes the iBeacon mapping for a workspace, if present.
+func (m *Memory) RemoveBeacon(workspaceID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.beacons, workspaceID)
+}
+
 // Beacon returns the beacon for a workspace.
 func (m *Memory) Beacon(workspaceID string) (domain.Beacon, bool) {
 	m.mu.RLock()

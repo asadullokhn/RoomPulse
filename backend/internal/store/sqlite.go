@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"quickroom/internal/domain"
+
 	_ "modernc.org/sqlite" // pure-Go driver; works with CGO_ENABLED=0 / distroless
 )
 
@@ -33,7 +35,31 @@ CREATE TABLE IF NOT EXISTS events (
 	name         TEXT NOT NULL DEFAULT '',  -- display name
 	kind         TEXT NOT NULL              -- 'enter' | 'leave'
 );
-CREATE INDEX IF NOT EXISTS idx_events_ws_ts ON events(workspace_id, ts DESC);`
+CREATE INDEX IF NOT EXISTS idx_events_ws_ts ON events(workspace_id, ts DESC);
+CREATE TABLE IF NOT EXISTS users (
+	user_id    TEXT PRIMARY KEY,
+	apple_sub  TEXT NOT NULL UNIQUE,
+	email      TEXT NOT NULL DEFAULT '',
+	name       TEXT NOT NULL DEFAULT '',
+	created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sessions (
+	token_hash TEXT PRIMARY KEY,   -- SHA-256 hex of the opaque session token; raw token never stored
+	user_id    TEXT NOT NULL,
+	created_at INTEGER NOT NULL,
+	expires_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS app_reservations (
+	reservation_id    TEXT PRIMARY KEY,
+	room_id           TEXT NOT NULL,
+	zoom_workspace_id TEXT NOT NULL,
+	booked_by_user_id TEXT NOT NULL,
+	user_email        TEXT NOT NULL DEFAULT '',
+	start_time        INTEGER NOT NULL,
+	end_time          INTEGER NOT NULL,
+	status            TEXT NOT NULL,
+	check_in_status   TEXT NOT NULL
+);`
 
 // OpenDB opens (creating if absent) the SQLite database at path, creating any
 // missing parent directory, and applies the schema. WAL + a busy timeout keep
@@ -155,6 +181,137 @@ func (d *DB) Devices(now time.Time) ([]DeviceView, error) {
 			v.LastSeenSec = 0
 		}
 		out = append(out, v)
+	}
+	return out, rows.Err()
+}
+
+// UpsertUser inserts or updates a user by user_id. apple_sub is unique and
+// set once at creation; a re-upsert of the same user only refreshes
+// email/name (Apple resends email on every sign-in, but name only once).
+func (d *DB) UpsertUser(u domain.User) error {
+	_, err := d.sql.Exec(`
+		INSERT INTO users (user_id, apple_sub, email, name, created_at)
+		VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(user_id) DO UPDATE SET
+			email = excluded.email,
+			name  = CASE WHEN excluded.name <> '' THEN excluded.name ELSE users.name END`,
+		u.UserID, u.AppleSub, u.Email, u.Name, u.CreatedAt.Unix())
+	return err
+}
+
+func scanUser(row interface{ Scan(...any) error }) (domain.User, error) {
+	var u domain.User
+	var createdAt int64
+	if err := row.Scan(&u.UserID, &u.AppleSub, &u.Email, &u.Name, &createdAt); err != nil {
+		return domain.User{}, err
+	}
+	u.CreatedAt = time.Unix(createdAt, 0)
+	return u, nil
+}
+
+// UserByAppleSub looks up a user by Apple's stable per-app identifier.
+func (d *DB) UserByAppleSub(appleSub string) (domain.User, bool, error) {
+	row := d.sql.QueryRow(`SELECT user_id, apple_sub, email, name, created_at FROM users WHERE apple_sub = ?`, appleSub)
+	u, err := scanUser(row)
+	if err == sql.ErrNoRows {
+		return domain.User{}, false, nil
+	}
+	if err != nil {
+		return domain.User{}, false, err
+	}
+	return u, true, nil
+}
+
+// UserByID looks up a user by their local user_id.
+func (d *DB) UserByID(userID string) (domain.User, bool, error) {
+	row := d.sql.QueryRow(`SELECT user_id, apple_sub, email, name, created_at FROM users WHERE user_id = ?`, userID)
+	u, err := scanUser(row)
+	if err == sql.ErrNoRows {
+		return domain.User{}, false, nil
+	}
+	if err != nil {
+		return domain.User{}, false, err
+	}
+	return u, true, nil
+}
+
+// CreateSession stores a new session keyed by the SHA-256 hash of its opaque
+// token — the raw token is never persisted, only ever returned once to the
+// caller at sign-in time.
+func (d *DB) CreateSession(tokenHash, userID string, createdAt, expiresAt time.Time) error {
+	_, err := d.sql.Exec(
+		`INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`,
+		tokenHash, userID, createdAt.Unix(), expiresAt.Unix())
+	return err
+}
+
+// SessionUserID resolves a session token hash to its owning user_id, if the
+// session exists and hasn't expired as of now.
+func (d *DB) SessionUserID(tokenHash string, now time.Time) (string, bool, error) {
+	var userID string
+	var expiresAt int64
+	err := d.sql.QueryRow(`SELECT user_id, expires_at FROM sessions WHERE token_hash = ?`, tokenHash).Scan(&userID, &expiresAt)
+	if err == sql.ErrNoRows {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	if now.Unix() >= expiresAt {
+		return "", false, nil
+	}
+	return userID, true, nil
+}
+
+// DeleteSession revokes a session (logout). A no-op (not an error) if the
+// token hash isn't found.
+func (d *DB) DeleteSession(tokenHash string) error {
+	_, err := d.sql.Exec(`DELETE FROM sessions WHERE token_hash = ?`, tokenHash)
+	return err
+}
+
+// SaveAppReservation upserts a QuickRoom-native (app-sourced) reservation.
+// App bookings are the only record of themselves — there's no Zoom sync to
+// recover them from — so every state change (create, check-in/out, cancel)
+// must round-trip through here to survive a restart.
+func (d *DB) SaveAppReservation(r domain.Reservation) error {
+	_, err := d.sql.Exec(`
+		INSERT INTO app_reservations
+			(reservation_id, room_id, zoom_workspace_id, booked_by_user_id, user_email, start_time, end_time, status, check_in_status)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(reservation_id) DO UPDATE SET
+			status          = excluded.status,
+			check_in_status = excluded.check_in_status`,
+		r.ReservationID, r.RoomID, r.ZoomWorkspaceID, r.BookedByUserID, r.UserEmail,
+		r.StartTime.Unix(), r.EndTime.Unix(), string(r.Status), string(r.CheckInStatus))
+	return err
+}
+
+// AppReservations returns every persisted app-sourced reservation, for
+// reloading into the in-memory store at startup.
+func (d *DB) AppReservations() ([]domain.Reservation, error) {
+	rows, err := d.sql.Query(`
+		SELECT reservation_id, room_id, zoom_workspace_id, booked_by_user_id, user_email, start_time, end_time, status, check_in_status
+		FROM app_reservations`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := []domain.Reservation{}
+	for rows.Next() {
+		var r domain.Reservation
+		var start, end int64
+		var status, checkIn string
+		if err := rows.Scan(&r.ReservationID, &r.RoomID, &r.ZoomWorkspaceID, &r.BookedByUserID, &r.UserEmail, &start, &end, &status, &checkIn); err != nil {
+			return nil, err
+		}
+		r.StartTime = time.Unix(start, 0).UTC()
+		r.EndTime = time.Unix(end, 0).UTC()
+		r.Status = domain.ReservationStatus(status)
+		r.CheckInStatus = domain.CheckInStatus(checkIn)
+		r.Source = "app"
+		r.UserID = r.BookedByUserID
+		out = append(out, r)
 	}
 	return out, rows.Err()
 }

@@ -588,19 +588,39 @@ func (s *Server) logEvent(workspaceID, actor, name, kind string, at time.Time) {
 	}
 }
 
+// upsertReservation applies a reservation change to the in-memory store and,
+// for app-sourced reservations only, also persists it to SQLite — app
+// bookings are the only record of themselves (no Zoom to re-sync from), so
+// losing them on restart would lose a real user's booking. Best-effort on the
+// SQLite write: the in-memory state is applied regardless, matching how
+// logEvent treats history as best-effort.
+func (s *Server) upsertReservation(res domain.Reservation) {
+	s.store.UpsertReservation(res)
+	if res.Source != "app" {
+		return
+	}
+	if err := s.db.SaveAppReservation(res); err != nil {
+		s.log.Warn("persist app reservation", "reservation", res.ReservationID, "err", err)
+	}
+}
+
 // driveReservation reflects a room's occupancy onto its booking's check-in
-// state (best-effort; Zoom stays the source of truth).
+// state (best-effort; Zoom stays the source of truth for zoom-sourced
+// bookings). App-sourced bookings (Source == "app") have no Zoom
+// counterpart, so the Zoom call is skipped for them.
 func (s *Server) driveReservation(ctx context.Context, workspaceID string, event zoom.EventType, newStatus domain.CheckInStatus) {
 	res, ok := s.store.ReservationByWorkspace(workspaceID)
 	if !ok {
 		return
 	}
-	if err := s.zoom.SendEvent(ctx, event, res.ReservationID); err != nil {
-		s.log.Warn("driveReservation", "err", err)
-		return
+	if res.Source != "app" {
+		if err := s.zoom.SendEvent(ctx, event, res.ReservationID); err != nil {
+			s.log.Warn("driveReservation", "err", err)
+			return
+		}
 	}
 	res.CheckInStatus = newStatus
-	s.store.UpsertReservation(res)
+	s.upsertReservation(res)
 }
 
 // presence ingests a phone's arrive/leave event for a room and drives check-in
@@ -663,19 +683,23 @@ func (s *Server) presence(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
-	if err := s.zoom.SendEvent(ctx, event, res.ReservationID); err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
-		return
+	if res.Source != "app" {
+		if err := s.zoom.SendEvent(ctx, event, res.ReservationID); err != nil {
+			writeError(w, http.StatusBadGateway, err.Error())
+			return
+		}
 	}
 
 	res.CheckInStatus = newStatus
-	s.store.UpsertReservation(res)
+	s.upsertReservation(res)
 	s.log.Info("presence applied", "event", body.EventType, "workspace", body.WorkspaceID, "user", body.UserID)
 	writeJSON(w, http.StatusOK, res)
 }
 
-// checkEvent sends the event to Zoom, then reflects it locally. Zoom stays the
-// source of truth, so we only update the local mirror after Zoom accepts.
+// checkEvent sends the event to Zoom, then reflects it locally (zoom-sourced
+// reservations only — Zoom stays the source of truth for those). App-sourced
+// reservations have no Zoom counterpart, so the Zoom call is skipped and the
+// local state change applies directly.
 func (s *Server) checkEvent(w http.ResponseWriter, r *http.Request, event zoom.EventType, newStatus domain.CheckInStatus) {
 	id := r.PathValue("id")
 	res, ok := s.store.Reservation(id)
@@ -684,20 +708,21 @@ func (s *Server) checkEvent(w http.ResponseWriter, r *http.Request, event zoom.E
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-	defer cancel()
-
-	if err := s.zoom.SendEvent(ctx, event, id); err != nil {
-		if errors.Is(err, zoom.ErrReservationNotFound) {
-			writeError(w, http.StatusNotFound, "reservation not found in zoom")
+	if res.Source != "app" {
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+		if err := s.zoom.SendEvent(ctx, event, id); err != nil {
+			if errors.Is(err, zoom.ErrReservationNotFound) {
+				writeError(w, http.StatusNotFound, "reservation not found in zoom")
+				return
+			}
+			writeError(w, http.StatusBadGateway, err.Error())
 			return
 		}
-		writeError(w, http.StatusBadGateway, err.Error())
-		return
 	}
 
 	res.CheckInStatus = newStatus
-	s.store.UpsertReservation(res)
+	s.upsertReservation(res)
 	writeJSON(w, http.StatusOK, res)
 }
 

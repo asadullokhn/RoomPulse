@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"quickroom/internal/api"
+	"quickroom/internal/appleauth"
 	"quickroom/internal/store"
 	syncsvc "quickroom/internal/sync"
 	"quickroom/internal/zoom"
@@ -21,6 +22,14 @@ import (
 // newTestHandler wires a full server over the in-memory store, a temp SQLite DB,
 // and the seeded mock Zoom client, then runs one sync so rooms/reservations exist.
 func newTestHandler(t *testing.T) http.Handler {
+	t.Helper()
+	h, _ := newTestHandlerWithVerifier(t)
+	return h
+}
+
+// newTestHandlerWithVerifier is newTestHandler, but also returns the
+// appleauth.Verifier so tests can override its KeysURL to a fake JWKS server.
+func newTestHandlerWithVerifier(t *testing.T) (http.Handler, *appleauth.Verifier) {
 	t.Helper()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	now := time.Now()
@@ -35,7 +44,8 @@ func newTestHandler(t *testing.T) http.Handler {
 	if _, err := sy.Run(context.Background(), now); err != nil {
 		t.Fatalf("sync: %v", err)
 	}
-	return api.NewServer(st, db, sy, zc, "mock", 30*time.Minute, log).Handler()
+	verifier := appleauth.NewVerifier("test.bundle.id", nil)
+	return api.NewServer(st, db, sy, zc, "mock", 30*time.Minute, verifier, time.Hour, log).Handler(), verifier
 }
 
 func do(t *testing.T, h http.Handler, method, path string, body any) *httptest.ResponseRecorder {

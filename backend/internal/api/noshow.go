@@ -43,18 +43,20 @@ func (s *Server) sweepNoShows(ctx context.Context, now time.Time) []domain.Reser
 			continue // still within the grace window
 		}
 		r.Status = domain.StatusNoShow
-		c, cancel := context.WithTimeout(ctx, 5*time.Second)
-		err := s.zoom.SendEvent(c, zoom.EventCheckOut, r.ReservationID)
-		cancel()
-		if err != nil {
-			// Leave it flagged no_show; a later sweep retries the release.
-			s.store.UpsertReservation(r)
-			s.log.Warn("no-show release failed", "reservation", r.ReservationID, "err", err)
-			continue
+		if r.Source != "app" {
+			c, cancel := context.WithTimeout(ctx, 5*time.Second)
+			err := s.zoom.SendEvent(c, zoom.EventCheckOut, r.ReservationID)
+			cancel()
+			if err != nil {
+				// Leave it flagged no_show; a later sweep retries the release.
+				s.store.UpsertReservation(r)
+				s.log.Warn("no-show release failed", "reservation", r.ReservationID, "err", err)
+				continue
+			}
 		}
 		r.Status = domain.StatusReleased
 		r.CheckInStatus = domain.CheckedOut
-		s.store.UpsertReservation(r)
+		s.upsertReservation(r)
 		s.log.Info("released no-show booking", "reservation", r.ReservationID, "workspace", r.ZoomWorkspaceID, "user", r.UserID)
 
 		room := s.roomName(r.ZoomWorkspaceID)

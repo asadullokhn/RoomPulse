@@ -44,12 +44,16 @@ const (
 type ReservationStatus string
 
 const (
-	StatusBooked   ReservationStatus = "booked"
-	StatusNoShow   ReservationStatus = "no_show"
-	StatusReleased ReservationStatus = "released"
+	StatusBooked    ReservationStatus = "booked"
+	StatusNoShow    ReservationStatus = "no_show"
+	StatusReleased  ReservationStatus = "released"
+	StatusCancelled ReservationStatus = "cancelled" // user-initiated, distinct from an auto-reclaimed no-show
 )
 
-// Reservation is a Zoom workspace reservation joined to a local room.
+// Reservation is a Zoom workspace reservation joined to a local room, OR a
+// QuickRoom-native booking created from the mobile app (Source == "app") —
+// Zoom has never heard of the latter, so callers must check Source before
+// driving any Zoom API call for a reservation.
 type Reservation struct {
 	ReservationID   string            `json:"reservation_id"`
 	RoomID          string            `json:"room_id"`
@@ -60,4 +64,18 @@ type Reservation struct {
 	EndTime         time.Time         `json:"end_time"`
 	Status          ReservationStatus `json:"status"`
 	CheckInStatus   CheckInStatus     `json:"check_in_status"`
+
+	// Source is "zoom" (mirrored from Zoom's reservation API) or "app"
+	// (created via POST /reservations by a signed-in mobile user).
+	Source         string `json:"source"`
+	BookedByUserID string `json:"booked_by_user_id,omitempty"`
+}
+
+// User is an app account, established via Sign in with Apple.
+type User struct {
+	UserID    string    `json:"user_id"`
+	AppleSub  string    `json:"-"` // Apple's stable per-app identifier; never serialized to clients
+	Email     string    `json:"email,omitempty"`
+	Name      string    `json:"name,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 }

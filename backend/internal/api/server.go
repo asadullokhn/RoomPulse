@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"quickroom/internal/appleauth"
 	"quickroom/internal/domain"
 	"quickroom/internal/store"
 	syncsvc "quickroom/internal/sync"
@@ -83,16 +84,21 @@ type Server struct {
 	// flagged (the inverse of a no-show). Set via ConfigureOverstay.
 	overstayGrace time.Duration
 
+	// Sign in with Apple + sessions.
+	appleVerifier *appleauth.Verifier
+	sessionTTL    time.Duration
+
 	// BeaconsFile path for persisting admin beacon-mapping edits. Empty
 	// disables persistence (in-memory only) — set via ConfigureBeaconsFile.
 	beaconsFile string
 }
 
-func NewServer(st *store.Memory, db *store.DB, sync *syncsvc.Service, zc zoom.Client, mode string, ttl time.Duration, log *slog.Logger) *Server {
+func NewServer(st *store.Memory, db *store.DB, sync *syncsvc.Service, zc zoom.Client, mode string, ttl time.Duration, appleVerifier *appleauth.Verifier, sessionTTL time.Duration, log *slog.Logger) *Server {
 	s := &Server{store: st, db: db, sync: sync, zoom: zc, mode: mode, ttl: ttl, log: log, diags: newDiagBuffer(50), decisions: newDecisionStore(), scenarioAnswers: newScenarioAnswerStore(), history: newHistoryBuffer(20),
 		graceFraction: 0.10, graceMin: 90 * time.Second, graceMax: 15 * time.Minute,
 		notify: newNotifier(200), notifyFirstFrac: 0.05, notifySecondFrac: 0.075, notifySecondEnabled: true,
-		overstayGrace: 5 * time.Minute}
+		overstayGrace: 5 * time.Minute,
+		appleVerifier: appleVerifier, sessionTTL: sessionTTL}
 	if of, ok := zc.(OAuthFlow); ok {
 		s.oauth = of
 	}
@@ -243,6 +249,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /collisions", s.getCollisions)
 	mux.HandleFunc("GET /overstays", s.getOverstays)
 	mux.HandleFunc("GET /utilization", s.getUtilization)
+	mux.HandleFunc("POST /auth/apple", s.postAppleAuth)
+	mux.HandleFunc("POST /auth/logout", s.authMiddleware(s.postLogout))
+	mux.HandleFunc("GET /reservations/mine", s.authMiddleware(s.listMyReservations))
+	mux.HandleFunc("POST /reservations", s.authMiddleware(s.createReservation))
+	mux.HandleFunc("POST /reservations/{id}/cancel", s.authMiddleware(s.cancelReservation))
 	if s.oauth != nil {
 		mux.HandleFunc("GET /oauth/login", s.oauthLogin)
 		mux.HandleFunc("GET /oauth/callback", s.oauthCallback)
@@ -534,19 +545,39 @@ func (s *Server) logEvent(workspaceID, actor, name, kind string, at time.Time) {
 	}
 }
 
+// upsertReservation applies a reservation change to the in-memory store and,
+// for app-sourced reservations only, also persists it to SQLite — app
+// bookings are the only record of themselves (no Zoom to re-sync from), so
+// losing them on restart would lose a real user's booking. Best-effort on the
+// SQLite write: the in-memory state is applied regardless, matching how
+// logEvent treats history as best-effort.
+func (s *Server) upsertReservation(res domain.Reservation) {
+	s.store.UpsertReservation(res)
+	if res.Source != "app" {
+		return
+	}
+	if err := s.db.SaveAppReservation(res); err != nil {
+		s.log.Warn("persist app reservation", "reservation", res.ReservationID, "err", err)
+	}
+}
+
 // driveReservation reflects a room's occupancy onto its booking's check-in
-// state (best-effort; Zoom stays the source of truth).
+// state (best-effort; Zoom stays the source of truth for zoom-sourced
+// bookings). App-sourced bookings (Source == "app") have no Zoom
+// counterpart, so the Zoom call is skipped for them.
 func (s *Server) driveReservation(ctx context.Context, workspaceID string, event zoom.EventType, newStatus domain.CheckInStatus) {
 	res, ok := s.store.ReservationByWorkspace(workspaceID)
 	if !ok {
 		return
 	}
-	if err := s.zoom.SendEvent(ctx, event, res.ReservationID); err != nil {
-		s.log.Warn("driveReservation", "err", err)
-		return
+	if res.Source != "app" {
+		if err := s.zoom.SendEvent(ctx, event, res.ReservationID); err != nil {
+			s.log.Warn("driveReservation", "err", err)
+			return
+		}
 	}
 	res.CheckInStatus = newStatus
-	s.store.UpsertReservation(res)
+	s.upsertReservation(res)
 }
 
 // presence ingests a phone's arrive/leave event for a room and drives check-in
@@ -609,19 +640,23 @@ func (s *Server) presence(w http.ResponseWriter, r *http.Request) {
 
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
-	if err := s.zoom.SendEvent(ctx, event, res.ReservationID); err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
-		return
+	if res.Source != "app" {
+		if err := s.zoom.SendEvent(ctx, event, res.ReservationID); err != nil {
+			writeError(w, http.StatusBadGateway, err.Error())
+			return
+		}
 	}
 
 	res.CheckInStatus = newStatus
-	s.store.UpsertReservation(res)
+	s.upsertReservation(res)
 	s.log.Info("presence applied", "event", body.EventType, "workspace", body.WorkspaceID, "user", body.UserID)
 	writeJSON(w, http.StatusOK, res)
 }
 
-// checkEvent sends the event to Zoom, then reflects it locally. Zoom stays the
-// source of truth, so we only update the local mirror after Zoom accepts.
+// checkEvent sends the event to Zoom, then reflects it locally (zoom-sourced
+// reservations only — Zoom stays the source of truth for those). App-sourced
+// reservations have no Zoom counterpart, so the Zoom call is skipped and the
+// local state change applies directly.
 func (s *Server) checkEvent(w http.ResponseWriter, r *http.Request, event zoom.EventType, newStatus domain.CheckInStatus) {
 	id := r.PathValue("id")
 	res, ok := s.store.Reservation(id)
@@ -630,20 +665,21 @@ func (s *Server) checkEvent(w http.ResponseWriter, r *http.Request, event zoom.E
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
-	defer cancel()
-
-	if err := s.zoom.SendEvent(ctx, event, id); err != nil {
-		if errors.Is(err, zoom.ErrReservationNotFound) {
-			writeError(w, http.StatusNotFound, "reservation not found in zoom")
+	if res.Source != "app" {
+		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
+		defer cancel()
+		if err := s.zoom.SendEvent(ctx, event, id); err != nil {
+			if errors.Is(err, zoom.ErrReservationNotFound) {
+				writeError(w, http.StatusNotFound, "reservation not found in zoom")
+				return
+			}
+			writeError(w, http.StatusBadGateway, err.Error())
 			return
 		}
-		writeError(w, http.StatusBadGateway, err.Error())
-		return
 	}
 
 	res.CheckInStatus = newStatus
-	s.store.UpsertReservation(res)
+	s.upsertReservation(res)
 	writeJSON(w, http.StatusOK, res)
 }
 

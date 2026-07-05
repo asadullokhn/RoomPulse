@@ -1,7 +1,9 @@
 package store
 
 import (
+	"crypto/rand"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -64,6 +66,25 @@ CREATE TABLE IF NOT EXISTS apns_tokens (
 	token      TEXT PRIMARY KEY,  -- APNs device token (hex); PK so a device re-homes on account switch
 	user_id    TEXT NOT NULL,
 	updated_at INTEGER NOT NULL   -- unix seconds, server clock
+);
+CREATE TABLE IF NOT EXISTS admins (
+	admin_id      TEXT PRIMARY KEY,
+	email         TEXT NOT NULL UNIQUE,
+	password_hash TEXT NOT NULL,   -- bcrypt
+	created_at    INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS custom_rooms (
+	workspace_id TEXT PRIMARY KEY,   -- "cr-" + 8 hex; admin-created, not Zoom-synced
+	name         TEXT NOT NULL,
+	capacity     INTEGER NOT NULL DEFAULT 0,
+	has_tv       INTEGER NOT NULL DEFAULT 0,
+	created_at   INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS room_overrides (
+	workspace_id TEXT PRIMARY KEY,    -- Zoom room being overridden
+	name         TEXT NOT NULL DEFAULT '',    -- '' = keep Zoom value
+	capacity     INTEGER NOT NULL DEFAULT -1, -- -1 = keep
+	has_tv       INTEGER NOT NULL DEFAULT -1  -- -1 = keep, else 0/1
 );`
 
 // OpenDB opens (creating if absent) the SQLite database at path, creating any
@@ -407,4 +428,150 @@ func (d *DB) UserByEmail(email string) (domain.User, bool, error) {
 		return domain.User{}, false, err
 	}
 	return u, true, nil
+}
+
+// Admin is one admin-panel account (email + bcrypt password login).
+type Admin struct {
+	AdminID      string
+	Email        string
+	PasswordHash string
+	CreatedAt    time.Time
+}
+
+// EnsureAdmin seeds the very first admin account. No-op when any admin
+// already exists, so env-var creds only ever bootstrap an empty table.
+func (d *DB) EnsureAdmin(email, passwordHash string, at time.Time) error {
+	var n int
+	if err := d.sql.QueryRow(`SELECT COUNT(*) FROM admins`).Scan(&n); err != nil {
+		return err
+	}
+	if n > 0 {
+		return nil
+	}
+	id := make([]byte, 8)
+	if _, err := rand.Read(id); err != nil {
+		return fmt.Errorf("generate admin id: %w", err)
+	}
+	_, err := d.sql.Exec(`INSERT INTO admins (admin_id, email, password_hash, created_at) VALUES (?, ?, ?, ?)`,
+		"adm_"+hex.EncodeToString(id), email, passwordHash, at.Unix())
+	return err
+}
+
+// AdminByEmail looks an admin up for login.
+func (d *DB) AdminByEmail(email string) (Admin, bool, error) {
+	return d.adminQuery(`SELECT admin_id, email, password_hash, created_at FROM admins WHERE email = ?`, email)
+}
+
+// AdminByID confirms a JWT's admin principal still exists.
+func (d *DB) AdminByID(id string) (Admin, bool, error) {
+	return d.adminQuery(`SELECT admin_id, email, password_hash, created_at FROM admins WHERE admin_id = ?`, id)
+}
+
+func (d *DB) adminQuery(query string, arg any) (Admin, bool, error) {
+	var a Admin
+	var createdAt int64
+	err := d.sql.QueryRow(query, arg).Scan(&a.AdminID, &a.Email, &a.PasswordHash, &createdAt)
+	if err == sql.ErrNoRows {
+		return Admin{}, false, nil
+	}
+	if err != nil {
+		return Admin{}, false, err
+	}
+	a.CreatedAt = time.Unix(createdAt, 0)
+	return a, true, nil
+}
+
+// SaveCustomRoom upserts an admin-created room.
+func (d *DB) SaveCustomRoom(r domain.Room, at time.Time) error {
+	hasTV := 0
+	if r.HasTV {
+		hasTV = 1
+	}
+	_, err := d.sql.Exec(`INSERT INTO custom_rooms (workspace_id, name, capacity, has_tv, created_at) VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT(workspace_id) DO UPDATE SET name = excluded.name, capacity = excluded.capacity, has_tv = excluded.has_tv`,
+		r.ZoomWorkspaceID, r.Name, r.Capacity, hasTV, at.Unix())
+	return err
+}
+
+// CustomRooms returns every admin-created room as a domain.Room.
+func (d *DB) CustomRooms() ([]domain.Room, error) {
+	rows, err := d.sql.Query(`SELECT workspace_id, name, capacity, has_tv FROM custom_rooms ORDER BY created_at`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []domain.Room
+	for rows.Next() {
+		var ws, name string
+		var capacity, hasTV int
+		if err := rows.Scan(&ws, &name, &capacity, &hasTV); err != nil {
+			return nil, err
+		}
+		out = append(out, domain.Room{
+			RoomID:          "room-" + ws,
+			ZoomWorkspaceID: ws,
+			Name:            name,
+			Capacity:        capacity,
+			HasTV:           hasTV == 1,
+			IsZoomRoom:      false,
+		})
+	}
+	return out, rows.Err()
+}
+
+// DeleteCustomRoom removes an admin-created room.
+func (d *DB) DeleteCustomRoom(workspaceID string) error {
+	_, err := d.sql.Exec(`DELETE FROM custom_rooms WHERE workspace_id = ?`, workspaceID)
+	return err
+}
+
+// RoomOverride patches a Zoom-synced room's fields. Sentinels mean "keep the
+// Zoom value": Name "" / Capacity -1 / HasTV -1 (else 0/1).
+type RoomOverride struct {
+	WorkspaceID string
+	Name        string
+	Capacity    int
+	HasTV       int
+}
+
+// SaveRoomOverride upserts an override, merging: an incoming sentinel field
+// preserves whatever the existing override already pinned.
+func (d *DB) SaveRoomOverride(o RoomOverride) error {
+	_, err := d.sql.Exec(`INSERT INTO room_overrides (workspace_id, name, capacity, has_tv) VALUES (?, ?, ?, ?)
+		ON CONFLICT(workspace_id) DO UPDATE SET
+			name     = CASE WHEN excluded.name <> '' THEN excluded.name ELSE room_overrides.name END,
+			capacity = CASE WHEN excluded.capacity >= 0 THEN excluded.capacity ELSE room_overrides.capacity END,
+			has_tv   = CASE WHEN excluded.has_tv >= 0 THEN excluded.has_tv ELSE room_overrides.has_tv END`,
+		o.WorkspaceID, o.Name, o.Capacity, o.HasTV)
+	return err
+}
+
+// RoomOverrides returns every Zoom-room override.
+func (d *DB) RoomOverrides() ([]RoomOverride, error) {
+	rows, err := d.sql.Query(`SELECT workspace_id, name, capacity, has_tv FROM room_overrides`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []RoomOverride
+	for rows.Next() {
+		var o RoomOverride
+		if err := rows.Scan(&o.WorkspaceID, &o.Name, &o.Capacity, &o.HasTV); err != nil {
+			return nil, err
+		}
+		out = append(out, o)
+	}
+	return out, rows.Err()
+}
+
+// ClearRoomOverride resets a Zoom room to Zoom truth.
+func (d *DB) ClearRoomOverride(workspaceID string) error {
+	_, err := d.sql.Exec(`DELETE FROM room_overrides WHERE workspace_id = ?`, workspaceID)
+	return err
+}
+
+// UpdateUserName renames an account (admin panel edit).
+func (d *DB) UpdateUserName(userID, name string) error {
+	_, err := d.sql.Exec(`UPDATE users SET name = ? WHERE user_id = ?`, name, userID)
+	return err
 }

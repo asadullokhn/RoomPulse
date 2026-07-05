@@ -201,3 +201,86 @@ func TestUserByEmail(t *testing.T) {
 		t.Fatal("expected miss for unknown email")
 	}
 }
+
+func TestEnsureAdminSeedsOnce(t *testing.T) {
+	db := newTestDB(t)
+	now := time.Now()
+	if err := db.EnsureAdmin("a@x.y", "hash1", now); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.EnsureAdmin("b@x.y", "hash2", now); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok, _ := db.AdminByEmail("b@x.y"); ok {
+		t.Fatal("second EnsureAdmin should be a no-op")
+	}
+	a, ok, err := db.AdminByEmail("a@x.y")
+	if err != nil || !ok || a.PasswordHash != "hash1" || a.AdminID == "" {
+		t.Fatalf("AdminByEmail = %+v ok=%v err=%v", a, ok, err)
+	}
+	if _, ok, _ := db.AdminByID(a.AdminID); !ok {
+		t.Fatal("AdminByID miss")
+	}
+}
+
+func TestCustomRoomsCRUD(t *testing.T) {
+	db := newTestDB(t)
+	now := time.Now()
+	room := domain.Room{ZoomWorkspaceID: "cr-abc12345", Name: "War Room", Capacity: 6, HasTV: true}
+	if err := db.SaveCustomRoom(room, now); err != nil {
+		t.Fatal(err)
+	}
+	room.Name = "Peace Room"
+	if err := db.SaveCustomRoom(room, now); err != nil {
+		t.Fatal(err)
+	}
+	rooms, err := db.CustomRooms()
+	if err != nil || len(rooms) != 1 || rooms[0].Name != "Peace Room" || !rooms[0].HasTV || rooms[0].IsZoomRoom {
+		t.Fatalf("CustomRooms = %+v err=%v", rooms, err)
+	}
+	if err := db.DeleteCustomRoom("cr-abc12345"); err != nil {
+		t.Fatal(err)
+	}
+	rooms, _ = db.CustomRooms()
+	if len(rooms) != 0 {
+		t.Fatalf("after delete = %+v", rooms)
+	}
+}
+
+func TestRoomOverridesMerge(t *testing.T) {
+	db := newTestDB(t)
+	if err := db.SaveRoomOverride(RoomOverride{WorkspaceID: "ws-agung", Name: "Big Hall", Capacity: -1, HasTV: -1}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SaveRoomOverride(RoomOverride{WorkspaceID: "ws-agung", Name: "", Capacity: 12, HasTV: -1}); err != nil {
+		t.Fatal(err)
+	}
+	overrides, err := db.RoomOverrides()
+	if err != nil || len(overrides) != 1 {
+		t.Fatalf("overrides = %+v err=%v", overrides, err)
+	}
+	if o := overrides[0]; o.Name != "Big Hall" || o.Capacity != 12 || o.HasTV != -1 {
+		t.Fatalf("merged override = %+v", o)
+	}
+	if err := db.ClearRoomOverride("ws-agung"); err != nil {
+		t.Fatal(err)
+	}
+	overrides, _ = db.RoomOverrides()
+	if len(overrides) != 0 {
+		t.Fatalf("after clear = %+v", overrides)
+	}
+}
+
+func TestUpdateUserName(t *testing.T) {
+	db := newTestDB(t)
+	if err := db.UpsertUser(domain.User{UserID: "u-1", AppleSub: "s1", Name: "Old", CreatedAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.UpdateUserName("u-1", "New"); err != nil {
+		t.Fatal(err)
+	}
+	u, _, _ := db.UserByID("u-1")
+	if u.Name != "New" {
+		t.Fatalf("name = %q", u.Name)
+	}
+}

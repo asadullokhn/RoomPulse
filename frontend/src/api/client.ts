@@ -13,7 +13,7 @@ async function authFetch(url: string, init?: RequestInit): Promise<Response> {
   const res = await fetch(url, { ...init, headers })
   if (res.status === 401) {
     clearToken()
-    window.location.assign('/login')
+    window.location.assign('/#/login')
     throw new Error('session expired')
   }
   return res

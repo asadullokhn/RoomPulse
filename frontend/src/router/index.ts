@@ -1,10 +1,12 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHashHistory } from 'vue-router'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import LoginView from '@/views/LoginView.vue'
 import { getToken } from '@/api/auth'
 
 const router = createRouter({
-  history: createWebHistory(),
+  // Hash history: the backend owns GET /reservations, /rooms, /users... for
+  // the mobile API, so path-based deep links would collide with JSON routes.
+  history: createWebHashHistory(),
   routes: [
     { path: '/login', name: 'login', component: LoginView },
     {

@@ -35,5 +35,5 @@ export async function login(email: string, password: string): Promise<void> {
 
 export function logout() {
   clearToken()
-  window.location.assign('/login')
+  window.location.assign('/#/login')
 }

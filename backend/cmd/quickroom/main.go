@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"quickroom/internal/api"
+	"quickroom/internal/apns"
 	"quickroom/internal/appleauth"
 	"quickroom/internal/config"
 	syncsvc "quickroom/internal/sync"
@@ -86,6 +87,19 @@ func main() {
 	apiSrv.ConfigureNotify(cfg.NotifyFirstFraction, cfg.NotifySecondFraction, cfg.NotifySecondEnabled)
 	apiSrv.ConfigureOverstay(cfg.OverstayGrace)
 	apiSrv.ConfigureBeaconsFile(cfg.BeaconsFile)
+	if cfg.APNSKeyFile != "" && cfg.APNSKeyID != "" && cfg.APNSTeamID != "" && cfg.APNSTopic != "" {
+		keyPEM, err := os.ReadFile(cfg.APNSKeyFile)
+		if err != nil {
+			log.Error("apns disabled: read key", "err", err)
+		} else if pushClient, err := apns.New(keyPEM, cfg.APNSKeyID, cfg.APNSTeamID, cfg.APNSTopic, apns.HostForEnv(cfg.APNSEnv)); err != nil {
+			log.Error("apns disabled: bad key", "err", err)
+		} else {
+			apiSrv.ConfigureAPNS(pushClient)
+			log.Info("apns push enabled", "env", cfg.APNSEnv)
+		}
+	} else {
+		log.Info("apns push disabled (APNS_* not configured)")
+	}
 	go apiSrv.ReapLoop(rootCtx)  // expire stale presence (killed/offline phones)
 	go apiSrv.GraceLoop(rootCtx) // grace reminders + no-show release
 

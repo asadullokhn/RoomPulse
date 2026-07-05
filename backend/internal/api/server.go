@@ -140,6 +140,12 @@ func (s *Server) ConfigureBeaconsFile(path string) {
 	s.beaconsFile = path
 }
 
+// ConfigureAPNS turns on push delivery for freshly emitted outbox
+// notifications. Not calling it leaves the outbox poll-only.
+func (s *Server) ConfigureAPNS(p notificationPusher) {
+	s.notify.onEmit = func(n Notification) { go s.pushNotification(p, n) }
+}
+
 // ConfigureOverstay sets how long a room may stay occupied past its booking's end
 // before it's flagged as an overstay. Non-positive values are ignored.
 func (s *Server) ConfigureOverstay(grace time.Duration) {

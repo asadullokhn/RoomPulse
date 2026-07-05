@@ -1,11 +1,14 @@
 package api
 
 import (
+	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"sync"
 	"time"
 
+	"quickroom/internal/apns"
 	"quickroom/internal/domain"
 )
 
@@ -25,11 +28,12 @@ type Notification struct {
 }
 
 type notifier struct {
-	mu   sync.Mutex
-	max  int
-	seq  int64
-	list []Notification
-	sent map[string]bool // dedup key -> already emitted
+	mu     sync.Mutex
+	max    int
+	seq    int64
+	list   []Notification
+	sent   map[string]bool    // dedup key -> already emitted
+	onEmit func(Notification) // set when APNs is configured; called on fresh emits only
 }
 
 func newNotifier(max int) *notifier { return &notifier{max: max, sent: map[string]bool{}} }
@@ -38,9 +42,9 @@ func newNotifier(max int) *notifier { return &notifier{max: max, sent: map[strin
 // key disables dedup. Returns whether it was newly emitted.
 func (n *notifier) emit(key string, note Notification) bool {
 	n.mu.Lock()
-	defer n.mu.Unlock()
 	if key != "" {
 		if n.sent[key] {
+			n.mu.Unlock()
 			return false
 		}
 		n.sent[key] = true
@@ -50,6 +54,11 @@ func (n *notifier) emit(key string, note Notification) bool {
 	n.list = append(n.list, note)
 	if len(n.list) > n.max {
 		n.list = n.list[len(n.list)-n.max:]
+	}
+	cb := n.onEmit
+	n.mu.Unlock()
+	if cb != nil {
+		cb(note)
 	}
 	return true
 }
@@ -99,4 +108,59 @@ func (s *Server) roomName(workspaceID string) string {
 		return r.Name
 	}
 	return workspaceID
+}
+
+// notificationPusher is what the fan-out needs from the APNs client;
+// interface so tests can fake it.
+type notificationPusher interface {
+	Push(ctx context.Context, deviceToken string, n apns.Notification) error
+}
+
+// pushNotification delivers one freshly emitted outbox notification to the
+// relevant device tokens. Recipient "" = broadcast (room_freed); otherwise
+// the recipient is bookerOf() output — email when known, else a user id.
+// Fire-and-forget: failures are logged, the outbox stays the source of truth.
+func (s *Server) pushNotification(p notificationPusher, note Notification) {
+	var tokens []string
+	var err error
+	if note.Recipient == "" {
+		tokens, err = s.db.AllAPNSTokens()
+	} else {
+		user, ok, lookupErr := s.db.UserByID(note.Recipient)
+		if lookupErr == nil && !ok {
+			user, ok, lookupErr = s.db.UserByEmail(note.Recipient)
+		}
+		if lookupErr != nil {
+			s.log.Error("apns recipient lookup", "recipient", note.Recipient, "err", lookupErr)
+			return
+		}
+		if !ok {
+			return // Zoom-sourced booker without an app account: normal, drop
+		}
+		tokens, err = s.db.APNSTokensForUser(user.UserID)
+	}
+	if err != nil {
+		s.log.Error("apns token lookup", "err", err)
+		return
+	}
+
+	payload := apns.Notification{
+		Title: note.Title, Body: note.Body, Type: note.Type,
+		WorkspaceID: note.WorkspaceID, ReservationID: note.ReservationID,
+	}
+	for _, tok := range tokens {
+		go func(tok string) {
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+			err := p.Push(ctx, tok, payload)
+			switch {
+			case errors.Is(err, apns.ErrUnregistered):
+				if delErr := s.db.DeleteAPNSToken(tok); delErr != nil {
+					s.log.Error("prune apns token", "err", delErr)
+				}
+			case err != nil:
+				s.log.Error("apns push", "type", note.Type, "err", err)
+			}
+		}(tok)
+	}
 }

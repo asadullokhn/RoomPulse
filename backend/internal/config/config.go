@@ -63,6 +63,14 @@ type Config struct {
 	// (opaque bearer token) stays valid.
 	AppleBundleID string
 	SessionTTL    time.Duration
+
+	// APNs push delivery (all of KeyFile/KeyID/TeamID/Topic required to
+	// enable; see internal/apns). Env selects the sandbox vs production host.
+	APNSKeyFile string
+	APNSKeyID   string
+	APNSTeamID  string
+	APNSTopic   string
+	APNSEnv     string
 }
 
 func Load() (Config, error) {
@@ -118,6 +126,12 @@ func Load() (Config, error) {
 	}
 
 	c.AppleBundleID = os.Getenv("APPLE_BUNDLE_ID")
+
+	c.APNSKeyFile = os.Getenv("APNS_KEY_FILE")
+	c.APNSKeyID = os.Getenv("APNS_KEY_ID")
+	c.APNSTeamID = os.Getenv("APNS_TEAM_ID")
+	c.APNSTopic = os.Getenv("APNS_TOPIC")
+	c.APNSEnv = getenv("APNS_ENV", "sandbox")
 
 	if c.SessionTTL, err = time.ParseDuration(getenv("SESSION_TTL", "720h")); err != nil { // 30 days
 		return Config{}, fmt.Errorf("invalid SESSION_TTL: %w", err)

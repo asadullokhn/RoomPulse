@@ -142,3 +142,62 @@ func TestAppReservationRoundTrip(t *testing.T) {
 		t.Fatalf("AppReservations[0] times = %v..%v, want %v..%v", got.StartTime, got.EndTime, r.StartTime, r.EndTime)
 	}
 }
+
+func TestAPNSTokens(t *testing.T) {
+	db := newTestDB(t)
+	now := time.Now()
+	if err := db.UpsertUser(domain.User{UserID: "u-1", AppleSub: "sub-1", Email: "a@b.c", CreatedAt: now}); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.UpsertUser(domain.User{UserID: "u-2", AppleSub: "sub-2", Email: "x@y.z", CreatedAt: now}); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := db.SaveAPNSToken("tok1", "u-1", now); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.SaveAPNSToken("tok2", "u-1", now); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := db.APNSTokensForUser("u-1")
+	if err != nil || len(got) != 2 {
+		t.Fatalf("tokens for u-1 = %v err=%v", got, err)
+	}
+
+	// Same device signs into another account: token re-homes.
+	if err := db.SaveAPNSToken("tok1", "u-2", now.Add(time.Second)); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = db.APNSTokensForUser("u-1")
+	if len(got) != 1 || got[0] != "tok2" {
+		t.Fatalf("after re-home, u-1 tokens = %v", got)
+	}
+
+	all, err := db.AllAPNSTokens()
+	if err != nil || len(all) != 2 {
+		t.Fatalf("all tokens = %v err=%v", all, err)
+	}
+
+	if err := db.DeleteAPNSToken("tok1"); err != nil {
+		t.Fatal(err)
+	}
+	all, _ = db.AllAPNSTokens()
+	if len(all) != 1 {
+		t.Fatalf("after delete, all = %v", all)
+	}
+}
+
+func TestUserByEmail(t *testing.T) {
+	db := newTestDB(t)
+	if err := db.UpsertUser(domain.User{UserID: "u-1", AppleSub: "sub-1", Email: "a@b.c", CreatedAt: time.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	u, ok, err := db.UserByEmail("a@b.c")
+	if err != nil || !ok || u.UserID != "u-1" {
+		t.Fatalf("UserByEmail = %+v ok=%v err=%v", u, ok, err)
+	}
+	if _, ok, _ = db.UserByEmail("missing@x.y"); ok {
+		t.Fatal("expected miss for unknown email")
+	}
+}

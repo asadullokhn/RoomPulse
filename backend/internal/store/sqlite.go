@@ -59,6 +59,11 @@ CREATE TABLE IF NOT EXISTS app_reservations (
 	end_time          INTEGER NOT NULL,
 	status            TEXT NOT NULL,
 	check_in_status   TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS apns_tokens (
+	token      TEXT PRIMARY KEY,  -- APNs device token (hex); PK so a device re-homes on account switch
+	user_id    TEXT NOT NULL,
+	updated_at INTEGER NOT NULL   -- unix seconds, server clock
 );`
 
 // OpenDB opens (creating if absent) the SQLite database at path, creating any
@@ -347,4 +352,59 @@ func (d *DB) AppReservations() ([]domain.Reservation, error) {
 		out = append(out, r)
 	}
 	return out, rows.Err()
+}
+
+// SaveAPNSToken registers (or re-homes) a device's APNs token to a user.
+func (d *DB) SaveAPNSToken(token, userID string, at time.Time) error {
+	_, err := d.sql.Exec(`INSERT INTO apns_tokens (token, user_id, updated_at) VALUES (?, ?, ?)
+		ON CONFLICT(token) DO UPDATE SET user_id = excluded.user_id, updated_at = excluded.updated_at`,
+		token, userID, at.Unix())
+	return err
+}
+
+// APNSTokensForUser returns the user's registered device tokens.
+func (d *DB) APNSTokensForUser(userID string) ([]string, error) {
+	return d.tokenQuery(`SELECT token FROM apns_tokens WHERE user_id = ?`, userID)
+}
+
+// AllAPNSTokens returns every registered token (broadcast notifications).
+func (d *DB) AllAPNSTokens() ([]string, error) {
+	return d.tokenQuery(`SELECT token FROM apns_tokens`)
+}
+
+func (d *DB) tokenQuery(query string, args ...any) ([]string, error) {
+	rows, err := d.sql.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var out []string
+	for rows.Next() {
+		var t string
+		if err := rows.Scan(&t); err != nil {
+			return nil, err
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+// DeleteAPNSToken removes a dead token (APNs 410 Unregistered).
+func (d *DB) DeleteAPNSToken(token string) error {
+	_, err := d.sql.Exec(`DELETE FROM apns_tokens WHERE token = ?`, token)
+	return err
+}
+
+// UserByEmail finds a user by email. Notification recipients are the booker's
+// email when known, else their user id — this covers the email arm.
+func (d *DB) UserByEmail(email string) (domain.User, bool, error) {
+	row := d.sql.QueryRow(`SELECT user_id, apple_sub, email, name, created_at FROM users WHERE email = ?`, email)
+	u, err := scanUser(row)
+	if err == sql.ErrNoRows {
+		return domain.User{}, false, nil
+	}
+	if err != nil {
+		return domain.User{}, false, err
+	}
+	return u, true, nil
 }

@@ -60,16 +60,6 @@ func TestUsersListAndDelete(t *testing.T) {
 		t.Fatalf("Users() returned %d, want 2", len(users))
 	}
 
-	if err := db.CreateSession("hash-a", "usr_a", now, now.Add(time.Hour)); err != nil {
-		t.Fatalf("CreateSession: %v", err)
-	}
-	if err := db.DeleteSessionsForUser("usr_a"); err != nil {
-		t.Fatalf("DeleteSessionsForUser: %v", err)
-	}
-	if _, ok, err := db.SessionUserID("hash-a", now); err != nil || ok {
-		t.Fatalf("session should be gone after DeleteSessionsForUser: ok=%v err=%v", ok, err)
-	}
-
 	if err := db.DeleteUser("usr_a"); err != nil {
 		t.Fatalf("DeleteUser: %v", err)
 	}
@@ -79,32 +69,6 @@ func TestUsersListAndDelete(t *testing.T) {
 	users, _ = db.Users()
 	if len(users) != 1 {
 		t.Fatalf("Users() after delete returned %d, want 1", len(users))
-	}
-}
-
-func TestSessionLifecycle(t *testing.T) {
-	db := newTestDB(t)
-	now := time.Now()
-	if err := db.CreateSession("hash-1", "usr_1", now, now.Add(time.Hour)); err != nil {
-		t.Fatalf("CreateSession: %v", err)
-	}
-
-	userID, ok, err := db.SessionUserID("hash-1", now.Add(time.Minute))
-	if err != nil || !ok || userID != "usr_1" {
-		t.Fatalf("SessionUserID (valid) = %q, %v, %v", userID, ok, err)
-	}
-
-	_, ok, err = db.SessionUserID("hash-1", now.Add(2*time.Hour))
-	if err != nil || ok {
-		t.Fatalf("SessionUserID (expired): ok=%v err=%v, want ok=false", ok, err)
-	}
-
-	if err := db.DeleteSession("hash-1"); err != nil {
-		t.Fatalf("DeleteSession: %v", err)
-	}
-	_, ok, err = db.SessionUserID("hash-1", now.Add(time.Minute))
-	if err != nil || ok {
-		t.Fatalf("SessionUserID (after delete): ok=%v err=%v, want ok=false", ok, err)
 	}
 }
 

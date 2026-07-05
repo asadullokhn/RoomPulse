@@ -7,22 +7,47 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
+
+	"quickroom/internal/authtoken"
 	"quickroom/internal/domain"
 )
 
 // mintSession creates a user and a live session directly in the test DB,
-// returning the raw bearer token.
+// returning a bearer JWT for them.
 func mintSession(t *testing.T, s *Server, userID, email string) string {
 	t.Helper()
 	now := time.Now()
 	if err := s.db.UpsertUser(domain.User{UserID: userID, AppleSub: "sub-" + userID, Email: email, CreatedAt: now}); err != nil {
 		t.Fatalf("upsert user: %v", err)
 	}
-	raw, hash := newSessionToken()
-	if err := s.db.CreateSession(hash, userID, now, now.Add(time.Hour)); err != nil {
-		t.Fatalf("create session: %v", err)
+	token, err := s.signer.Mint(userID, authtoken.RoleUser, time.Hour)
+	if err != nil {
+		t.Fatalf("mint token: %v", err)
 	}
-	return raw
+	return token
+}
+
+// mintAdminToken seeds an admin (idempotent) and returns an admin JWT.
+func mintAdminToken(t *testing.T, s *Server) string {
+	t.Helper()
+	hash, err := bcrypt.GenerateFromPassword([]byte("pw"), bcrypt.MinCost)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.db.EnsureAdmin("admin@test.local", string(hash), time.Now()); err != nil {
+		t.Fatalf("seed admin: %v", err)
+	}
+	admin, ok, err := s.db.AdminByEmail("admin@test.local")
+	if err != nil || !ok {
+		// EnsureAdmin no-ops when another admin exists; find any admin id via login path instead.
+		t.Fatalf("admin lookup: ok=%v err=%v", ok, err)
+	}
+	token, err := s.signer.Mint(admin.AdminID, authtoken.RoleAdmin, time.Hour)
+	if err != nil {
+		t.Fatalf("mint admin token: %v", err)
+	}
+	return token
 }
 
 func TestRegisterAPNSToken(t *testing.T) {

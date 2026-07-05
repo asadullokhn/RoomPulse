@@ -39,10 +39,10 @@ func (s *Server) userReservations(w http.ResponseWriter, r *http.Request) {
 }
 
 // deleteUser removes an account: cancels their open app-sourced bookings
-// (a removed account can't be left holding a room), revokes every session
-// (forces logout everywhere), then deletes the user row. The cancellation
-// and session revocation are best-effort — logged, not fatal — but the
-// user row deletion itself must succeed for a 200.
+// (a removed account can't be left holding a room), then deletes the user
+// row. JWTs need no revocation here — requireUser rejects tokens whose user
+// no longer exists. Cancellation is best-effort; the row deletion must
+// succeed for a 200.
 func (s *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	userID := r.PathValue("id")
 	if _, ok, err := s.db.UserByID(userID); err != nil {
@@ -65,9 +65,6 @@ func (s *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 		s.upsertReservation(res)
 	}
 
-	if err := s.db.DeleteSessionsForUser(userID); err != nil {
-		s.log.Warn("delete sessions for user", "user", userID, "err", err)
-	}
 	if err := s.db.DeleteUser(userID); err != nil {
 		s.log.Error("delete user", "user", userID, "err", err)
 		writeError(w, http.StatusInternalServerError, "internal error")

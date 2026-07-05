@@ -286,49 +286,6 @@ func (d *DB) DeleteUser(userID string) error {
 	return err
 }
 
-// CreateSession stores a new session keyed by the SHA-256 hash of its opaque
-// token — the raw token is never persisted, only ever returned once to the
-// caller at sign-in time.
-func (d *DB) CreateSession(tokenHash, userID string, createdAt, expiresAt time.Time) error {
-	_, err := d.sql.Exec(
-		`INSERT INTO sessions (token_hash, user_id, created_at, expires_at) VALUES (?, ?, ?, ?)`,
-		tokenHash, userID, createdAt.Unix(), expiresAt.Unix())
-	return err
-}
-
-// SessionUserID resolves a session token hash to its owning user_id, if the
-// session exists and hasn't expired as of now.
-func (d *DB) SessionUserID(tokenHash string, now time.Time) (string, bool, error) {
-	var userID string
-	var expiresAt int64
-	err := d.sql.QueryRow(`SELECT user_id, expires_at FROM sessions WHERE token_hash = ?`, tokenHash).Scan(&userID, &expiresAt)
-	if err == sql.ErrNoRows {
-		return "", false, nil
-	}
-	if err != nil {
-		return "", false, err
-	}
-	if now.Unix() >= expiresAt {
-		return "", false, nil
-	}
-	return userID, true, nil
-}
-
-// DeleteSession revokes a session (logout). A no-op (not an error) if the
-// token hash isn't found.
-func (d *DB) DeleteSession(tokenHash string) error {
-	_, err := d.sql.Exec(`DELETE FROM sessions WHERE token_hash = ?`, tokenHash)
-	return err
-}
-
-// DeleteSessionsForUser revokes every session belonging to a user (e.g. on
-// account deletion) — unlike DeleteSession, which revokes one session by
-// token hash for a single-device logout.
-func (d *DB) DeleteSessionsForUser(userID string) error {
-	_, err := d.sql.Exec(`DELETE FROM sessions WHERE user_id = ?`, userID)
-	return err
-}
-
 // SaveAppReservation upserts a QuickRoom-native (app-sourced) reservation.
 // App bookings are the only record of themselves — there's no Zoom sync to
 // recover them from — so every state change (create, check-in/out, cancel)

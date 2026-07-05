@@ -71,6 +71,13 @@ type Config struct {
 	APNSTeamID  string
 	APNSTopic   string
 	APNSEnv     string
+
+	// JWT auth. JWTSecret empty = generate and persist next to the DB.
+	// Admin creds seed the admins table only when it's empty; defaults are
+	// dev placeholders — set real values in the deployment .env.
+	JWTSecret     string
+	AdminEmail    string
+	AdminPassword string
 }
 
 func Load() (Config, error) {
@@ -132,6 +139,10 @@ func Load() (Config, error) {
 	c.APNSTeamID = os.Getenv("APNS_TEAM_ID")
 	c.APNSTopic = os.Getenv("APNS_TOPIC")
 	c.APNSEnv = getenv("APNS_ENV", "sandbox")
+
+	c.JWTSecret = os.Getenv("JWT_SECRET")
+	c.AdminEmail = getenv("ADMIN_EMAIL", "admin@example.com")
+	c.AdminPassword = getenv("ADMIN_PASSWORD", "SuperAdmin123!")
 
 	if c.SessionTTL, err = time.ParseDuration(getenv("SESSION_TTL", "720h")); err != nil { // 30 days
 		return Config{}, fmt.Errorf("invalid SESSION_TTL: %w", err)

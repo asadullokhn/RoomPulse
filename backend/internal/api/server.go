@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"quickroom/internal/appleauth"
+	"quickroom/internal/authtoken"
 	"quickroom/internal/domain"
 	"quickroom/internal/store"
 	syncsvc "quickroom/internal/sync"
@@ -84,21 +85,22 @@ type Server struct {
 	// flagged (the inverse of a no-show). Set via ConfigureOverstay.
 	overstayGrace time.Duration
 
-	// Sign in with Apple + sessions.
+	// Sign in with Apple + JWT issuance.
 	appleVerifier *appleauth.Verifier
-	sessionTTL    time.Duration
+	userTokenTTL  time.Duration
+	signer        *authtoken.Signer
 
 	// BeaconsFile path for persisting admin beacon-mapping edits. Empty
 	// disables persistence (in-memory only) — set via ConfigureBeaconsFile.
 	beaconsFile string
 }
 
-func NewServer(st *store.Memory, db *store.DB, sync *syncsvc.Service, zc zoom.Client, mode string, ttl time.Duration, appleVerifier *appleauth.Verifier, sessionTTL time.Duration, log *slog.Logger) *Server {
+func NewServer(st *store.Memory, db *store.DB, sync *syncsvc.Service, zc zoom.Client, mode string, ttl time.Duration, appleVerifier *appleauth.Verifier, userTokenTTL time.Duration, signer *authtoken.Signer, log *slog.Logger) *Server {
 	s := &Server{store: st, db: db, sync: sync, zoom: zc, mode: mode, ttl: ttl, log: log, diags: newDiagBuffer(50), decisions: newDecisionStore(), scenarioAnswers: newScenarioAnswerStore(), history: newHistoryBuffer(20),
 		graceFraction: 0.10, graceMin: 90 * time.Second, graceMax: 15 * time.Minute,
 		notify: newNotifier(200), notifyFirstFrac: 0.05, notifySecondFrac: 0.075, notifySecondEnabled: true,
 		overstayGrace: 5 * time.Minute,
-		appleVerifier: appleVerifier, sessionTTL: sessionTTL}
+		appleVerifier: appleVerifier, userTokenTTL: userTokenTTL, signer: signer}
 	if of, ok := zc.(OAuthFlow); ok {
 		s.oauth = of
 	}
@@ -256,11 +258,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /overstays", s.getOverstays)
 	mux.HandleFunc("GET /utilization", s.getUtilization)
 	mux.HandleFunc("POST /auth/apple", s.postAppleAuth)
-	mux.HandleFunc("POST /auth/logout", s.authMiddleware(s.postLogout))
-	mux.HandleFunc("GET /reservations/mine", s.authMiddleware(s.listMyReservations))
-	mux.HandleFunc("POST /reservations", s.authMiddleware(s.createReservation))
-	mux.HandleFunc("POST /reservations/{id}/cancel", s.authMiddleware(s.cancelReservation))
-	mux.HandleFunc("POST /devices/apns", s.authMiddleware(s.postRegisterAPNSToken))
+	mux.HandleFunc("POST /auth/login", s.postLogin)
+	mux.HandleFunc("POST /auth/logout", s.requireUser(s.postLogout))
+	mux.HandleFunc("GET /reservations/mine", s.requireUser(s.listMyReservations))
+	mux.HandleFunc("POST /reservations", s.requireUser(s.createReservation))
+	mux.HandleFunc("POST /reservations/{id}/cancel", s.requireUser(s.cancelReservation))
+	mux.HandleFunc("POST /devices/apns", s.requireUser(s.postRegisterAPNSToken))
 	mux.HandleFunc("GET /users", s.listUsers)
 	mux.HandleFunc("GET /users/{id}/reservations", s.userReservations)
 	mux.HandleFunc("DELETE /users/{id}", s.deleteUser)

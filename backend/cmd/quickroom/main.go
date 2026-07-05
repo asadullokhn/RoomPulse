@@ -12,12 +12,16 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
+
+	"golang.org/x/crypto/bcrypt"
 
 	"quickroom/internal/api"
 	"quickroom/internal/apns"
 	"quickroom/internal/appleauth"
+	"quickroom/internal/authtoken"
 	"quickroom/internal/config"
 	syncsvc "quickroom/internal/sync"
 	"quickroom/internal/store"
@@ -81,8 +85,26 @@ func main() {
 	defer stop()
 	go runSyncLoop(rootCtx, sync, cfg.SyncInterval, log)
 
+	// JWT signer: env secret wins, else a random one persisted next to the DB
+	// so restarts don't invalidate every issued token.
+	secret, err := authtoken.LoadOrCreateSecret(cfg.JWTSecret, filepath.Join(filepath.Dir(cfg.DBPath), "jwt_secret"))
+	if err != nil {
+		log.Error("jwt secret", "err", err)
+		os.Exit(1)
+	}
+	signer := authtoken.NewSigner(secret)
+
+	// Seed the first admin account (no-op when one exists already).
+	if hash, err := bcrypt.GenerateFromPassword([]byte(cfg.AdminPassword), bcrypt.DefaultCost); err != nil {
+		log.Error("hash admin password", "err", err)
+		os.Exit(1)
+	} else if err := db.EnsureAdmin(cfg.AdminEmail, string(hash), time.Now()); err != nil {
+		log.Error("seed admin", "err", err)
+		os.Exit(1)
+	}
+
 	appleVerifier := appleauth.NewVerifier(cfg.AppleBundleID, nil)
-	apiSrv := api.NewServer(st, db, sync, zc, cfg.ZoomMode, cfg.PresenceTTL, appleVerifier, cfg.SessionTTL, log)
+	apiSrv := api.NewServer(st, db, sync, zc, cfg.ZoomMode, cfg.PresenceTTL, appleVerifier, cfg.SessionTTL, signer, log)
 	apiSrv.ConfigureGrace(cfg.GraceFraction, cfg.GraceMin, cfg.GraceMax)
 	apiSrv.ConfigureNotify(cfg.NotifyFirstFraction, cfg.NotifySecondFraction, cfg.NotifySecondEnabled)
 	apiSrv.ConfigureOverstay(cfg.OverstayGrace)

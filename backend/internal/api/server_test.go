@@ -14,6 +14,7 @@ import (
 
 	"quickroom/internal/api"
 	"quickroom/internal/appleauth"
+	"quickroom/internal/authtoken"
 	"quickroom/internal/store"
 	syncsvc "quickroom/internal/sync"
 	"quickroom/internal/zoom"
@@ -45,7 +46,7 @@ func newTestHandlerWithVerifier(t *testing.T) (http.Handler, *appleauth.Verifier
 		t.Fatalf("sync: %v", err)
 	}
 	verifier := appleauth.NewVerifier("test.bundle.id", nil)
-	return api.NewServer(st, db, sy, zc, "mock", 30*time.Minute, verifier, time.Hour, log).Handler(), verifier
+	return api.NewServer(st, db, sy, zc, "mock", 30*time.Minute, verifier, time.Hour, authtoken.NewSigner([]byte("test-jwt-secret")), log).Handler(), verifier
 }
 
 func do(t *testing.T, h http.Handler, method, path string, body any) *httptest.ResponseRecorder {

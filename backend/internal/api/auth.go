@@ -3,13 +3,12 @@ package api
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
-	"encoding/base64"
 	"encoding/hex"
 	"net/http"
 	"strings"
 	"time"
 
+	"quickroom/internal/authtoken"
 	"quickroom/internal/domain"
 )
 
@@ -17,33 +16,77 @@ type ctxKey int
 
 const userCtxKey ctxKey = iota
 
-// userFromContext returns the authenticated user attached by authMiddleware.
+// userFromContext returns the authenticated user attached by requireUser.
 func userFromContext(r *http.Request) (domain.User, bool) {
 	u, ok := r.Context().Value(userCtxKey).(domain.User)
 	return u, ok
 }
 
-// authMiddleware resolves a bearer session token to its user and attaches it
-// to the request context. 401s on a missing, invalid, or expired session.
-func (s *Server) authMiddleware(next http.HandlerFunc) http.HandlerFunc {
+// requireUser verifies a bearer JWT with role "user" and confirms the account
+// still exists (so a deleted user loses access immediately), attaching it to
+// the request context.
+func (s *Server) requireUser(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		token := bearerToken(r)
-		if token == "" {
-			writeError(w, http.StatusUnauthorized, "missing bearer token")
+		sub, role, ok := s.verifyBearer(w, r)
+		if !ok {
 			return
 		}
-		user, ok, err := s.sessionUser(token)
+		if role != authtoken.RoleUser {
+			writeError(w, http.StatusForbidden, "user token required")
+			return
+		}
+		user, found, err := s.db.UserByID(sub)
 		if err != nil {
-			s.log.Error("session lookup", "err", err)
+			s.log.Error("user lookup", "err", err)
 			writeError(w, http.StatusInternalServerError, "internal error")
 			return
 		}
-		if !ok {
-			writeError(w, http.StatusUnauthorized, "invalid or expired session")
+		if !found {
+			writeError(w, http.StatusUnauthorized, "account no longer exists")
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), userCtxKey, user)))
 	}
+}
+
+// requireAdmin verifies a bearer JWT with role "admin" and confirms the admin
+// account still exists.
+func (s *Server) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		sub, role, ok := s.verifyBearer(w, r)
+		if !ok {
+			return
+		}
+		if role != authtoken.RoleAdmin {
+			writeError(w, http.StatusForbidden, "admin token required")
+			return
+		}
+		if _, found, err := s.db.AdminByID(sub); err != nil {
+			s.log.Error("admin lookup", "err", err)
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		} else if !found {
+			writeError(w, http.StatusUnauthorized, "admin no longer exists")
+			return
+		}
+		next.ServeHTTP(w, r)
+	}
+}
+
+// verifyBearer extracts and verifies the JWT, writing the 401 itself on
+// failure. Returns ok=false when a response was already written.
+func (s *Server) verifyBearer(w http.ResponseWriter, r *http.Request) (sub, role string, ok bool) {
+	token := bearerToken(r)
+	if token == "" {
+		writeError(w, http.StatusUnauthorized, "missing bearer token")
+		return "", "", false
+	}
+	sub, role, err := s.signer.Verify(token)
+	if err != nil {
+		writeError(w, http.StatusUnauthorized, "invalid or expired token")
+		return "", "", false
+	}
+	return sub, role, true
 }
 
 func bearerToken(r *http.Request) string {
@@ -53,34 +96,6 @@ func bearerToken(r *http.Request) string {
 		return ""
 	}
 	return strings.TrimPrefix(h, prefix)
-}
-
-func (s *Server) sessionUser(token string) (domain.User, bool, error) {
-	userID, ok, err := s.db.SessionUserID(hashToken(token), time.Now())
-	if err != nil || !ok {
-		return domain.User{}, false, err
-	}
-	return s.db.UserByID(userID)
-}
-
-func hashToken(token string) string {
-	sum := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(sum[:])
-}
-
-// newSessionToken returns a fresh opaque token (returned to the caller once)
-// and its SHA-256 hash (what's actually persisted).
-func newSessionToken() (raw, hash string) {
-	b := make([]byte, 32)
-	if _, err := rand.Read(b); err != nil {
-		// crypto/rand failure is effectively unrecoverable in practice;
-		// falling back to a fixed value here would be a real security bug
-		// (predictable session tokens), so surface it as an empty token —
-		// callers must treat an empty raw token as a hard failure.
-		return "", ""
-	}
-	raw = base64.RawURLEncoding.EncodeToString(b)
-	return raw, hashToken(raw)
 }
 
 // newUserID generates a local user identifier, distinct from Apple's sub.
@@ -99,7 +114,8 @@ func randomPrefixedID(prefix string) string {
 }
 
 // postAppleAuth verifies an Apple identity token, upserts the local user
-// record, and issues a new session.
+// record, and issues a user JWT. The response field keeps its historical
+// "session_token" name so the mobile app needs no changes.
 func (s *Server) postAppleAuth(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		IdentityToken string `json:"identity_token"`
@@ -143,29 +159,18 @@ func (s *Server) postAppleAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	raw, hash := newSessionToken()
-	if raw == "" {
-		s.log.Error("generate session token: crypto/rand failed")
-		writeError(w, http.StatusInternalServerError, "internal error")
-		return
-	}
-	now := time.Now()
-	if err := s.db.CreateSession(hash, user.UserID, now, now.Add(s.sessionTTL)); err != nil {
-		s.log.Error("create session", "err", err)
+	token, err := s.signer.Mint(user.UserID, authtoken.RoleUser, s.userTokenTTL)
+	if err != nil {
+		s.log.Error("mint user token", "err", err)
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, map[string]any{"session_token": raw, "user": user})
+	writeJSON(w, http.StatusOK, map[string]any{"session_token": token, "user": user})
 }
 
-// postLogout deletes the caller's session. Idempotent: no-op if already gone.
-func (s *Server) postLogout(w http.ResponseWriter, r *http.Request) {
-	token := bearerToken(r)
-	if token != "" {
-		if err := s.db.DeleteSession(hashToken(token)); err != nil {
-			s.log.Warn("delete session", "err", err)
-		}
-	}
+// postLogout is a client-side operation under JWTs (drop the token); the
+// endpoint stays for mobile compatibility and answers ok.
+func (s *Server) postLogout(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

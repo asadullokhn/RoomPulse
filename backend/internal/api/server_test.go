@@ -50,7 +50,7 @@ func newTestHandlerWithVerifier(t *testing.T) (http.Handler, *appleauth.Verifier
 		t.Fatalf("seed admin: %v", err)
 	}
 	zc := zoom.NewMockClient(now, nil, log) // default seed: ws-petang has an active reservation
-	sy := syncsvc.New(zc, st, "", log)
+	sy := syncsvc.New(zc, st, db, "", log)
 	if _, err := sy.Run(context.Background(), now); err != nil {
 		t.Fatalf("sync: %v", err)
 	}

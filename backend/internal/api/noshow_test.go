@@ -48,7 +48,7 @@ func newNoShowServer(t *testing.T, now time.Time) *Server {
 	}
 	t.Cleanup(func() { _ = db.Close() })
 	zc := zoom.NewMockClient(now, nil, log)
-	sy := syncsvc.New(zc, st, "", log)
+	sy := syncsvc.New(zc, st, db, "", log)
 	if _, err := sy.Run(context.Background(), now); err != nil {
 		t.Fatalf("sync: %v", err)
 	}

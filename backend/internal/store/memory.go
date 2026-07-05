@@ -167,6 +167,20 @@ func (m *Memory) UpsertRoom(r domain.Room) {
 	m.rooms[r.RoomID] = r
 }
 
+// DeleteRoom removes a room from the live mirror by workspace id (admin
+// deletion of a custom room). Zoom-synced rooms reappear on the next sync,
+// so callers only use this for admin-owned rooms.
+func (m *Memory) DeleteRoom(workspaceID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for id, r := range m.rooms {
+		if r.ZoomWorkspaceID == workspaceID {
+			delete(m.rooms, id)
+			return
+		}
+	}
+}
+
 // UpsertReservation inserts or updates a reservation.
 func (m *Memory) UpsertReservation(r domain.Reservation) {
 	m.mu.Lock()

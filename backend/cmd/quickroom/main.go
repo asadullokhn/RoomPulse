@@ -71,7 +71,7 @@ func main() {
 	}
 	log.Info("app reservations reloaded", "count", len(appRes))
 
-	sync := syncsvc.New(zc, st, cfg.ZoomLocationID, log)
+	sync := syncsvc.New(zc, st, db, cfg.ZoomLocationID, log)
 
 	// Initial sync so the API has data immediately.
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

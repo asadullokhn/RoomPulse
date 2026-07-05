@@ -18,6 +18,7 @@ import (
 type Service struct {
 	zoom       zoom.Client
 	store      *store.Memory
+	db         *store.DB // nil-safe: custom rooms/overrides skipped when absent
 	locationID string
 	log        *slog.Logger
 }
@@ -29,8 +30,8 @@ type Result struct {
 	SyncedAt     time.Time `json:"synced_at"`
 }
 
-func New(zc zoom.Client, st *store.Memory, locationID string, log *slog.Logger) *Service {
-	return &Service{zoom: zc, store: st, locationID: locationID, log: log}
+func New(zc zoom.Client, st *store.Memory, db *store.DB, locationID string, log *slog.Logger) *Service {
+	return &Service{zoom: zc, store: st, db: db, locationID: locationID, log: log}
 }
 
 // Run performs one full sync: workspaces -> rooms, then today's reservations.
@@ -43,9 +44,46 @@ func (s *Service) Run(ctx context.Context, now time.Time) (Result, error) {
 	if err != nil {
 		return Result{}, fmt.Errorf("sync reservations: %w", err)
 	}
+	s.applyAdminRooms()
 	r := Result{Rooms: rooms, Reservations: res, SyncedAt: now}
 	s.log.Info("sync complete", "rooms", rooms, "reservations", res)
 	return r, nil
+}
+
+// applyAdminRooms re-asserts admin room state after a Zoom sync: custom rooms
+// are re-upserted (they have no Zoom source) and overrides re-patch the
+// Zoom-synced mirror so admin edits always win over the pull.
+func (s *Service) applyAdminRooms() {
+	if s.db == nil {
+		return
+	}
+	custom, err := s.db.CustomRooms()
+	if err != nil {
+		s.log.Warn("load custom rooms", "err", err)
+	}
+	for _, r := range custom {
+		s.store.UpsertRoom(r)
+	}
+	overrides, err := s.db.RoomOverrides()
+	if err != nil {
+		s.log.Warn("load room overrides", "err", err)
+	}
+	for _, o := range overrides {
+		room, ok := s.store.RoomByWorkspace(o.WorkspaceID)
+		if !ok {
+			continue
+		}
+		if o.Name != "" {
+			room.Name = o.Name
+		}
+		if o.Capacity >= 0 {
+			room.Capacity = o.Capacity
+		}
+		if o.HasTV >= 0 {
+			room.HasTV = o.HasTV == 1
+		}
+		s.store.UpsertRoom(room)
+	}
 }
 
 func (s *Service) syncWorkspaces(ctx context.Context) (int, error) {

@@ -36,6 +36,11 @@ services:
       APNS_TEAM_ID: "${APNS_TEAM_ID:-}"
       APNS_TOPIC: "${APNS_TOPIC:-}"
       APNS_ENV: "${APNS_ENV:-sandbox}"
+      # JWT auth + admin login (values in the gitignored .env; empty
+      # JWT_SECRET = the backend generates one and persists it in /data).
+      JWT_SECRET: "${JWT_SECRET:-}"
+      ADMIN_EMAIL: "${ADMIN_EMAIL:-}"
+      ADMIN_PASSWORD: "${ADMIN_PASSWORD:-}"
     volumes:
       - quickroom_token:/data   # persists the OAuth token across restarts
     restart: unless-stopped

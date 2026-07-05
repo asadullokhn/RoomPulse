@@ -254,6 +254,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /reservations/mine", s.authMiddleware(s.listMyReservations))
 	mux.HandleFunc("POST /reservations", s.authMiddleware(s.createReservation))
 	mux.HandleFunc("POST /reservations/{id}/cancel", s.authMiddleware(s.cancelReservation))
+	mux.HandleFunc("POST /devices/apns", s.authMiddleware(s.postRegisterAPNSToken))
 	mux.HandleFunc("GET /users", s.listUsers)
 	mux.HandleFunc("GET /users/{id}/reservations", s.userReservations)
 	mux.HandleFunc("DELETE /users/{id}", s.deleteUser)

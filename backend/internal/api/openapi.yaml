@@ -386,6 +386,29 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Utilization' }
 
+  /devices/apns:
+    post:
+      tags: [Devices & Events]
+      summary: Register the caller's APNs device token
+      description: |
+        The app calls this after registerForRemoteNotifications succeeds so the
+        backend can push outbox notifications (grace reminders, no-show
+        releases, room-freed) to the phone. The token re-homes to whichever
+        account is signed in on the device.
+      security: [{ sessionToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string, description: Hex APNs device token }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "422": { $ref: '#/components/responses/Unprocessable' }
   /devices:
     get:
       tags: [Devices & Events]

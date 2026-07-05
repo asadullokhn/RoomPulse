@@ -1,19 +1,30 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import AdminView from '@/views/AdminView.vue'
+import AdminLayout from '@/layouts/AdminLayout.vue'
 import LoginView from '@/views/LoginView.vue'
 import { getToken } from '@/api/auth'
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/', name: 'admin', component: AdminView },
     { path: '/login', name: 'login', component: LoginView },
+    {
+      path: '/',
+      component: AdminLayout,
+      children: [
+        { path: '', name: 'dashboard', component: () => import('@/views/DashboardView.vue') },
+        { path: 'reservations', name: 'reservations', component: () => import('@/views/ReservationsView.vue') },
+        { path: 'rooms', name: 'rooms', component: () => import('@/views/RoomsView.vue') },
+        { path: 'beacons', name: 'beacons', component: () => import('@/views/BeaconsView.vue') },
+        { path: 'users', name: 'users', component: () => import('@/views/UsersView.vue') },
+        { path: 'notifications', name: 'notifications', component: () => import('@/views/NotificationsView.vue') },
+      ],
+    },
   ],
 })
 
 router.beforeEach((to) => {
   if (to.name !== 'login' && !getToken()) return { name: 'login' }
-  if (to.name === 'login' && getToken()) return { name: 'admin' }
+  if (to.name === 'login' && getToken()) return { name: 'dashboard' }
 })
 
 export default router

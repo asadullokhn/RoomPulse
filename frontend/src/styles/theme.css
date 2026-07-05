@@ -86,3 +86,11 @@ tr.stale td { opacity: .45; }
 /* ---- misc ---- */
 .empty { padding: 28px 18px; color: var(--muted); font-size: 13px; text-align: center; }
 .empty b { display: block; color: var(--text); font-weight: 600; margin-bottom: 3px; }
+
+/* ---- view header (shared by routed views) ---- */
+.vh { display: flex; align-items: flex-end; justify-content: space-between; gap: 14px;
+  flex-wrap: wrap; margin: 2px 0 18px; }
+.vh h1 { margin: 0; font-family: var(--f-display); font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+.vh .sub { margin: 3px 0 0; font-size: 13px; color: var(--muted); }
+.vh-actions { display: flex; align-items: center; gap: 10px; }
+.section-label { font-size: 13px; font-weight: 600; color: var(--text); margin: 22px 2px 10px; }

@@ -25,6 +25,10 @@ services:
       ZOOM_CLIENT_ID: "${ZOOM_CLIENT_ID:-}"
       ZOOM_CLIENT_SECRET: "${ZOOM_CLIENT_SECRET:-}"
       ZOOM_LOCATION_ID: "${ZOOM_LOCATION_ID:-}"
+      # Sign in with Apple: the iOS app bundle id the identity token's aud
+      # must match (set the value in the gitignored .env). Empty = Apple
+      # sign-in rejected.
+      APPLE_BUNDLE_ID: "${APPLE_BUNDLE_ID:-}"
     volumes:
       - quickroom_token:/data   # persists the OAuth token across restarts
     restart: unless-stopped

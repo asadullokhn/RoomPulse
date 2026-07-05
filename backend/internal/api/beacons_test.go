@@ -10,10 +10,12 @@ import (
 
 func TestPutBeaconCreatesAndUpdates(t *testing.T) {
 	h := newTestHandler(t)
+	tok := adminToken(t, h)
 
 	// ws-agung is one of the mock seed's built-in rooms.
 	body, _ := json.Marshal(map[string]any{"uuid": "11111111-2222-3333-4444-555555555555", "major": 1, "minor": 999})
 	req := httptest.NewRequest(http.MethodPut, "/beacons/ws-agung", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+tok)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusOK {
@@ -31,6 +33,7 @@ func TestPutBeaconCreatesAndUpdates(t *testing.T) {
 	// Update: same workspace, different minor.
 	body2, _ := json.Marshal(map[string]any{"uuid": "11111111-2222-3333-4444-555555555555", "major": 1, "minor": 888})
 	req2 := httptest.NewRequest(http.MethodPut, "/beacons/ws-agung", bytes.NewReader(body2))
+	req2.Header.Set("Authorization", "Bearer "+tok)
 	rec2 := httptest.NewRecorder()
 	h.ServeHTTP(rec2, req2)
 	if rec2.Code != http.StatusOK {
@@ -47,8 +50,10 @@ func TestPutBeaconCreatesAndUpdates(t *testing.T) {
 
 func TestPutBeaconUnknownWorkspace404s(t *testing.T) {
 	h := newTestHandler(t)
+	tok := adminToken(t, h)
 	body, _ := json.Marshal(map[string]any{"uuid": "11111111-2222-3333-4444-555555555555", "major": 1, "minor": 1})
 	req := httptest.NewRequest(http.MethodPut, "/beacons/ws-does-not-exist", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+tok)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNotFound {
@@ -58,6 +63,7 @@ func TestPutBeaconUnknownWorkspace404s(t *testing.T) {
 
 func TestPutBeaconValidation(t *testing.T) {
 	h := newTestHandler(t)
+	tok := adminToken(t, h)
 	cases := []struct {
 		name string
 		body map[string]any
@@ -70,6 +76,7 @@ func TestPutBeaconValidation(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			body, _ := json.Marshal(c.body)
 			req := httptest.NewRequest(http.MethodPut, "/beacons/ws-agung", bytes.NewReader(body))
+			req.Header.Set("Authorization", "Bearer "+tok)
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, req)
 			if rec.Code != http.StatusUnprocessableEntity {
@@ -81,11 +88,15 @@ func TestPutBeaconValidation(t *testing.T) {
 
 func TestDeleteBeacon(t *testing.T) {
 	h := newTestHandler(t)
+	tok := adminToken(t, h)
 
 	putBody, _ := json.Marshal(map[string]any{"uuid": "11111111-2222-3333-4444-555555555555", "major": 1, "minor": 1})
-	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPut, "/beacons/ws-agung", bytes.NewReader(putBody)))
+	seedReq := httptest.NewRequest(http.MethodPut, "/beacons/ws-agung", bytes.NewReader(putBody))
+	seedReq.Header.Set("Authorization", "Bearer "+tok)
+	h.ServeHTTP(httptest.NewRecorder(), seedReq)
 
 	delReq := httptest.NewRequest(http.MethodDelete, "/beacons/ws-agung", nil)
+	delReq.Header.Set("Authorization", "Bearer "+tok)
 	delRec := httptest.NewRecorder()
 	h.ServeHTTP(delRec, delReq)
 	if delRec.Code != http.StatusOK {
@@ -94,6 +105,7 @@ func TestDeleteBeacon(t *testing.T) {
 
 	// Deleting again (already gone) 404s.
 	delReq2 := httptest.NewRequest(http.MethodDelete, "/beacons/ws-agung", nil)
+	delReq2.Header.Set("Authorization", "Bearer "+tok)
 	delRec2 := httptest.NewRecorder()
 	h.ServeHTTP(delRec2, delReq2)
 	if delRec2.Code != http.StatusNotFound {

@@ -27,6 +27,7 @@ func TestListUsersAndUserReservations(t *testing.T) {
 	_ = json.Unmarshal(authRec.Body.Bytes(), &authResp)
 
 	listReq := httptest.NewRequest(http.MethodGet, "/users", nil)
+	listReq.Header.Set("Authorization", "Bearer "+adminToken(t, h))
 	listRec := httptest.NewRecorder()
 	h.ServeHTTP(listRec, listReq)
 	if listRec.Code != http.StatusOK {
@@ -63,6 +64,7 @@ func TestListUsersAndUserReservations(t *testing.T) {
 	}
 
 	resReq := httptest.NewRequest(http.MethodGet, "/users/"+authResp.User.UserID+"/reservations", nil)
+	resReq.Header.Set("Authorization", "Bearer "+adminToken(t, h))
 	resRec := httptest.NewRecorder()
 	h.ServeHTTP(resRec, resReq)
 	if resRec.Code != http.StatusOK {
@@ -82,6 +84,7 @@ func TestListUsersAndUserReservations(t *testing.T) {
 func TestUserReservationsUnknownUser404s(t *testing.T) {
 	h := newTestHandler(t)
 	req := httptest.NewRequest(http.MethodGet, "/users/usr_does_not_exist/reservations", nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken(t, h))
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusNotFound {
@@ -121,6 +124,7 @@ func TestDeleteUserCascades(t *testing.T) {
 	_ = json.Unmarshal(createRec.Body.Bytes(), &created)
 
 	delReq := httptest.NewRequest(http.MethodDelete, "/users/"+authResp.User.UserID, nil)
+	delReq.Header.Set("Authorization", "Bearer "+adminToken(t, h))
 	delRec := httptest.NewRecorder()
 	h.ServeHTTP(delRec, delReq)
 	if delRec.Code != http.StatusOK {
@@ -156,6 +160,7 @@ func TestDeleteUserCascades(t *testing.T) {
 	}
 
 	delReq2 := httptest.NewRequest(http.MethodDelete, "/users/"+authResp.User.UserID, nil)
+	delReq2.Header.Set("Authorization", "Bearer "+adminToken(t, h))
 	delRec2 := httptest.NewRecorder()
 	h.ServeHTTP(delRec2, delReq2)
 	if delRec2.Code != http.StatusNotFound {

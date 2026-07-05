@@ -52,6 +52,7 @@ func TestCreateListCancelReservation(t *testing.T) {
 	// for Source == "app", this would 404 ("reservation not found in
 	// zoom") instead of succeeding. This is what actually proves the guard.
 	checkInReq := httptest.NewRequest(http.MethodPost, "/reservations/"+created.ReservationID+"/check-in", nil)
+	checkInReq.Header.Set("Authorization", "Bearer "+adminToken(t, h))
 	checkInRec := httptest.NewRecorder()
 	h.ServeHTTP(checkInRec, checkInReq)
 	if checkInRec.Code != http.StatusOK {
@@ -180,6 +181,7 @@ func TestAdminCancelAnyReservation(t *testing.T) {
 
 	// No Authorization header — admin cancel is unauthenticated by design.
 	cancelReq := httptest.NewRequest(http.MethodPost, "/admin/reservations/"+created.ReservationID+"/cancel", nil)
+	cancelReq.Header.Set("Authorization", "Bearer "+adminToken(t, h))
 	cancelRec := httptest.NewRecorder()
 	h.ServeHTTP(cancelRec, cancelReq)
 	if cancelRec.Code != http.StatusOK {
@@ -199,6 +201,7 @@ func TestAdminCancelZoomSourcedForbidden(t *testing.T) {
 	// res-petang is seeded by the mock Zoom client — Zoom-sourced, not
 	// cancellable through the admin app-booking endpoint.
 	cancelReq := httptest.NewRequest(http.MethodPost, "/admin/reservations/res-petang/cancel", nil)
+	cancelReq.Header.Set("Authorization", "Bearer "+adminToken(t, h))
 	cancelRec := httptest.NewRecorder()
 	h.ServeHTTP(cancelRec, cancelReq)
 	if cancelRec.Code != http.StatusForbidden {

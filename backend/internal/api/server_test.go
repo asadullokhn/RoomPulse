@@ -12,7 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/crypto/bcrypt"
 	"quickroom/internal/api"
+
 	"quickroom/internal/appleauth"
 	"quickroom/internal/authtoken"
 	"quickroom/internal/store"
@@ -40,6 +42,13 @@ func newTestHandlerWithVerifier(t *testing.T) (http.Handler, *appleauth.Verifier
 		t.Fatalf("open db: %v", err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
+	hash, err := bcrypt.GenerateFromPassword([]byte("pw"), bcrypt.MinCost)
+	if err != nil {
+		t.Fatalf("bcrypt: %v", err)
+	}
+	if err := db.EnsureAdmin("admin@test.local", string(hash), now); err != nil {
+		t.Fatalf("seed admin: %v", err)
+	}
 	zc := zoom.NewMockClient(now, nil, log) // default seed: ws-petang has an active reservation
 	sy := syncsvc.New(zc, st, "", log)
 	if _, err := sy.Run(context.Background(), now); err != nil {
@@ -47,6 +56,40 @@ func newTestHandlerWithVerifier(t *testing.T) (http.Handler, *appleauth.Verifier
 	}
 	verifier := appleauth.NewVerifier("test.bundle.id", nil)
 	return api.NewServer(st, db, sy, zc, "mock", 30*time.Minute, verifier, time.Hour, authtoken.NewSigner([]byte("test-jwt-secret")), log).Handler(), verifier
+}
+
+// adminToken logs the seeded test admin in and returns its bearer JWT.
+func adminToken(t *testing.T, h http.Handler) string {
+	t.Helper()
+	rec := do(t, h, http.MethodPost, "/auth/login", map[string]string{"email": "admin@test.local", "password": "pw"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("admin login status = %d body=%s", rec.Code, rec.Body)
+	}
+	var resp struct {
+		Token string `json:"token"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil || resp.Token == "" {
+		t.Fatalf("admin login response: %s", rec.Body)
+	}
+	return resp.Token
+}
+
+// doAuth is do() with a bearer token attached.
+func doAuth(t *testing.T, h http.Handler, method, path, bearer string, body any) *httptest.ResponseRecorder {
+	t.Helper()
+	var r io.Reader
+	if body != nil {
+		b, err := json.Marshal(body)
+		if err != nil {
+			t.Fatalf("marshal body: %v", err)
+		}
+		r = bytes.NewReader(b)
+	}
+	req := httptest.NewRequest(method, path, r)
+	req.Header.Set("Authorization", "Bearer "+bearer)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	return rec
 }
 
 func do(t *testing.T, h http.Handler, method, path string, body any) *httptest.ResponseRecorder {
@@ -155,6 +198,7 @@ func TestStaleHeartbeatIgnored(t *testing.T) {
 // TestBoundaryValidation locks the request-validation contract at the edges.
 func TestBoundaryValidation(t *testing.T) {
 	h := newTestHandler(t)
+	tok := adminToken(t, h) // /events and /check-in sit behind the admin JWT now
 	cases := []struct {
 		name, method, path string
 		body               any
@@ -168,7 +212,7 @@ func TestBoundaryValidation(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if rec := do(t, h, c.method, c.path, c.body); rec.Code != c.want {
+			if rec := doAuth(t, h, c.method, c.path, tok, c.body); rec.Code != c.want {
 				t.Fatalf("%s = %d, want %d (%s)", c.name, rec.Code, c.want, rec.Body.String())
 			}
 		})

@@ -47,9 +47,9 @@ tags:
   - name: Floor
     description: Floor-plan projection and image
   - name: Auth
-    description: Sign in with Apple (mobile app sessions) and Zoom user-OAuth (user mode only)
+    description: Admin login (JWT), Sign in with Apple (mobile user JWT), and Zoom user-OAuth (user mode only)
   - name: Users
-    description: Admin-facing account management — unauthenticated, like the rest of the admin surface
+    description: Admin-facing account management (admin JWT required)
 
 paths:
   /health/live:
@@ -78,13 +78,68 @@ paths:
   /sync:
     post:
       tags: [Sync]
-      summary: Run one Zoom sync
+      summary: Run one Zoom sync (admin)
       description: Pulls workspaces → rooms, then today's reservations, into the local mirror.
+      security: [{ adminToken: [] }]
       responses:
         "200": { description: Synced, content: { application/json: { schema: { $ref: '#/components/schemas/SyncResult' } } } }
         "502": { $ref: '#/components/responses/BadGateway' }
 
+  /rooms/{workspace_id}:
+    patch:
+      tags: [Rooms & Beacons]
+      summary: Edit a room (admin)
+      description: |
+        Custom rooms are edited directly. Zoom-synced rooms get a persistent
+        override re-applied after every sync so the edit survives the mirror.
+      security: [{ adminToken: [] }]
+      parameters:
+        - { name: workspace_id, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                capacity: { type: integer }
+                has_tv: { type: boolean }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/Room' } } } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "422": { $ref: '#/components/responses/Unprocessable' }
+    delete:
+      tags: [Rooms & Beacons]
+      summary: Delete a custom room, or reset a Zoom room's override (admin)
+      security: [{ adminToken: [] }]
+      parameters:
+        - { name: workspace_id, in: path, required: true, schema: { type: string } }
+      responses:
+        "200": { description: "Deleted (custom) or override reset (zoom)", content: { application/json: { schema: { $ref: '#/components/schemas/StatusResult' } } } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "404": { $ref: '#/components/responses/NotFound' }
   /rooms:
+    post:
+      tags: [Rooms & Beacons]
+      summary: Create a custom room (admin)
+      security: [{ adminToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                capacity: { type: integer }
+                has_tv: { type: boolean }
+      responses:
+        "200": { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/Room' } } } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "422": { $ref: '#/components/responses/Unprocessable' }
     get:
       tags: [Rooms & Beacons]
       summary: List rooms
@@ -114,7 +169,8 @@ paths:
   /beacons/{workspace_id}:
     put:
       tags: [Rooms & Beacons]
-      summary: Assign or update a room's beacon mapping
+      summary: Assign or update a room's beacon mapping (admin)
+      security: [{ adminToken: [] }]
       parameters:
         - name: workspace_id
           in: path
@@ -137,7 +193,8 @@ paths:
         "422": { $ref: '#/components/responses/Unprocessable' }
     delete:
       tags: [Rooms & Beacons]
-      summary: Remove a room's beacon mapping
+      summary: Remove a room's beacon mapping (admin)
+      security: [{ adminToken: [] }]
       parameters:
         - name: workspace_id
           in: path
@@ -215,6 +272,7 @@ paths:
     post:
       tags: [Reservations]
       summary: Check a reservation in
+      security: [{ adminToken: [] }]
       description: Sends the event to Zoom, then reflects it locally.
       parameters: [ { $ref: '#/components/parameters/ReservationId' } ]
       responses:
@@ -225,11 +283,57 @@ paths:
     post:
       tags: [Reservations]
       summary: Check a reservation out
+      security: [{ adminToken: [] }]
       parameters: [ { $ref: '#/components/parameters/ReservationId' } ]
       responses:
         "200": { description: Updated reservation, content: { application/json: { schema: { $ref: '#/components/schemas/Reservation' } } } }
         "404": { $ref: '#/components/responses/NotFound' }
         "502": { $ref: '#/components/responses/BadGateway' }
+  /admin/reservations:
+    post:
+      tags: [Reservations]
+      summary: Book a room on someone's behalf (admin)
+      security: [{ adminToken: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [workspace_id, start_time, end_time]
+              properties:
+                workspace_id: { type: string }
+                start_time: { type: string, format: date-time }
+                end_time: { type: string, format: date-time }
+                user_email: { type: string, description: Notification recipient }
+      responses:
+        "200": { description: Booked, content: { application/json: { schema: { $ref: '#/components/schemas/Reservation' } } } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "409": { description: Window conflict, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        "422": { $ref: '#/components/responses/Unprocessable' }
+  /admin/reservations/{id}:
+    patch:
+      tags: [Reservations]
+      summary: Move an app-sourced booking's window (admin)
+      security: [{ adminToken: [] }]
+      parameters: [ { $ref: '#/components/parameters/ReservationId' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                start_time: { type: string, format: date-time }
+                end_time: { type: string, format: date-time }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/Reservation' } } } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { description: Zoom-sourced reservations are read-only, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "409": { description: Window conflict, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        "422": { $ref: '#/components/responses/Unprocessable' }
   /admin/reservations/{id}/cancel:
     post:
       tags: [Reservations]
@@ -309,10 +413,29 @@ paths:
                 type: object
                 properties:
                   occupancy: { type: array, items: { $ref: '#/components/schemas/OccupancyEntry' } }
+  /notifications/{id}:
+    delete:
+      tags: [Notifications]
+      summary: Delete one outbox notification (admin)
+      security: [{ adminToken: [] }]
+      parameters:
+        - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "404": { $ref: '#/components/responses/NotFound' }
   /notifications:
+    delete:
+      tags: [Notifications]
+      summary: Clear the outbox (admin)
+      security: [{ adminToken: [] }]
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
     get:
       tags: [Notifications]
       summary: Poll the notification outbox
+      security: [{ adminToken: [] }]
       description: |
         Grace-window "are you coming?" pings, no-show releases, and room-freed
         events. The mobile app polls with `?recipient=` (its booker id/email);
@@ -595,6 +718,32 @@ paths:
       responses:
         "200": { description: PNG, content: { image/png: { schema: { type: string, format: binary } } } }
 
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Admin login (email + password)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string }
+                password: { type: string }
+      responses:
+        "200":
+          description: Signed in
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  token: { type: string, description: Admin JWT }
+                  email: { type: string }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "422": { $ref: '#/components/responses/Unprocessable' }
   /auth/apple:
     post:
       tags: [Auth]
@@ -638,6 +787,7 @@ paths:
     get:
       tags: [Users]
       summary: List every app account
+      security: [{ adminToken: [] }]
       responses:
         "200":
           description: OK
@@ -651,6 +801,7 @@ paths:
     get:
       tags: [Users]
       summary: A user's bookings (any status/source)
+      security: [{ adminToken: [] }]
       parameters: [ { $ref: '#/components/parameters/UserId' } ]
       responses:
         "200":
@@ -663,9 +814,29 @@ paths:
                   reservations: { type: array, items: { $ref: '#/components/schemas/Reservation' } }
         "404": { $ref: '#/components/responses/NotFound' }
   /users/{id}:
+    patch:
+      tags: [Users]
+      summary: Rename an account (admin)
+      security: [{ adminToken: [] }]
+      parameters: [ { $ref: '#/components/parameters/UserId' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+      responses:
+        "200": { $ref: '#/components/responses/Ok' }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "422": { $ref: '#/components/responses/Unprocessable' }
     delete:
       tags: [Users]
       summary: Delete an account
+      security: [{ adminToken: [] }]
       description: |
         Cancels the user's open app-sourced bookings and revokes every session
         before deleting the account row — a removed account can't be left
@@ -699,7 +870,13 @@ components:
     sessionToken:
       type: http
       scheme: bearer
-      description: "Opaque session token returned by POST /auth/apple. Send as `Authorization: Bearer <token>`."
+      bearerFormat: JWT
+      description: "User JWT returned by POST /auth/apple (in the session_token field). Send as `Authorization: Bearer <token>`."
+    adminToken:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Admin JWT returned by POST /auth/login. Send as `Authorization: Bearer <token>`."
   parameters:
     ReservationId:
       name: id

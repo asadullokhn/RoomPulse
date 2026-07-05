@@ -271,6 +271,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /users/{id}/reservations", s.requireAdmin(s.userReservations))
 	mux.HandleFunc("DELETE /users/{id}", s.requireAdmin(s.deleteUser))
 	mux.HandleFunc("POST /admin/reservations/{id}/cancel", s.requireAdmin(s.adminCancelReservation))
+	mux.HandleFunc("POST /admin/reservations", s.requireAdmin(s.adminCreateReservation))
+	mux.HandleFunc("PATCH /admin/reservations/{id}", s.requireAdmin(s.adminPatchReservation))
+	mux.HandleFunc("DELETE /notifications/{id}", s.requireAdmin(s.deleteNotification))
+	mux.HandleFunc("DELETE /notifications", s.requireAdmin(s.clearNotifications))
+	mux.HandleFunc("PATCH /users/{id}", s.requireAdmin(s.patchUser))
 	if s.oauth != nil {
 		mux.HandleFunc("GET /oauth/login", s.oauthLogin)
 		mux.HandleFunc("GET /oauth/callback", s.oauthCallback)

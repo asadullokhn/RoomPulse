@@ -63,6 +63,26 @@ func (n *notifier) emit(key string, note Notification) bool {
 	return true
 }
 
+// remove deletes one notification by id, reporting whether it existed.
+func (n *notifier) remove(id int64) bool {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	for i, note := range n.list {
+		if note.ID == id {
+			n.list = append(n.list[:i], n.list[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
+// clear empties the outbox (dedup keys stay so cleared reminders don't refire).
+func (n *notifier) clear() {
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	n.list = nil
+}
+
 // recent returns newest-first notifications, optionally filtered by recipient.
 func (n *notifier) recent(recipient string, limit int) []Notification {
 	n.mu.Lock()

@@ -29,6 +29,13 @@ services:
       # must match (set the value in the gitignored .env). Empty = Apple
       # sign-in rejected.
       APPLE_BUNDLE_ID: "${APPLE_BUNDLE_ID:-}"
+      # APNs push delivery (values live in the gitignored .env; the .p8 key
+      # file goes into the /data volume). All unset = push disabled.
+      APNS_KEY_FILE: "${APNS_KEY_FILE:-}"
+      APNS_KEY_ID: "${APNS_KEY_ID:-}"
+      APNS_TEAM_ID: "${APNS_TEAM_ID:-}"
+      APNS_TOPIC: "${APNS_TOPIC:-}"
+      APNS_ENV: "${APNS_ENV:-sandbox}"
     volumes:
       - quickroom_token:/data   # persists the OAuth token across restarts
     restart: unless-stopped

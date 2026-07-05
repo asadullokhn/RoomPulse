@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import type { User, Reservation } from '@/api/types'
-import { getUserReservations, deleteUser, adminCancelReservation } from '@/api/client'
+import { getUserReservations, deleteUser, adminCancelReservation, renameUser } from '@/api/client'
 import Badge from '@/components/Badge.vue'
 
 defineProps<{ users: User[] }>()
@@ -44,6 +44,29 @@ async function cancelBooking(userId: string, reservationId: string) {
   }
 }
 
+const renamingId = ref<string | null>(null)
+const renameValue = ref('')
+
+function startRename(u: User) {
+  renamingId.value = u.user_id
+  renameValue.value = u.name || ''
+  error.value = ''
+}
+
+async function saveRename(userId: string) {
+  busy.value = true
+  error.value = ''
+  try {
+    await renameUser(userId, renameValue.value)
+    renamingId.value = null
+    emit('changed')
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'rename failed'
+  } finally {
+    busy.value = false
+  }
+}
+
 async function removeUser(userId: string) {
   if (!confirm('Delete this account? Their open bookings will be cancelled and sessions revoked.')) return
   busy.value = true
@@ -71,12 +94,24 @@ async function removeUser(userId: string) {
               <td class="expand-cell">
                 <button class="btn-ghost" @click="toggleExpand(u.user_id)">{{ expandedId === u.user_id ? '−' : '+' }}</button>
               </td>
-              <td>{{ u.name || '—' }}</td>
+              <td>
+                <template v-if="renamingId === u.user_id">
+                  <input v-model.trim="renameValue" class="rename" @keyup.enter="saveRename(u.user_id)" />
+                </template>
+                <template v-else>{{ u.name || '—' }}</template>
+              </td>
               <td class="mono">{{ u.email || '—' }}</td>
               <td class="mono id">{{ u.user_id }}</td>
               <td class="muted">{{ fmtTime(u.created_at) }}</td>
               <td class="actions">
-                <button class="btn-ghost" :disabled="busy" @click="removeUser(u.user_id)">Delete</button>
+                <template v-if="renamingId === u.user_id">
+                  <button class="btn-ghost" :disabled="busy || !renameValue" @click="saveRename(u.user_id)">Save</button>
+                  <button class="btn-ghost" @click="renamingId = null">Cancel</button>
+                </template>
+                <template v-else>
+                  <button class="btn-ghost" @click="startRename(u)">Rename</button>
+                  <button class="btn-ghost" :disabled="busy" @click="removeUser(u.user_id)">Delete</button>
+                </template>
               </td>
             </tr>
             <tr v-if="expandedId === u.user_id" class="bookings-row">
@@ -122,6 +157,8 @@ button { font-family: var(--f-body); font-size: 12px; font-weight: 500; cursor: 
 .btn-ghost:hover { border-color: var(--accent); }
 .btn-ghost:disabled { opacity: .5; cursor: default; }
 .muted { color: var(--muted); }
+.rename { background: rgba(150,170,220,.05); border: 1px solid var(--line); border-radius: 8px;
+  color: var(--ink); padding: 5px 8px; font-size: 12.5px; font-family: var(--f-body); width: 140px; }
 .empty { padding: 14px 4px; color: var(--faint); font-size: 12.5px; }
 .err { padding: 10px 16px; color: var(--danger); font-size: 12.5px; border-top: 1px solid var(--line-soft); }
 .bookings-row td { padding: 4px 12px 14px; background: rgba(150,170,220,.04); }

@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { logout } from '@/api/auth'
+
 defineProps<{
   connected: boolean
 }>()
@@ -14,6 +16,7 @@ defineProps<{
       <span class="chip" :class="connected ? 'live' : 'down'">
         <span class="led" /><span>{{ connected ? 'Live' : 'Reconnecting…' }}</span>
       </span>
+      <button class="chip out" @click="logout()">Sign out</button>
     </div>
   </header>
 </template>
@@ -43,6 +46,8 @@ header {
 .chip.live .led { background: #2FE6B0; box-shadow: 0 0 8px #2FE6B0; }
 .chip.down { color: var(--amber); border-color: rgba(244,183,64,.4); }
 .chip.down .led { background: var(--amber); box-shadow: 0 0 8px var(--amber); }
+.chip.out { background: none; cursor: pointer; }
+.chip.out:hover { color: var(--ink); border-color: var(--signal-line); }
 @media (max-width: 560px) {
   header { padding: 12px 14px; }
   .brand .tag { display: none; }

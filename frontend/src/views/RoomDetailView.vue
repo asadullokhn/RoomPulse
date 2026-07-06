@@ -2,11 +2,13 @@
 import { ref, computed, watch, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
 import { usePoll } from '@/composables/usePoll'
-import { getRooms, getOccupancy, getBeacons, getEvents, getReservations } from '@/api/client'
+import { getRooms, getOccupancy, getBeacons, getEvents, getReservations, adminCreateReservation } from '@/api/client'
 import { useToast } from '@/composables/useToast'
 import type { Room, OccupancyEntry, Beacon, EventEntry, Reservation } from '@/api/types'
 import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import RoomFormModal from '@/components/rooms/RoomFormModal.vue'
+import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue'
+import Modal from '@/components/ui/Modal.vue'
 
 const route = useRoute()
 const toast = useToast()
@@ -23,6 +25,64 @@ const beacon = computed(() => beacons.value.find(b => b.workspace_id === ws.valu
 const presentUsers = computed(() => occupancy.value.find(o => o.workspace_id === ws.value)?.users ?? [])
 
 watchEffect(() => { document.title = `QuickRoom · ${room.value?.name ?? 'Room'}` })
+
+// timeline
+const tlDate = ref(new Date())
+const tlDetail = ref<Reservation | null>(null)
+const createOpen = ref(false)
+const createStart = ref('')
+const createEnd = ref('')
+const createEmail = ref('')
+const createError = ref('')
+const createBusy = ref(false)
+
+const tlDateLabel = computed(() =>
+  tlDate.value.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }))
+const tlDateInput = computed({
+  get: () => toLocalDate(tlDate.value),
+  set: (v: string) => { if (v) tlDate.value = new Date(`${v}T12:00:00`) },
+})
+function stepDay(delta: number) {
+  const d = new Date(tlDate.value)
+  d.setDate(d.getDate() + delta)
+  tlDate.value = d
+}
+function toLocalDate(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+function toLocalInput(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${toLocalDate(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+function openCreate(slot: { workspaceId: string; start: Date; end: Date }) {
+  createStart.value = toLocalInput(slot.start)
+  createEnd.value = toLocalInput(slot.end)
+  createEmail.value = ''
+  createError.value = ''
+  createOpen.value = true
+}
+
+async function submitCreate() {
+  createBusy.value = true
+  createError.value = ''
+  try {
+    await adminCreateReservation({
+      workspace_id: ws.value,
+      start_time: new Date(createStart.value).toISOString(),
+      end_time: new Date(createEnd.value).toISOString(),
+      user_email: createEmail.value || undefined,
+    })
+    toast.success('Room booked')
+    createOpen.value = false
+    await loadHistory()
+  } catch (e) {
+    createError.value = e instanceof Error ? e.message : 'request failed'
+  } finally {
+    createBusy.value = false
+  }
+}
 
 // history
 const tab = ref('activity')
@@ -171,12 +231,30 @@ const formOpen = ref(false)
       <SegmentedControl
         v-model="tab"
         :options="[
+          { value: 'timeline', label: 'Timeline' },
           { value: 'activity', label: `Activity (${events.length})` },
           { value: 'bookings', label: `Bookings (${bookings.length})` },
         ]"
       />
 
       <div v-if="historyLoading" class="empty">Loading&#8230;</div>
+
+      <template v-else-if="tab === 'timeline'">
+        <div class="datebar">
+          <button class="btn-secondary" aria-label="Previous day" @click="stepDay(-1)">&#8249;</button>
+          <input v-model="tlDateInput" class="field" type="date" />
+          <button class="btn-secondary" aria-label="Next day" @click="stepDay(1)">&#8250;</button>
+          <span class="datelabel">{{ tlDateLabel }}</span>
+          <button class="btn-ghost" @click="tlDate = new Date()">Today</button>
+        </div>
+        <ScheduleGrid
+          :rooms="[room]"
+          :reservations="bookings"
+          :date="tlDate"
+          @select="tlDetail = $event"
+          @create="openCreate($event)"
+        />
+      </template>
 
       <div v-else class="card pad">
         <template v-if="tab === 'activity'">
@@ -235,6 +313,33 @@ const formOpen = ref(false)
       </div>
 
       <RoomFormModal :open="formOpen" :room="room" :beacon="beacon" @close="formOpen = false" @saved="refresh" />
+
+      <Modal :title="room.name" :open="tlDetail !== null" @close="tlDetail = null">
+        <div v-if="tlDetail" class="dl">
+          <div><span>Booker</span><b>{{ tlDetail.user_email || tlDetail.user_id || 'unknown' }}</b></div>
+          <div><span>Window</span><b>{{ fmtWindow(tlDetail) }}</b></div>
+          <div><span>Status</span><span class="badge" :class="bookingBadge(tlDetail).tone">{{ bookingBadge(tlDetail).label }}</span></div>
+          <div><span>Source</span><b>{{ tlDetail.source || 'zoom' }}</b></div>
+        </div>
+      </Modal>
+
+      <Modal title="New booking" :open="createOpen" @close="createOpen = false">
+        <form class="form" @submit.prevent="submitCreate">
+          <div class="two">
+            <label><span>Starts</span><input v-model="createStart" class="field" type="datetime-local" required /></label>
+            <label><span>Ends</span><input v-model="createEnd" class="field" type="datetime-local" required /></label>
+          </div>
+          <label>
+            <span>Booker email (optional)</span>
+            <input v-model.trim="createEmail" class="field" type="email" placeholder="Used for their notifications" />
+          </label>
+          <div v-if="createError" class="ferr">{{ createError }}</div>
+          <div class="factions">
+            <button type="button" class="btn-secondary" @click="createOpen = false">Cancel</button>
+            <button type="submit" class="btn-primary" :disabled="createBusy || !createStart || !createEnd">Book room</button>
+          </div>
+        </form>
+      </Modal>
     </template>
   </div>
 </template>
@@ -256,6 +361,17 @@ const formOpen = ref(false)
   border: 1px solid var(--line); }
 
 .pad { padding: 4px 16px 10px; margin-top: 12px; }
+.datebar { display: flex; align-items: center; gap: 8px; margin: 12px 0; }
+.datebar .field { padding: 6px 9px; width: auto; }
+.datelabel { font-size: 13px; font-weight: 600; margin-left: 4px; }
+.dl { display: grid; gap: 9px; }
+.dl > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
+.dl span:first-child { color: var(--muted); }
+.form { display: grid; gap: 12px; }
+.form label { display: grid; gap: 5px; font-size: 12px; color: var(--muted); font-weight: 500; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.ferr { color: var(--danger); font-size: 12.5px; }
+.factions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 .explore-bar { display: flex; align-items: center; gap: 8px; margin: 12px 0 6px; }
 .explore-bar .field { padding: 6px 10px; font-size: 12.5px; min-width: 0; flex: 1; }
 .explore-bar .pick { flex: none; width: auto; max-width: 150px; }

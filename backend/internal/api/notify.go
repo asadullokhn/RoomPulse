@@ -130,6 +130,31 @@ func (s *Server) roomName(workspaceID string) string {
 	return workspaceID
 }
 
+// apnsFields maps an outbox notification type to the APNs presentation fields
+// of the notification contract (QuickRoom #18). Unknown types get no extras;
+// a missing id suppresses the collapse key rather than emitting "grace-".
+func apnsFields(note Notification) (category, interruption, collapseID string) {
+	collapse := func(prefix, id string) string {
+		if id == "" {
+			return ""
+		}
+		return prefix + id
+	}
+	switch note.Type {
+	case "grace_reminder":
+		return "GRACE_REMINDER", "time-sensitive", collapse("grace-", note.ReservationID)
+	case "no_show_released":
+		return "NO_SHOW_RELEASED", "active", collapse("res-", note.ReservationID)
+	case "room_freed":
+		return "ROOM_FREED", "passive", collapse("freed-", note.WorkspaceID)
+	case "collision":
+		return "COLLISION", "time-sensitive", collapse("res-", note.ReservationID)
+	case "overstay":
+		return "OVERSTAY", "active", collapse("res-", note.ReservationID)
+	}
+	return "", "", ""
+}
+
 // notificationPusher is what the fan-out needs from the APNs client;
 // interface so tests can fake it.
 type notificationPusher interface {
@@ -164,9 +189,12 @@ func (s *Server) pushNotification(p notificationPusher, note Notification) {
 		return
 	}
 
+	category, interruption, collapseID := apnsFields(note)
 	payload := apns.Notification{
 		Title: note.Title, Body: note.Body, Type: note.Type,
 		WorkspaceID: note.WorkspaceID, ReservationID: note.ReservationID,
+		Category: category, ThreadID: note.WorkspaceID,
+		CollapseID: collapseID, InterruptionLevel: interruption,
 	}
 	for _, tok := range tokens {
 		go func(tok string) {

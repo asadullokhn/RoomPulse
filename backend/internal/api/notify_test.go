@@ -102,3 +102,29 @@ func TestSweepNoShowsEmitsNotifications(t *testing.T) {
 		t.Error("no no_show_released notification for res-agung")
 	}
 }
+
+func TestAPNSFieldsPerType(t *testing.T) {
+	cases := []struct {
+		typ, resID, wsID                  string
+		category, interruption, collapse string
+	}{
+		{"grace_reminder", "res-1", "ws-a", "GRACE_REMINDER", "time-sensitive", "grace-res-1"},
+		{"no_show_released", "res-1", "ws-a", "NO_SHOW_RELEASED", "active", "res-res-1"},
+		{"room_freed", "", "ws-a", "ROOM_FREED", "passive", "freed-ws-a"},
+		{"collision", "res-2", "ws-b", "COLLISION", "time-sensitive", "res-res-2"},
+		{"overstay", "res-3", "ws-b", "OVERSTAY", "active", "res-res-3"},
+		{"unknown_type", "res-4", "ws-c", "", "", ""},
+	}
+	for _, c := range cases {
+		cat, level, collapse := apnsFields(Notification{Type: c.typ, ReservationID: c.resID, WorkspaceID: c.wsID})
+		if cat != c.category || level != c.interruption || collapse != c.collapse {
+			t.Fatalf("%s: got (%q,%q,%q), want (%q,%q,%q)", c.typ, cat, level, collapse, c.category, c.interruption, c.collapse)
+		}
+	}
+}
+
+func TestAPNSFieldsEmptyIDMeansNoCollapse(t *testing.T) {
+	if _, _, collapse := apnsFields(Notification{Type: "grace_reminder"}); collapse != "" {
+		t.Fatalf("collapse for empty reservation id = %q, want empty", collapse)
+	}
+}

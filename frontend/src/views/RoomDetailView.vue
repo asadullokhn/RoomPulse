@@ -7,7 +7,7 @@ import { useToast } from '@/composables/useToast'
 import type { Room, OccupancyEntry, Beacon, EventEntry, Reservation } from '@/api/types'
 import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import RoomFormModal from '@/components/rooms/RoomFormModal.vue'
-import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue'
+import WeekGrid from '@/components/schedule/WeekGrid.vue'
 import Modal from '@/components/ui/Modal.vue'
 
 const route = useRoute()
@@ -36,15 +36,22 @@ const createEmail = ref('')
 const createError = ref('')
 const createBusy = ref(false)
 
-const tlDateLabel = computed(() =>
-  tlDate.value.toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' }))
-const tlDateInput = computed({
-  get: () => toLocalDate(tlDate.value),
-  set: (v: string) => { if (v) tlDate.value = new Date(`${v}T12:00:00`) },
-})
-function stepDay(delta: number) {
+// Monday of tlDate's week, 00:00 local.
+const weekStart = computed(() => {
   const d = new Date(tlDate.value)
-  d.setDate(d.getDate() + delta)
+  d.setHours(0, 0, 0, 0)
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7))
+  return d
+})
+const weekLabel = computed(() => {
+  const end = new Date(weekStart.value)
+  end.setDate(end.getDate() + 6)
+  const f = (d: Date) => d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+  return `${f(weekStart.value)} – ${f(end)}`
+})
+function stepWeek(delta: number) {
+  const d = new Date(tlDate.value)
+  d.setDate(d.getDate() + delta * 7)
   tlDate.value = d
 }
 function toLocalDate(d: Date) {
@@ -56,7 +63,7 @@ function toLocalInput(d: Date) {
   return `${toLocalDate(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-function openCreate(slot: { workspaceId: string; start: Date; end: Date }) {
+function openCreate(slot: { start: Date; end: Date }) {
   createStart.value = toLocalInput(slot.start)
   createEnd.value = toLocalInput(slot.end)
   createEmail.value = ''
@@ -241,16 +248,14 @@ const formOpen = ref(false)
 
       <template v-else-if="tab === 'timeline'">
         <div class="datebar">
-          <button class="btn-secondary" aria-label="Previous day" @click="stepDay(-1)">&#8249;</button>
-          <input v-model="tlDateInput" class="field" type="date" />
-          <button class="btn-secondary" aria-label="Next day" @click="stepDay(1)">&#8250;</button>
-          <span class="datelabel">{{ tlDateLabel }}</span>
-          <button class="btn-ghost" @click="tlDate = new Date()">Today</button>
+          <button class="btn-secondary" aria-label="Previous week" @click="stepWeek(-1)">&#8249;</button>
+          <span class="datelabel">{{ weekLabel }}</span>
+          <button class="btn-secondary" aria-label="Next week" @click="stepWeek(1)">&#8250;</button>
+          <button class="btn-ghost" @click="tlDate = new Date()">This week</button>
         </div>
-        <ScheduleGrid
-          :rooms="[room]"
+        <WeekGrid
           :reservations="bookings"
-          :date="tlDate"
+          :week-start="weekStart"
           @select="tlDetail = $event"
           @create="openCreate($event)"
         />

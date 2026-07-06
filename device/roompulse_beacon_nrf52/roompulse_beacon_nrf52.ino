@@ -110,5 +110,19 @@ void loop() {
     }
     if (len < sizeof(buf) - 1) buf[len++] = c;
   }
+
+  // Watchdog: SoftDevice advertising has died silently twice in the field
+  // (board powered, firmware responsive, zero adverts on air; cause unknown).
+  // A beacon that isn't advertising is a brick, so check every 5 s and
+  // restart if it stopped without being asked to.
+  static uint32_t lastAdvCheck = 0;
+  if (millis() - lastAdvCheck >= 5000) {
+    lastAdvCheck = millis();
+    if (!Bluefruit.Advertising.isRunning()) {
+      startAdvertising();
+      if (Serial) Serial.println("watchdog: advertising restarted");
+    }
+  }
+
   delay(50);  // FreeRTOS vTaskDelay — lets the SoftDevice sleep between adverts
 }

@@ -16,6 +16,7 @@ const router = createRouter({
         { path: '', name: 'dashboard', component: () => import('@/views/DashboardView.vue') },
         { path: 'reservations', name: 'reservations', component: () => import('@/views/ReservationsView.vue') },
         { path: 'rooms', name: 'rooms', component: () => import('@/views/RoomsView.vue') },
+        { path: 'rooms/:ws', name: 'room-detail', component: () => import('@/views/RoomDetailView.vue') },
         { path: 'users', name: 'users', component: () => import('@/views/UsersView.vue') },
         { path: 'notifications', name: 'notifications', component: () => import('@/views/NotificationsView.vue') },
       ],

@@ -54,7 +54,7 @@ usePoll(pollBadges, 10000)
           :key="item.name"
           :to="item.to"
           class="nav-item"
-          :class="{ active: route.name === item.name }"
+          :class="{ active: route.name === item.name || (item.name === 'rooms' && route.name === 'room-detail') }"
           @click="menuOpen = false"
         >
           <svg class="glyph" viewBox="0 0 16 16" aria-hidden="true">

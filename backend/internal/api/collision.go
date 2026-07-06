@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"quickroom/internal/domain"
+	"quickroom/internal/store"
 )
 
 // Collision is a live booker-vs-occupant mismatch: a room booked by one person
@@ -66,9 +67,18 @@ func identityMatch(booker, occupant string) bool {
 }
 
 // bookerPresent reports whether the booker is among the present occupants.
-func bookerPresent(booker string, occupants []string) bool {
+// Exact id equality wins first: app presence carries the account user id and
+// the reservation records the same id — this is what keeps a Sign in with
+// Apple private-relay booker (whose email tells us nothing) from colliding
+// with their own presence. The name heuristic remains as the fallback for
+// Zoom-side bookings that only know an email.
+func bookerPresent(r domain.Reservation, occupants []store.Ident) bool {
+	booker := bookerOf(r)
 	for _, o := range occupants {
-		if identityMatch(booker, o) {
+		if o.ID != "" && (o.ID == r.BookedByUserID || o.ID == r.UserID) {
+			return true
+		}
+		if identityMatch(booker, o.Name) || identityMatch(booker, o.ID) {
 			return true
 		}
 	}
@@ -80,7 +90,7 @@ func bookerPresent(booker string, occupants []string) bool {
 // booker. Pure (no side effects) so the /collisions endpoint and the sweep share
 // one definition of "in conflict right now".
 func (s *Server) currentCollisions(now time.Time) []Collision {
-	occ := s.store.AllOccupancy()
+	occ := s.store.AllOccupancyIdents()
 	out := []Collision{}
 	for _, r := range s.store.Reservations() {
 		if r.Status != domain.StatusBooked {
@@ -89,19 +99,22 @@ func (s *Server) currentCollisions(now time.Time) []Collision {
 		if now.Before(r.StartTime) || !now.Before(r.EndTime) {
 			continue // only during the booked window
 		}
-		users := occ[r.ZoomWorkspaceID]
-		if len(users) == 0 {
+		idents := occ[r.ZoomWorkspaceID]
+		if len(idents) == 0 {
 			continue // empty — that's the no-show path, not a collision
 		}
-		booker := bookerOf(r)
-		if bookerPresent(booker, users) {
+		if bookerPresent(r, idents) {
 			continue // the booker is here — legitimate use
+		}
+		users := make([]string, len(idents))
+		for i, o := range idents {
+			users[i] = o.Name
 		}
 		out = append(out, Collision{
 			WorkspaceID:   r.ZoomWorkspaceID,
 			RoomName:      s.roomName(r.ZoomWorkspaceID),
 			ReservationID: r.ReservationID,
-			Booker:        booker,
+			Booker:        bookerOf(r),
 			Occupants:     users,
 			Since:         now,
 		})

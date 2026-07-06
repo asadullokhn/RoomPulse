@@ -28,6 +28,53 @@ func TestIdentityMatch(t *testing.T) {
 	}
 }
 
+// TestCurrentCollisionsMatchesByUserID: a Sign in with Apple booker is known
+// by a private-relay email that shares nothing with their display name — the
+// id carried by app presence must be what clears the collision.
+func TestCurrentCollisionsMatchesByUserID(t *testing.T) {
+	now := time.Now()
+	srv := newNoShowServer(t, now)
+	srv.store.UpsertReservation(domain.Reservation{
+		ReservationID:   "res-relay",
+		ZoomWorkspaceID: "ws-nusadua",
+		UserID:          "usr_relay1",
+		BookedByUserID:  "usr_relay1",
+		UserEmail:       "jhz9zgwsyz@privaterelay.appleid.com",
+		StartTime:       now.Add(-10 * time.Minute),
+		EndTime:         now.Add(50 * time.Minute),
+		Status:          domain.StatusBooked,
+	})
+
+	// The booker's own phone reports presence under their account user id.
+	srv.store.ApplyPresenceIfNewer("ws-nusadua", "usr_relay1", "Asadullokh Nurullaev", now.UnixMilli(), true)
+	for _, c := range srv.currentCollisions(now) {
+		if c.ReservationID == "res-relay" {
+			t.Fatalf("booker's own presence flagged as collision: %+v", c)
+		}
+	}
+
+	// A second, unmatched identity in the room must still not collide while
+	// the booker themselves is present.
+	srv.store.ApplyPresenceIfNewer("ws-nusadua", "dev-ghost", "Asadullokh", now.UnixMilli(), true)
+	for _, c := range srv.currentCollisions(now) {
+		if c.ReservationID == "res-relay" {
+			t.Fatalf("collision flagged despite booker present: %+v", c)
+		}
+	}
+
+	// Booker leaves; only the stranger remains -> now it is a collision.
+	srv.store.ApplyPresenceIfNewer("ws-nusadua", "usr_relay1", "Asadullokh Nurullaev", now.UnixMilli()+1, false)
+	found := false
+	for _, c := range srv.currentCollisions(now) {
+		if c.ReservationID == "res-relay" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("stranger-only occupancy should collide")
+	}
+}
+
 // TestCurrentCollisionsFlagsStranger: res-agung (booked to demo.day@, active
 // window) with a non-booker physically present is a collision; the booker being
 // present instead is not.

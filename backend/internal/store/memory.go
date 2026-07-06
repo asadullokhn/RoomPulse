@@ -132,6 +132,34 @@ func (m *Memory) ApplyPresenceIfNewer(workspaceID, userID, displayName string, t
 	return true
 }
 
+// Ident is one present identity: the raw presence key (a user id or device id)
+// plus its display name.
+type Ident struct {
+	ID   string
+	Name string
+}
+
+// AllOccupancyIdents returns the present identities per workspace, ids
+// included — collision matching needs the id, not just the display name.
+func (m *Memory) AllOccupancyIdents() map[string][]Ident {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	out := make(map[string][]Ident, len(m.presence))
+	for ws, set := range m.presence {
+		idents := make([]Ident, 0, len(set))
+		for id := range set {
+			name := m.displayNames[id]
+			if name == "" {
+				name = id
+			}
+			idents = append(idents, Ident{ID: id, Name: name})
+		}
+		sort.Slice(idents, func(i, j int) bool { return idents[i].Name < idents[j].Name })
+		out[ws] = idents
+	}
+	return out
+}
+
 // AllOccupancy returns the present users per workspace.
 func (m *Memory) AllOccupancy() map[string][]string {
 	m.mu.RLock()

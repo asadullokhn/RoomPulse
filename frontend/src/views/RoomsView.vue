@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { usePoll } from '@/composables/usePoll'
-import { getRooms, getOccupancy, getBeacons, createRoom, patchRoom, deleteRoom } from '@/api/client'
+import { getRooms, getOccupancy, getBeacons, getEvents, getReservations, createRoom, patchRoom, deleteRoom } from '@/api/client'
 import { useToast } from '@/composables/useToast'
-import type { Room, OccupancyEntry, Beacon } from '@/api/types'
+import type { Room, OccupancyEntry, Beacon, EventEntry, Reservation } from '@/api/types'
 import Toolbar from '@/components/ui/Toolbar.vue'
 import Modal from '@/components/ui/Modal.vue'
+import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 
 document.title = 'QuickRoom · Rooms'
 
@@ -15,6 +16,13 @@ const occupancy = ref<OccupancyEntry[]>([])
 const beacons = ref<Beacon[]>([])
 const loaded = ref(false)
 const search = ref('')
+
+// full-history modal
+const historyRoom = ref<Room | null>(null)
+const historyTab = ref('activity')
+const historyEvents = ref<EventEntry[]>([])
+const historyBookings = ref<Reservation[]>([])
+const historyLoading = ref(false)
 
 const formOpen = ref(false)
 const editingWs = ref('')
@@ -40,6 +48,47 @@ const filtered = computed(() => {
 })
 
 function isCustom(ws: string) { return ws.startsWith('cr-') }
+
+const HISTORY_STATUS: Record<string, { label: string; tone: string }> = {
+  booked: { label: 'Booked', tone: 'b-blue' },
+  no_show: { label: 'No-show', tone: 'b-amber' },
+  released: { label: 'Released', tone: 'b-muted' },
+  cancelled: { label: 'Cancelled', tone: 'b-muted' },
+}
+function bookingBadge(r: Reservation) {
+  if (r.status === 'booked' && r.check_in_status === 'checked_in') return { label: 'Checked in', tone: 'b-signal' }
+  if (r.status === 'booked' && r.check_in_status === 'checked_out') return { label: 'Checked out', tone: 'b-muted' }
+  return HISTORY_STATUS[r.status] ?? HISTORY_STATUS.booked
+}
+function agoLabel(sec: number) {
+  if (sec < 60) return `${sec}s ago`
+  if (sec < 3600) return `${Math.floor(sec / 60)}m ago`
+  if (sec < 86400) return `${Math.floor(sec / 3600)}h ${Math.floor((sec % 3600) / 60)}m ago`
+  return `${Math.floor(sec / 86400)}d ago`
+}
+function fmtWindow(r: Reservation) {
+  const f = (s: string) => new Date(s).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  return `${f(r.start_time)} – ${new Date(r.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+}
+
+async function openHistory(r: Room) {
+  historyRoom.value = r
+  historyTab.value = 'activity'
+  historyLoading.value = true
+  historyEvents.value = []
+  historyBookings.value = []
+  try {
+    const [events, all] = await Promise.all([getEvents(r.zoom_workspace_id, 200), getReservations()])
+    historyEvents.value = events
+    historyBookings.value = all
+      .filter(b => b.zoom_workspace_id === r.zoom_workspace_id)
+      .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
+  } catch (e) {
+    toast.error(e instanceof Error ? e.message : 'could not load history')
+  } finally {
+    historyLoading.value = false
+  }
+}
 
 function openAdd() {
   editingWs.value = ''
@@ -138,6 +187,7 @@ usePoll(() => refresh().catch(() => {}), 4000)
                 {{ beaconByWs[r.zoom_workspace_id] ? `${beaconByWs[r.zoom_workspace_id].major} / ${beaconByWs[r.zoom_workspace_id].minor}` : '—' }}
               </td>
               <td class="actions">
+                <button class="btn-ghost" @click="openHistory(r)">History</button>
                 <button class="btn-ghost" @click="openEdit(r)">Edit</button>
                 <button class="btn-danger-ghost" @click="deleteTarget = r">
                   {{ isCustom(r.zoom_workspace_id) ? 'Delete' : 'Reset' }}
@@ -151,6 +201,39 @@ usePoll(() => refresh().catch(() => {}), 4000)
         </table>
       </div>
     </template>
+
+    <Modal :title="historyRoom ? `${historyRoom.name} — history` : ''" :open="historyRoom !== null" @close="historyRoom = null">
+      <template v-if="historyRoom">
+        <SegmentedControl
+          v-model="historyTab"
+          :options="[
+            { value: 'activity', label: `Activity (${historyEvents.length})` },
+            { value: 'bookings', label: `Bookings (${historyBookings.length})` },
+          ]"
+        />
+        <div v-if="historyLoading" class="empty">Loading&#8230;</div>
+        <template v-else-if="historyTab === 'activity'">
+          <ul class="hist">
+            <li v-for="(e, i) in historyEvents" :key="i">
+              <span class="badge" :class="e.kind === 'enter' ? 'b-signal' : 'b-muted'">{{ e.kind === 'enter' ? 'entered' : 'left' }}</span>
+              <span class="who">{{ e.name || e.actor }}</span>
+              <span class="when">{{ agoLabel(e.ago_sec) }}</span>
+            </li>
+            <li v-if="!historyEvents.length" class="none">No presence activity recorded yet.</li>
+          </ul>
+        </template>
+        <template v-else>
+          <ul class="hist">
+            <li v-for="b in historyBookings" :key="b.reservation_id">
+              <span class="badge" :class="bookingBadge(b).tone">{{ bookingBadge(b).label }}</span>
+              <span class="who">{{ b.user_email || b.user_id || 'unknown' }}</span>
+              <span class="when">{{ fmtWindow(b) }}</span>
+            </li>
+            <li v-if="!historyBookings.length" class="none">No bookings for this room yet.</li>
+          </ul>
+        </template>
+      </template>
+    </Modal>
 
     <Modal :title="editingWs ? 'Edit room' : 'Add room'" :open="formOpen" @close="formOpen = false">
       <form class="form" @submit.prevent="submitForm">
@@ -202,4 +285,11 @@ usePoll(() => refresh().catch(() => {}), 4000)
 .ferr { color: var(--danger); font-size: 12.5px; }
 .factions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 .confirm-text { margin: 0; font-size: 13px; color: var(--muted); }
+.hist { list-style: none; margin: 14px 0 0; padding: 0; max-height: 420px; overflow-y: auto; display: grid; gap: 2px; }
+.hist li { display: flex; align-items: center; gap: 10px; padding: 7px 4px; font-size: 13px;
+  border-bottom: 1px solid var(--line-soft); }
+.hist li:last-child { border-bottom: none; }
+.hist .who { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.hist .when { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.hist .none { color: var(--muted); justify-content: center; padding: 18px 0; }
 </style>

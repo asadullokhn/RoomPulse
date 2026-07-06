@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { usePoll } from '@/composables/usePoll'
-import { getReservations, getRooms, adminCreateReservation, adminPatchReservation, adminCancelReservation } from '@/api/client'
+import { getReservations, getRooms, getCollisions, adminCreateReservation, adminPatchReservation, adminCancelReservation } from '@/api/client'
 import { useToast } from '@/composables/useToast'
-import type { Reservation, Room } from '@/api/types'
+import type { Collision, Reservation, Room } from '@/api/types'
 import ScheduleGrid from '@/components/schedule/ScheduleGrid.vue'
 import SegmentedControl from '@/components/ui/SegmentedControl.vue'
 import Toolbar from '@/components/ui/Toolbar.vue'
@@ -15,6 +15,7 @@ document.title = 'QuickRoom · Reservations'
 const toast = useToast()
 const rooms = ref<Room[]>([])
 const reservations = ref<Reservation[]>([])
+const collisions = ref<Collision[]>([])
 const loaded = ref(false)
 
 const tab = ref('schedule')
@@ -24,6 +25,7 @@ const date = ref(new Date())
 const search = ref('')
 const statusFilter = ref('all')
 const sourceFilter = ref('all')
+const roomFilter = ref('all')
 const page = ref(1)
 const PER_PAGE = 25
 
@@ -58,20 +60,50 @@ function fmtWindow(r: Reservation) {
   const f = (s: string) => new Date(s).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
   return `${f(r.start_time)} – ${new Date(r.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
 }
-function statusTone(s: string) { return s === 'booked' ? 'b-blue' : s === 'no_show' ? 'b-danger' : 'b-muted' }
 function checkTone(s: string) { return s === 'checked_in' ? 'b-signal' : 'b-muted' }
 function checkLabel(s: string) { return s === 'checked_in' ? 'checked in' : s === 'checked_out' ? 'checked out' : 'awaiting' }
 function editable(r: Reservation) { return r.source === 'app' && r.status === 'booked' }
 
+// One display status per reservation, folding stored status, check-in state
+// and the live collision feed together. Order is the "needs attention first"
+// sort of the list.
+const STATUS_META = {
+  conflict: { label: 'Conflict', tone: 'b-danger', order: 0 },
+  checked_in: { label: 'Checked in', tone: 'b-signal', order: 1 },
+  booked: { label: 'Booked', tone: 'b-blue', order: 2 },
+  checked_out: { label: 'Checked out', tone: 'b-muted', order: 3 },
+  no_show: { label: 'No-show', tone: 'b-amber', order: 4 },
+  released: { label: 'Released', tone: 'b-muted', order: 5 },
+  cancelled: { label: 'Cancelled', tone: 'b-muted', order: 6 },
+} as const
+type DisplayStatus = keyof typeof STATUS_META
+
+const conflictIds = computed(() => new Set(collisions.value.map(c => c.reservation_id)))
+
+function displayStatus(r: Reservation): DisplayStatus {
+  if (r.status === 'booked') {
+    if (conflictIds.value.has(r.reservation_id)) return 'conflict'
+    if (r.check_in_status === 'checked_in') return 'checked_in'
+    if (r.check_in_status === 'checked_out') return 'checked_out'
+    return 'booked'
+  }
+  return r.status as DisplayStatus
+}
+function statusMeta(r: Reservation) { return STATUS_META[displayStatus(r)] ?? STATUS_META.booked }
+
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase()
-  return reservations.value.filter(r => {
-    if (statusFilter.value !== 'all' && r.status !== statusFilter.value) return false
+  const rows = reservations.value.filter(r => {
+    if (statusFilter.value !== 'all' && displayStatus(r) !== statusFilter.value) return false
     if (sourceFilter.value !== 'all' && (r.source || 'zoom') !== sourceFilter.value) return false
+    if (roomFilter.value !== 'all' && r.zoom_workspace_id !== roomFilter.value) return false
     if (!q) return true
     const hay = `${r.user_email} ${r.user_id} ${r.booked_by_user_id ?? ''} ${roomName(r.zoom_workspace_id)}`.toLowerCase()
     return hay.includes(q)
   })
+  return rows.sort((a, b) =>
+    statusMeta(a).order - statusMeta(b).order ||
+    new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
 })
 const paged = computed(() => filtered.value.slice((page.value - 1) * PER_PAGE, page.value * PER_PAGE))
 
@@ -150,9 +182,10 @@ async function confirmCancel() {
 }
 
 async function refresh() {
-  const [r, res] = await Promise.all([getRooms(), getReservations()])
+  const [r, res, cols] = await Promise.all([getRooms(), getReservations(), getCollisions().catch(() => [])])
   rooms.value = r
   reservations.value = res
+  collisions.value = cols
   loaded.value = true
 }
 usePoll(() => refresh().catch(() => {}), 4000)
@@ -193,17 +226,14 @@ usePoll(() => refresh().catch(() => {}), 4000)
     <template v-else>
       <Toolbar v-model:search="search" search-placeholder="Search booker or room">
         <template #filters>
-          <SegmentedControl
-            v-model="statusFilter"
-            :options="[
-              { value: 'all', label: 'All' },
-              { value: 'booked', label: 'Booked' },
-              { value: 'released', label: 'Released' },
-              { value: 'cancelled', label: 'Cancelled' },
-              { value: 'no_show', label: 'No-show' },
-            ]"
-            @update:model-value="page = 1"
-          />
+          <select v-model="statusFilter" class="field filter-select" @change="page = 1">
+            <option value="all">All statuses</option>
+            <option v-for="(meta, key) in STATUS_META" :key="key" :value="key">{{ meta.label }}</option>
+          </select>
+          <select v-model="roomFilter" class="field filter-select" @change="page = 1">
+            <option value="all">All rooms</option>
+            <option v-for="rm in rooms" :key="rm.zoom_workspace_id" :value="rm.zoom_workspace_id">{{ rm.name }}</option>
+          </select>
           <SegmentedControl
             v-model="sourceFilter"
             :options="[{ value: 'all', label: 'Any source' }, { value: 'app', label: 'App' }, { value: 'zoom', label: 'Zoom' }]"
@@ -215,15 +245,14 @@ usePoll(() => refresh().catch(() => {}), 4000)
       <div class="card scroll">
         <table>
           <thead>
-            <tr><th>Room</th><th>Booker</th><th>Window</th><th>Status</th><th>Check-in</th><th></th></tr>
+            <tr><th>Room</th><th>Booker</th><th>Window</th><th>Status</th><th></th></tr>
           </thead>
           <tbody>
             <tr v-for="r in paged" :key="r.reservation_id">
               <td class="strong">{{ roomName(r.zoom_workspace_id) }}</td>
               <td class="mutedc">{{ r.user_email || r.user_id || '—' }}</td>
               <td class="num mutedc">{{ fmtWindow(r) }}</td>
-              <td><span class="badge" :class="statusTone(r.status)">{{ r.status.replace('_', ' ') }}</span></td>
-              <td><span class="badge" :class="checkTone(r.check_in_status)">{{ checkLabel(r.check_in_status) }}</span></td>
+              <td><span class="badge" :class="statusMeta(r).tone">{{ statusMeta(r).label }}</span></td>
               <td class="actions">
                 <template v-if="editable(r)">
                   <button class="btn-ghost" @click="openEdit(r)">Edit</button>
@@ -232,7 +261,7 @@ usePoll(() => refresh().catch(() => {}), 4000)
               </td>
             </tr>
             <tr v-if="!paged.length">
-              <td colspan="6" class="empty"><b>No reservations match.</b>Adjust the filters or the search.</td>
+              <td colspan="5" class="empty"><b>No reservations match.</b>Adjust the filters or the search.</td>
             </tr>
           </tbody>
         </table>
@@ -245,7 +274,7 @@ usePoll(() => refresh().catch(() => {}), 4000)
         <div class="dl">
           <div><span>Booker</span><b>{{ detail.user_email || detail.user_id || 'unknown' }}</b></div>
           <div><span>Window</span><b>{{ fmtWindow(detail) }}</b></div>
-          <div><span>Status</span><span class="badge" :class="statusTone(detail.status)">{{ detail.status.replace('_', ' ') }}</span></div>
+          <div><span>Status</span><span class="badge" :class="statusMeta(detail).tone">{{ statusMeta(detail).label }}</span></div>
           <div><span>Check-in</span><span class="badge" :class="checkTone(detail.check_in_status)">{{ checkLabel(detail.check_in_status) }}</span></div>
           <div><span>Source</span><b>{{ detail.source || 'zoom' }}</b></div>
         </div>
@@ -303,6 +332,7 @@ usePoll(() => refresh().catch(() => {}), 4000)
 
 <style scoped>
 .datebar { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.filter-select { padding: 6px 9px; max-width: 170px; }
 .datebar .field { padding: 6px 9px; }
 .datelabel { font-size: 13px; font-weight: 600; margin-left: 4px; }
 .strong { font-weight: 600; }

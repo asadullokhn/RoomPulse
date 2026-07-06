@@ -115,8 +115,11 @@ usePoll(pollBadges, 10000)
 
 <style scoped>
 .shell { display: grid; grid-template-columns: 232px 1fr; min-height: 100vh; }
-aside { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column;
-  background: rgba(255, 255, 255, .72); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+/* Fixed, not sticky: Safari drops stickiness on backdrop-filtered elements,
+   which let the sidebar scroll away on long lists. The grid's first column
+   stays as the spacer. */
+aside { position: fixed; top: 0; left: 0; bottom: 0; width: 232px; display: flex; flex-direction: column;
+  overflow-y: auto; background: rgba(255, 255, 255, .72); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
   border-right: 1px solid var(--line); padding: 18px 12px 14px; z-index: 40; }
 .logo { display: flex; align-items: center; gap: 9px; padding: 2px 10px 16px; }
 .beacon { position: relative; width: 10px; height: 10px; flex: none; }

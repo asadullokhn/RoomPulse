@@ -184,7 +184,7 @@ usePoll(() => refresh().catch(() => {}), 4000)
               <td class="strong">{{ r.name }}</td>
               <td class="num">{{ r.capacity }}</td>
               <td class="amenities">
-                <span v-if="r.is_zoom_room" class="badge b-blue">Zoom Room</span>
+                <span v-if="r.is_zoom_room" class="badge b-blue" title="Supports Zoom app meetings">Zoom Room</span>
                 <span v-if="r.has_tv" class="badge b-muted">TV</span>
                 <span v-if="isCustom(r.zoom_workspace_id)" class="badge b-amber">Custom</span>
                 <span v-if="!r.is_zoom_room && !r.has_tv && !isCustom(r.zoom_workspace_id)" class="mutedc">—</span>
@@ -216,7 +216,7 @@ usePoll(() => refresh().catch(() => {}), 4000)
       <template v-if="historyRoom">
         <div class="room-meta">
           <span class="meta-fact">{{ historyRoom.capacity }} seats</span>
-          <span v-if="historyRoom.is_zoom_room" class="badge b-blue">Zoom Room</span>
+          <span v-if="historyRoom.is_zoom_room" class="badge b-blue" title="Supports Zoom app meetings">Zoom Room</span>
           <span v-if="historyRoom.has_tv" class="badge b-muted">TV</span>
           <span v-if="beaconByWs[historyRoom.zoom_workspace_id]" class="meta-fact mono">
             beacon {{ beaconByWs[historyRoom.zoom_workspace_id].major }}/{{ beaconByWs[historyRoom.zoom_workspace_id].minor }}
@@ -308,7 +308,10 @@ usePoll(() => refresh().catch(() => {}), 4000)
 .strong { font-weight: 600; }
 .rowlink { cursor: pointer; }
 .rowlink:hover td { background: rgba(0, 0, 0, .02); }
-.amenities { display: flex; gap: 5px; align-items: center; }
+/* Not flex: a td with display:flex leaves the table-cell layout and its row
+   border disappears. Badges are inline-block already. */
+.amenities { white-space: nowrap; }
+.amenities .badge + .badge { margin-left: 5px; }
 .mutedc { color: var(--muted); }
 .actions { text-align: right; white-space: nowrap; }
 .room-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }

@@ -105,7 +105,7 @@ func TestSweepNoShowsEmitsNotifications(t *testing.T) {
 
 func TestAPNSFieldsPerType(t *testing.T) {
 	cases := []struct {
-		typ, resID, wsID                  string
+		typ, resID, wsID                 string
 		category, interruption, collapse string
 	}{
 		{"grace_reminder", "res-1", "ws-a", "GRACE_REMINDER", "time-sensitive", "grace-res-1"},

@@ -73,6 +73,45 @@ func (s *Server) requireAdmin(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+// requireAuth verifies a bearer JWT of either role — for endpoints shared by
+// the mobile app (user tokens) and the admin panel (admin tokens). A user
+// token gets the account attached to the context like requireUser does.
+func (s *Server) requireAuth(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		sub, role, ok := s.verifyBearer(w, r)
+		if !ok {
+			return
+		}
+		switch role {
+		case authtoken.RoleUser:
+			user, found, err := s.db.UserByID(sub)
+			if err != nil {
+				s.log.Error("user lookup", "err", err)
+				writeError(w, http.StatusInternalServerError, "internal error")
+				return
+			}
+			if !found {
+				writeError(w, http.StatusUnauthorized, "account no longer exists")
+				return
+			}
+			r = r.WithContext(context.WithValue(r.Context(), userCtxKey, user))
+		case authtoken.RoleAdmin:
+			if _, found, err := s.db.AdminByID(sub); err != nil {
+				s.log.Error("admin lookup", "err", err)
+				writeError(w, http.StatusInternalServerError, "internal error")
+				return
+			} else if !found {
+				writeError(w, http.StatusUnauthorized, "admin no longer exists")
+				return
+			}
+		default:
+			writeError(w, http.StatusForbidden, "unknown role")
+			return
+		}
+		next.ServeHTTP(w, r)
+	}
+}
+
 // verifyBearer extracts and verifies the JWT, writing the 401 itself on
 // failure. Returns ok=false when a response was already written.
 func (s *Server) verifyBearer(w http.ResponseWriter, r *http.Request) (sub, role string, ok bool) {

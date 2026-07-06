@@ -113,7 +113,7 @@ func do(t *testing.T, h http.Handler, method, path string, body any) *httptest.R
 
 func occupancyCount(t *testing.T, h http.Handler, ws string) int {
 	t.Helper()
-	rec := do(t, h, "GET", "/occupancy", nil)
+	rec := doAuth(t, h, "GET", "/occupancy", adminToken(t, h), nil)
 	var out struct {
 		Occupancy []struct {
 			WorkspaceID string `json:"workspace_id"`
@@ -133,7 +133,7 @@ func occupancyCount(t *testing.T, h http.Handler, ws string) int {
 
 func checkInStatus(t *testing.T, h http.Handler, resID string) string {
 	t.Helper()
-	rec := do(t, h, "GET", "/reservations", nil)
+	rec := doAuth(t, h, "GET", "/reservations", adminToken(t, h), nil)
 	var out struct {
 		Reservations []struct {
 			ReservationID string `json:"reservation_id"`
@@ -155,9 +155,10 @@ func checkInStatus(t *testing.T, h http.Handler, resID string) string {
 // booked room bumps occupancy AND drives the reservation's Zoom check-in; leaving
 // clears occupancy AND drives check-out.
 func TestHeartbeatDrivesOccupancyAndCheckIn(t *testing.T) {
-	h := newTestHandler(t)
+	h, verifier := newTestHandlerWithVerifier(t)
+	usrTok := userSession(t, h, verifier, "apple-sub-hb", "hb@example.com")
 
-	if rec := do(t, h, "POST", "/presence/heartbeat", map[string]any{
+	if rec := doAuth(t, h, "POST", "/presence/heartbeat", usrTok, map[string]any{
 		"device_id": "dev-1", "display_name": "Ali", "workspace_id": "ws-petang", "ts": 1000,
 	}); rec.Code != http.StatusOK {
 		t.Fatalf("enter heartbeat: %d %s", rec.Code, rec.Body.String())
@@ -169,7 +170,7 @@ func TestHeartbeatDrivesOccupancyAndCheckIn(t *testing.T) {
 		t.Fatalf("check_in_status after enter = %q, want checked_in", s)
 	}
 
-	if rec := do(t, h, "POST", "/presence/heartbeat", map[string]any{
+	if rec := doAuth(t, h, "POST", "/presence/heartbeat", usrTok, map[string]any{
 		"device_id": "dev-1", "workspace_id": "", "ts": 2000,
 	}); rec.Code != http.StatusOK {
 		t.Fatalf("leave heartbeat: %d", rec.Code)
@@ -185,11 +186,12 @@ func TestHeartbeatDrivesOccupancyAndCheckIn(t *testing.T) {
 // TestStaleHeartbeatIgnored confirms an out-of-order (older ts) heartbeat can't
 // resurrect a left room.
 func TestStaleHeartbeatIgnored(t *testing.T) {
-	h := newTestHandler(t)
-	do(t, h, "POST", "/presence/heartbeat", map[string]any{"device_id": "dev-1", "workspace_id": "ws-petang", "ts": 5000})
-	do(t, h, "POST", "/presence/heartbeat", map[string]any{"device_id": "dev-1", "workspace_id": "", "ts": 6000})
+	h, verifier := newTestHandlerWithVerifier(t)
+	usrTok := userSession(t, h, verifier, "apple-sub-stale", "stale@example.com")
+	doAuth(t, h, "POST", "/presence/heartbeat", usrTok, map[string]any{"device_id": "dev-1", "workspace_id": "ws-petang", "ts": 5000})
+	doAuth(t, h, "POST", "/presence/heartbeat", usrTok, map[string]any{"device_id": "dev-1", "workspace_id": "", "ts": 6000})
 	// a delayed old "enter" arrives out of order — must be ignored
-	do(t, h, "POST", "/presence/heartbeat", map[string]any{"device_id": "dev-1", "workspace_id": "ws-petang", "ts": 4000})
+	doAuth(t, h, "POST", "/presence/heartbeat", usrTok, map[string]any{"device_id": "dev-1", "workspace_id": "ws-petang", "ts": 4000})
 	if got := occupancyCount(t, h, "ws-petang"); got != 0 {
 		t.Fatalf("occupancy after stale enter = %d, want 0", got)
 	}
@@ -197,26 +199,47 @@ func TestStaleHeartbeatIgnored(t *testing.T) {
 
 // TestBoundaryValidation locks the request-validation contract at the edges.
 func TestBoundaryValidation(t *testing.T) {
-	h := newTestHandler(t)
-	tok := adminToken(t, h) // /events and /check-in sit behind the admin JWT now
+	h, verifier := newTestHandlerWithVerifier(t)
+	admTok := adminToken(t, h) // /events and /check-in sit behind the admin JWT
+	usrTok := userSession(t, h, verifier, "apple-sub-boundary", "boundary@example.com")
+
 	cases := []struct {
 		name, method, path string
+		token              string
 		body               any
 		want               int
 	}{
-		{"heartbeat missing device_id", "POST", "/presence/heartbeat", map[string]any{"workspace_id": "ws-petang"}, http.StatusUnprocessableEntity},
-		{"presence bad event_type", "POST", "/presence", map[string]any{"user_id": "u1", "workspace_id": "ws-petang", "event_type": "nope"}, http.StatusUnprocessableEntity},
-		{"presence missing ids", "POST", "/presence", map[string]any{"event_type": "entered"}, http.StatusUnprocessableEntity},
-		{"events missing workspace_id", "GET", "/events", nil, http.StatusBadRequest},
-		{"check-in unknown reservation", "POST", "/reservations/does-not-exist/check-in", nil, http.StatusNotFound},
+		{"heartbeat missing device_id", "POST", "/presence/heartbeat", usrTok, map[string]any{"workspace_id": "ws-petang"}, http.StatusUnprocessableEntity},
+		{"presence bad event_type", "POST", "/presence", usrTok, map[string]any{"user_id": "u1", "workspace_id": "ws-petang", "event_type": "nope"}, http.StatusUnprocessableEntity},
+		{"presence missing ids", "POST", "/presence", usrTok, map[string]any{"event_type": "entered"}, http.StatusUnprocessableEntity},
+		{"events missing workspace_id", "GET", "/events", admTok, nil, http.StatusBadRequest},
+		{"check-in unknown reservation", "POST", "/reservations/does-not-exist/check-in", admTok, nil, http.StatusNotFound},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if rec := doAuth(t, h, c.method, c.path, tok, c.body); rec.Code != c.want {
+			if rec := doAuth(t, h, c.method, c.path, c.token, c.body); rec.Code != c.want {
 				t.Fatalf("%s = %d, want %d (%s)", c.name, rec.Code, c.want, rec.Body.String())
 			}
 		})
 	}
+}
+
+// userSession signs a fake Apple identity in and returns the user JWT.
+func userSession(t *testing.T, h http.Handler, verifier *appleauth.Verifier, sub, email string) string {
+	t.Helper()
+	token, jwksURL := signAppleToken(t, "test.bundle.id", sub, email)
+	verifier.KeysURL = jwksURL
+	rec := do(t, h, http.MethodPost, "/auth/apple", map[string]string{"identity_token": token, "name": "Boundary"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("apple auth status = %d body=%s", rec.Code, rec.Body)
+	}
+	var resp struct {
+		SessionToken string `json:"session_token"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil || resp.SessionToken == "" {
+		t.Fatalf("apple auth response: %s", rec.Body)
+	}
+	return resp.SessionToken
 }
 
 // TestDocsServed confirms the Swagger spec + UI are reachable.

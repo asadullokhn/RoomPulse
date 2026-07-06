@@ -17,7 +17,6 @@ const nav = computed(() => [
   { name: 'dashboard', to: '/', label: 'Dashboard', icon: 'grid', badge: alertCount.value, badgeTone: 'red' },
   { name: 'reservations', to: '/reservations', label: 'Reservations', icon: 'calendar', badge: 0, badgeTone: '' },
   { name: 'rooms', to: '/rooms', label: 'Rooms', icon: 'door', badge: 0, badgeTone: '' },
-  { name: 'beacons', to: '/beacons', label: 'Beacons', icon: 'wave', badge: 0, badgeTone: '' },
   { name: 'users', to: '/users', label: 'Users', icon: 'person', badge: 0, badgeTone: '' },
   { name: 'notifications', to: '/notifications', label: 'Notifications', icon: 'bell', badge: noteCount.value, badgeTone: 'gray' },
 ])

@@ -8,6 +8,7 @@ const props = defineProps<{
   confirmLabel?: string
   danger?: boolean
   busy?: boolean
+  wide?: boolean
 }>()
 const emit = defineEmits<{ close: []; confirm: [] }>()
 
@@ -24,7 +25,7 @@ watch(() => props.open, (open) => {
   <Teleport to="body">
     <Transition name="modal">
       <div v-if="open" class="backdrop" @mousedown.self="emit('close')">
-        <div class="panel" role="dialog" aria-modal="true" :aria-label="title">
+        <div class="panel" :class="{ wide }" role="dialog" aria-modal="true" :aria-label="title">
           <header>
             <h2>{{ title }}</h2>
             <button class="x" aria-label="Close" @click="emit('close')">&#215;</button>
@@ -53,6 +54,7 @@ watch(() => props.open, (open) => {
   display: grid; place-items: center; padding: 20px; }
 .panel { width: min(440px, 100%); background: var(--panel); border-radius: 14px;
   box-shadow: var(--shadow-pop); display: flex; flex-direction: column; max-height: 90vh; }
+.panel.wide { width: min(720px, 100%); }
 header { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px 0; }
 h2 { margin: 0; font-family: var(--f-display); font-size: 17px; font-weight: 700; letter-spacing: -0.01em; }
 .x { background: var(--page); border: none; border-radius: 50%; width: 26px; height: 26px;

@@ -57,36 +57,87 @@ func TestAdminSurfaceRequiresAdminJWT(t *testing.T) {
 	}
 }
 
-// TestOpenSurfaceStaysOpen: the mobile app's pre-sign-in reads and device
-// plumbing must never demand a token.
-func TestOpenSurfaceStaysOpen(t *testing.T) {
+// TestSharedSurfaceRequiresAnyJWT: reads shared by the mobile app and the
+// admin panel demand a token of either role — 401 bare, 200-ish with both.
+func TestSharedSurfaceRequiresAnyJWT(t *testing.T) {
+	s := newNoShowServer(t, time.Now())
+	userToken := mintSession(t, s, "u-matrix", "matrix@x.y")
+	adminToken := mintAdminToken(t, s)
+	h := s.Handler()
+
+	sharedRoutes := []struct{ method, path string }{
+		{"GET", "/rooms"},
+		{"GET", "/reservations"},
+		{"GET", "/beacons"},
+		{"GET", "/occupancy"},
+		{"GET", "/floor/rooms"},
+		{"GET", "/floor/image"},
+	}
+	for _, route := range sharedRoutes {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(route.method, route.path, nil))
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("%s %s without token = %d, want 401", route.method, route.path, rec.Code)
+		}
+		for name, tok := range map[string]string{"user": userToken, "admin": adminToken} {
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest(route.method, route.path, nil)
+			req.Header.Set("Authorization", "Bearer "+tok)
+			h.ServeHTTP(rec, req)
+			if rec.Code == http.StatusUnauthorized || rec.Code == http.StatusForbidden {
+				t.Errorf("%s %s with %s token = %d — must be allowed", route.method, route.path, name, rec.Code)
+			}
+		}
+	}
+}
+
+// TestPresenceRequiresUserJWT: only phones (user tokens) report presence.
+func TestPresenceRequiresUserJWT(t *testing.T) {
+	s := newNoShowServer(t, time.Now())
+	userToken := mintSession(t, s, "u-matrix", "matrix@x.y")
+	adminToken := mintAdminToken(t, s)
+	h := s.Handler()
+
+	routes := []struct{ path, body string }{
+		{"/presence", `{"workspace_id":"ws-agung","user_id":"u-matrix","event_type":"entered"}`},
+		{"/presence/heartbeat", `{"device_id":"dev-1"}`},
+	}
+	for _, route := range routes {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest("POST", route.path, strings.NewReader(route.body)))
+		if rec.Code != http.StatusUnauthorized {
+			t.Errorf("POST %s without token = %d, want 401", route.path, rec.Code)
+		}
+
+		rec = httptest.NewRecorder()
+		req := httptest.NewRequest("POST", route.path, strings.NewReader(route.body))
+		req.Header.Set("Authorization", "Bearer "+adminToken)
+		h.ServeHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Errorf("POST %s with admin token = %d, want 403", route.path, rec.Code)
+		}
+
+		rec = httptest.NewRecorder()
+		req = httptest.NewRequest("POST", route.path, strings.NewReader(route.body))
+		req.Header.Set("Authorization", "Bearer "+userToken)
+		h.ServeHTTP(rec, req)
+		if rec.Code == http.StatusUnauthorized || rec.Code == http.StatusForbidden {
+			t.Errorf("POST %s with user token = %d — must be allowed", route.path, rec.Code)
+		}
+	}
+}
+
+// TestTrulyOpenSurface: only health, info, docs, and the sign-in entrances
+// stay tokenless.
+func TestTrulyOpenSurface(t *testing.T) {
 	s := newNoShowServer(t, time.Now())
 	h := s.Handler()
 
-	openRoutes := []struct {
-		method, path, body string
-	}{
-		{"GET", "/rooms", ""},
-		{"GET", "/reservations", ""},
-		{"GET", "/beacons", ""},
-		{"GET", "/occupancy", ""},
-		{"GET", "/health/live", ""},
-		{"GET", "/info", ""},
-		{"GET", "/floor/rooms", ""},
-		{"POST", "/presence", `{"workspace_id":"ws-agung","user_id":"dev-1","event_type":"entered"}`},
-		{"POST", "/presence/heartbeat", `{"device_id":"dev-1"}`},
-	}
-	for _, route := range openRoutes {
+	for _, path := range []string{"/health/live", "/health/ready", "/info", "/openapi.yaml"} {
 		rec := httptest.NewRecorder()
-		var req *http.Request
-		if route.body != "" {
-			req = httptest.NewRequest(route.method, route.path, strings.NewReader(route.body))
-		} else {
-			req = httptest.NewRequest(route.method, route.path, nil)
-		}
-		h.ServeHTTP(rec, req)
+		h.ServeHTTP(rec, httptest.NewRequest("GET", path, nil))
 		if rec.Code == http.StatusUnauthorized || rec.Code == http.StatusForbidden {
-			t.Errorf("%s %s = %d — open route must not demand auth", route.method, route.path, rec.Code)
+			t.Errorf("GET %s = %d — must stay open", path, rec.Code)
 		}
 	}
 }

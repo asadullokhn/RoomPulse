@@ -140,6 +140,7 @@ func TestDeleteUserCascades(t *testing.T) {
 	}
 
 	listReq := httptest.NewRequest(http.MethodGet, "/reservations", nil)
+	listReq.Header.Set("Authorization", "Bearer "+adminToken(t, h))
 	listRec := httptest.NewRecorder()
 	h.ServeHTTP(listRec, listReq)
 	var listResp struct {

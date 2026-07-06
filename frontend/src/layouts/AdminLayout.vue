@@ -148,7 +148,9 @@ footer { margin-top: auto; display: grid; gap: 10px; padding: 12px 10px 0; borde
 .email { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .signout { background: none; border: none; color: var(--accent); font-size: 12px; font-weight: 500;
   cursor: pointer; padding: 2px 0; flex: none; font-family: var(--f-body); }
-main { padding: 26px 30px 60px; max-width: 1180px; width: 100%; margin: 0 auto; min-width: 0; }
+/* The fixed aside is out of flow, so main must be pinned to the content
+   column explicitly or the grid auto-places it into the 232px sidebar track. */
+main { grid-column: 2; padding: 26px 30px 60px; max-width: 1180px; width: 100%; margin: 0 auto; min-width: 0; }
 .menu-btn { display: none; }
 .scrim { display: none; }
 
@@ -161,6 +163,6 @@ main { padding: 26px 30px 60px; max-width: 1180px; width: 100%; margin: 0 auto; 
   .menu-btn { display: grid; gap: 3.5px; position: fixed; top: 14px; left: 14px; z-index: 50;
     background: var(--panel); border: 1px solid var(--line); border-radius: 9px; padding: 9px 8px; cursor: pointer; }
   .menu-btn span { width: 15px; height: 1.6px; background: var(--text); border-radius: 2px; }
-  main { padding: 60px 16px 40px; }
+  main { grid-column: 1; padding: 60px 16px 40px; }
 }
 </style>

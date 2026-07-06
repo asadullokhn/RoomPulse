@@ -28,6 +28,7 @@ const formOpen = ref(false)
 const editingWs = ref('')
 const formName = ref('')
 const formCapacity = ref(4)
+const formTv = ref(false)
 const formError = ref('')
 const busy = ref(false)
 const deleteTarget = ref<Room | null>(null)
@@ -71,6 +72,13 @@ function fmtWindow(r: Reservation) {
   return `${f(r.start_time)} – ${new Date(r.end_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
 }
 
+// Live occupants of the opened room — reads the polled occupancy feed, so the
+// list stays current while the modal is open.
+const presentUsers = computed(() => {
+  if (!historyRoom.value) return []
+  return occupancy.value.find(o => o.workspace_id === historyRoom.value!.zoom_workspace_id)?.users ?? []
+})
+
 async function openHistory(r: Room) {
   historyRoom.value = r
   historyTab.value = 'activity'
@@ -94,6 +102,7 @@ function openAdd() {
   editingWs.value = ''
   formName.value = ''
   formCapacity.value = 4
+  formTv.value = false
   formError.value = ''
   formOpen.value = true
 }
@@ -101,6 +110,7 @@ function openEdit(r: Room) {
   editingWs.value = r.zoom_workspace_id
   formName.value = r.name
   formCapacity.value = r.capacity
+  formTv.value = r.has_tv
   formError.value = ''
   formOpen.value = true
 }
@@ -110,10 +120,10 @@ async function submitForm() {
   formError.value = ''
   try {
     if (editingWs.value) {
-      await patchRoom(editingWs.value, { name: formName.value, capacity: formCapacity.value })
+      await patchRoom(editingWs.value, { name: formName.value, capacity: formCapacity.value, has_tv: formTv.value })
       toast.success('Room updated')
     } else {
-      await createRoom({ name: formName.value, capacity: formCapacity.value, has_tv: false })
+      await createRoom({ name: formName.value, capacity: formCapacity.value, has_tv: formTv.value })
       toast.success('Room added')
     }
     formOpen.value = false
@@ -167,16 +177,17 @@ usePoll(() => refresh().catch(() => {}), 4000)
       <div class="card scroll">
         <table>
           <thead>
-            <tr><th>Name</th><th>Capacity</th><th>Type</th><th>Present</th><th>Beacon</th><th></th></tr>
+            <tr><th>Name</th><th>Capacity</th><th>Amenities</th><th>Present</th><th>Beacon</th><th></th></tr>
           </thead>
           <tbody>
-            <tr v-for="r in filtered" :key="r.zoom_workspace_id">
+            <tr v-for="r in filtered" :key="r.zoom_workspace_id" class="rowlink" @click="openHistory(r)">
               <td class="strong">{{ r.name }}</td>
               <td class="num">{{ r.capacity }}</td>
-              <td>
-                <span class="badge" :class="isCustom(r.zoom_workspace_id) ? 'b-blue' : 'b-muted'">
-                  {{ isCustom(r.zoom_workspace_id) ? 'Custom' : 'Zoom' }}
-                </span>
+              <td class="amenities">
+                <span v-if="r.is_zoom_room" class="badge b-blue">Zoom Room</span>
+                <span v-if="r.has_tv" class="badge b-muted">TV</span>
+                <span v-if="isCustom(r.zoom_workspace_id)" class="badge b-amber">Custom</span>
+                <span v-if="!r.is_zoom_room && !r.has_tv && !isCustom(r.zoom_workspace_id)" class="mutedc">—</span>
               </td>
               <td>
                 <span class="occ" :class="{ on: (occByWs[r.zoom_workspace_id] ?? 0) > 0 }">
@@ -187,9 +198,8 @@ usePoll(() => refresh().catch(() => {}), 4000)
                 {{ beaconByWs[r.zoom_workspace_id] ? `${beaconByWs[r.zoom_workspace_id].major} / ${beaconByWs[r.zoom_workspace_id].minor}` : '—' }}
               </td>
               <td class="actions">
-                <button class="btn-ghost" @click="openHistory(r)">History</button>
-                <button class="btn-ghost" @click="openEdit(r)">Edit</button>
-                <button class="btn-danger-ghost" @click="deleteTarget = r">
+                <button class="btn-ghost" @click.stop="openEdit(r)">Edit</button>
+                <button class="btn-danger-ghost" @click.stop="deleteTarget = r">
                   {{ isCustom(r.zoom_workspace_id) ? 'Delete' : 'Reset' }}
                 </button>
               </td>
@@ -202,8 +212,27 @@ usePoll(() => refresh().catch(() => {}), 4000)
       </div>
     </template>
 
-    <Modal :title="historyRoom ? `${historyRoom.name} — history` : ''" :open="historyRoom !== null" @close="historyRoom = null">
+    <Modal :title="historyRoom?.name ?? ''" :open="historyRoom !== null" @close="historyRoom = null">
       <template v-if="historyRoom">
+        <div class="room-meta">
+          <span class="meta-fact">{{ historyRoom.capacity }} seats</span>
+          <span v-if="historyRoom.is_zoom_room" class="badge b-blue">Zoom Room</span>
+          <span v-if="historyRoom.has_tv" class="badge b-muted">TV</span>
+          <span v-if="beaconByWs[historyRoom.zoom_workspace_id]" class="meta-fact mono">
+            beacon {{ beaconByWs[historyRoom.zoom_workspace_id].major }}/{{ beaconByWs[historyRoom.zoom_workspace_id].minor }}
+          </span>
+        </div>
+
+        <div class="present-card" :class="{ live: presentUsers.length }">
+          <div class="present-head">
+            <span class="led" :class="{ on: presentUsers.length }" />
+            {{ presentUsers.length ? `In the room now — ${presentUsers.length}` : 'Empty right now' }}
+          </div>
+          <div v-if="presentUsers.length" class="present-chips">
+            <span v-for="u in presentUsers" :key="u" class="chip">{{ u }}</span>
+          </div>
+        </div>
+
         <SegmentedControl
           v-model="historyTab"
           :options="[
@@ -239,6 +268,7 @@ usePoll(() => refresh().catch(() => {}), 4000)
       <form class="form" @submit.prevent="submitForm">
         <label><span>Name</span><input v-model.trim="formName" class="field" required /></label>
         <label><span>Capacity</span><input v-model.number="formCapacity" class="field" type="number" min="0" required /></label>
+        <label class="check"><input v-model="formTv" type="checkbox" /><span>Has a TV</span></label>
         <p v-if="editingWs && !isCustom(editingWs)" class="hint">
           This is a Zoom-synced room: your change is stored as an override and re-applied after every sync.
         </p>
@@ -276,7 +306,26 @@ usePoll(() => refresh().catch(() => {}), 4000)
 
 <style scoped>
 .strong { font-weight: 600; }
+.rowlink { cursor: pointer; }
+.rowlink:hover td { background: rgba(0, 0, 0, .02); }
+.amenities { display: flex; gap: 5px; align-items: center; }
+.mutedc { color: var(--muted); }
 .actions { text-align: right; white-space: nowrap; }
+.room-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+.meta-fact { font-size: 12.5px; color: var(--muted); }
+.mono { font-variant-numeric: tabular-nums; }
+.present-card { border: 1px solid var(--line-soft); border-radius: 11px; padding: 11px 13px; margin-bottom: 14px; }
+.present-card.live { border-color: rgba(52, 199, 89, .35); background: rgba(52, 199, 89, .05); }
+.present-head { display: flex; align-items: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.present-card.live .present-head { color: #1d8a3e; }
+.present-head .led { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex: none; }
+.present-head .led.on { background: var(--signal); box-shadow: 0 0 6px rgba(52, 199, 89, .7); }
+.present-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.chip { font-size: 12px; font-weight: 500; padding: 3px 10px; border-radius: 999px; background: #fff;
+  border: 1px solid var(--line); }
+.check { display: flex !important; flex-direction: row; align-items: center; gap: 8px; }
+.check input { width: 15px; height: 15px; accent-color: var(--accent); }
+.check span { font-size: 13px; color: var(--text); }
 .occ { font-variant-numeric: tabular-nums; color: var(--muted); }
 .occ.on { color: #1d8a3e; font-weight: 600; }
 .form { display: grid; gap: 12px; }

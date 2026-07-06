@@ -26,13 +26,19 @@ import (
 var ErrUnregistered = errors.New("apns: device token unregistered")
 
 // Notification is one alert push. Type/WorkspaceID/ReservationID ride along
-// as custom payload keys so the app can deep-link later.
+// as custom payload keys so the app can deep-link later. Category, ThreadID,
+// CollapseID and InterruptionLevel are the notification-contract presentation
+// fields (QuickRoom #18); empty values are omitted.
 type Notification struct {
-	Title         string
-	Body          string
-	Type          string
-	WorkspaceID   string
-	ReservationID string
+	Title             string
+	Body              string
+	Type              string
+	WorkspaceID       string
+	ReservationID     string
+	Category          string
+	ThreadID          string
+	CollapseID        string
+	InterruptionLevel string
 }
 
 // HostForEnv maps the APNS_ENV config to Apple's host. Development-signed
@@ -113,12 +119,20 @@ func (c *Client) Push(ctx context.Context, deviceToken string, n Notification) e
 		return err
 	}
 
-	payload := map[string]any{
-		"aps": map[string]any{
-			"alert": map[string]any{"title": n.Title, "body": n.Body},
-			"sound": "default",
-		},
+	aps := map[string]any{
+		"alert": map[string]any{"title": n.Title, "body": n.Body},
+		"sound": "default",
 	}
+	if n.Category != "" {
+		aps["category"] = n.Category
+	}
+	if n.ThreadID != "" {
+		aps["thread-id"] = n.ThreadID
+	}
+	if n.InterruptionLevel != "" {
+		aps["interruption-level"] = n.InterruptionLevel
+	}
+	payload := map[string]any{"aps": aps}
 	if n.Type != "" {
 		payload["type"] = n.Type
 	}
@@ -141,6 +155,9 @@ func (c *Client) Push(ctx context.Context, deviceToken string, n Notification) e
 	req.Header.Set("apns-topic", c.topic)
 	req.Header.Set("apns-push-type", "alert")
 	req.Header.Set("apns-priority", "10")
+	if n.CollapseID != "" {
+		req.Header.Set("apns-collapse-id", n.CollapseID)
+	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := c.HTTPClient.Do(req)

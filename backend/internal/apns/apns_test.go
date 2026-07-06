@@ -151,3 +151,66 @@ func TestPushOtherErrorCarriesReason(t *testing.T) {
 		t.Fatalf("expected reason in error, got %v", err)
 	}
 }
+
+func TestPushSendsPresentationFields(t *testing.T) {
+	var gotCollapse string
+	var gotBody map[string]any
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotCollapse = r.Header.Get("apns-collapse-id")
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+	c, err := New(testKeyPEM(t), "K", "T", "topic", "h")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.BaseURL = ts.URL
+	c.HTTPClient = ts.Client()
+
+	err = c.Push(context.Background(), "tok", Notification{
+		Title: "t", Body: "b", Type: "grace_reminder",
+		WorkspaceID: "ws-x", ReservationID: "res-1",
+		Category: "GRACE_REMINDER", ThreadID: "ws-x",
+		CollapseID: "grace-res-1", InterruptionLevel: "time-sensitive",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if gotCollapse != "grace-res-1" {
+		t.Fatalf("apns-collapse-id = %q", gotCollapse)
+	}
+	aps := gotBody["aps"].(map[string]any)
+	if aps["category"] != "GRACE_REMINDER" || aps["thread-id"] != "ws-x" || aps["interruption-level"] != "time-sensitive" {
+		t.Fatalf("aps = %v", aps)
+	}
+}
+
+func TestPushOmitsEmptyPresentationFields(t *testing.T) {
+	var gotCollapse string
+	var hasCollapseHeader bool
+	var gotBody map[string]any
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotCollapse = r.Header.Get("apns-collapse-id")
+		_, hasCollapseHeader = r.Header[http.CanonicalHeaderKey("apns-collapse-id")]
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer ts.Close()
+	c, _ := New(testKeyPEM(t), "K", "T", "topic", "h")
+	c.BaseURL = ts.URL
+	c.HTTPClient = ts.Client()
+
+	_ = c.Push(context.Background(), "tok", Notification{Title: "t"})
+
+	if hasCollapseHeader || gotCollapse != "" {
+		t.Fatalf("expected no apns-collapse-id header, got %q", gotCollapse)
+	}
+	aps := gotBody["aps"].(map[string]any)
+	for _, k := range []string{"category", "thread-id", "interruption-level"} {
+		if _, ok := aps[k]; ok {
+			t.Fatalf("aps should omit empty %s, aps = %v", k, aps)
+		}
+	}
+}

@@ -75,7 +75,11 @@ type Reservation struct {
 type User struct {
 	UserID    string    `json:"user_id"`
 	AppleSub  string    `json:"-"` // Apple's stable per-app identifier; never serialized to clients
-	Email     string    `json:"email,omitempty"`
-	Name      string    `json:"name,omitempty"`
+	// email and name must always be present in JSON (no omitempty): the
+	// mobile app decodes them as non-optional and errors out if a key is
+	// missing — which happens on re-sign-in after an account delete, when
+	// Apple no longer sends the name.
+	Email     string    `json:"email"`
+	Name      string    `json:"name"`
 	CreatedAt time.Time `json:"created_at"`
 }

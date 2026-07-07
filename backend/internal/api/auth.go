@@ -182,11 +182,19 @@ func (s *Server) postAppleAuth(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !existed {
+		// Apple only sends the name on the very first authorization; on a
+		// re-registration (e.g. the account was deleted in the admin panel)
+		// body.Name is empty, so fall back to the email's local part to keep
+		// a usable display name for presence and the dashboard.
+		name := clamp(body.Name, maxNameLen)
+		if name == "" {
+			name, _, _ = strings.Cut(claims.Email, "@")
+		}
 		user = domain.User{
 			UserID:    newUserID(),
 			AppleSub:  claims.Sub,
 			Email:     claims.Email,
-			Name:      clamp(body.Name, maxNameLen),
+			Name:      name,
 			CreatedAt: time.Now(),
 		}
 	} else {

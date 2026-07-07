@@ -119,6 +119,41 @@ func TestAppleSignInSuccess(t *testing.T) {
 	}
 }
 
+// Apple only sends the user's name on the first-ever authorization. When the
+// account was deleted server-side and the same Apple ID signs in again, the
+// request carries no name — the response must still include a usable "name"
+// key (the app decodes it as non-optional) with the email local part.
+func TestAppleSignInWithoutName(t *testing.T) {
+	h, verifier := newTestHandlerWithVerifier(t)
+	token, jwksURL := signAppleToken(t, "test.bundle.id", "apple-sub-noname", "renata@example.com")
+	verifier.KeysURL = jwksURL
+
+	body, _ := json.Marshal(map[string]string{"identity_token": token})
+	req := httptest.NewRequest(http.MethodPost, "/auth/apple", bytes.NewReader(body))
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s, want 200", rec.Code, rec.Body.String())
+	}
+
+	var resp struct {
+		User map[string]any `json:"user"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode response: %v", err)
+	}
+	name, ok := resp.User["name"]
+	if !ok {
+		t.Fatalf("user JSON = %v, want a \"name\" key even when Apple sends no name", resp.User)
+	}
+	if name != "renata" {
+		t.Fatalf("name = %q, want email local part %q as the fallback", name, "renata")
+	}
+	if _, ok := resp.User["email"]; !ok {
+		t.Fatalf("user JSON = %v, want an \"email\" key", resp.User)
+	}
+}
+
 func TestProtectedEndpointRequiresAuth(t *testing.T) {
 	h := newTestHandler(t)
 	req := httptest.NewRequest(http.MethodGet, "/reservations/mine", nil)

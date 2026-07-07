@@ -216,7 +216,9 @@ func (m *Memory) UpsertReservation(r domain.Reservation) {
 	m.reservations[r.ReservationID] = r
 }
 
-// Rooms returns all rooms sorted by name.
+// Rooms returns all rooms: Zoom rooms first, then the rest, each sorted by
+// name — preserves the established ordering now that names lost their shared
+// "BINB" prefix (a plain name sort would interleave the non-Zoom rooms).
 func (m *Memory) Rooms() []domain.Room {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -224,7 +226,12 @@ func (m *Memory) Rooms() []domain.Room {
 	for _, r := range m.rooms {
 		out = append(out, r)
 	}
-	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].IsZoomRoom != out[j].IsZoomRoom {
+			return out[i].IsZoomRoom
+		}
+		return out[i].Name < out[j].Name
+	})
 	return out
 }
 

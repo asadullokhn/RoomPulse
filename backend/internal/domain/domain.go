@@ -59,7 +59,10 @@ type Reservation struct {
 	RoomID          string            `json:"room_id"`
 	ZoomWorkspaceID string            `json:"zoom_workspace_id"`
 	UserID          string            `json:"user_id"`
-	UserEmail       string            `json:"user_email,omitempty"`
+	// No omitempty: the mobile app decodes user_email as non-optional, and
+	// one missing key fails its whole reservations fetch (it goes empty
+	// when the booking user's account is deleted).
+	UserEmail       string            `json:"user_email"`
 	StartTime       time.Time         `json:"start_time"`
 	EndTime         time.Time         `json:"end_time"`
 	Status          ReservationStatus `json:"status"`

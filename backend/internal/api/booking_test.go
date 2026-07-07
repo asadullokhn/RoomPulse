@@ -208,3 +208,73 @@ func TestAdminCancelZoomSourcedForbidden(t *testing.T) {
 		t.Fatalf("admin cancel zoom-sourced status = %d, want 403", cancelRec.Code)
 	}
 }
+
+func TestPatchReservationTitleAndWindow(t *testing.T) {
+	h, verifier := newTestHandlerWithVerifier(t)
+	owner := userSession(t, h, verifier, "apple-sub-patch-owner", "owner@example.com")
+
+	start := time.Now().Add(72 * time.Hour)
+	end := start.Add(time.Hour)
+	rec := doAuth(t, h, http.MethodPost, "/reservations", owner, map[string]any{
+		"workspace_id": "ws-agung", "title": "Design sync",
+		"start_time": start.Format(time.RFC3339), "end_time": end.Format(time.RFC3339),
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("create status = %d body=%s", rec.Code, rec.Body)
+	}
+	var created struct {
+		ReservationID string `json:"reservation_id"`
+		Title         string `json:"title"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &created); err != nil || created.Title != "Design sync" {
+		t.Fatalf("create response = %s, want title \"Design sync\"", rec.Body)
+	}
+
+	// Rename only.
+	rec = doAuth(t, h, http.MethodPatch, "/reservations/"+created.ReservationID, owner, map[string]any{"title": "Retro"})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("patch title status = %d body=%s", rec.Code, rec.Body)
+	}
+	var patched struct {
+		Title   string    `json:"title"`
+		EndTime time.Time `json:"end_time"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &patched); err != nil || patched.Title != "Retro" {
+		t.Fatalf("patch response = %s, want title \"Retro\"", rec.Body)
+	}
+
+	// Move the window; title must survive.
+	newEnd := end.Add(30 * time.Minute)
+	rec = doAuth(t, h, http.MethodPatch, "/reservations/"+created.ReservationID, owner, map[string]any{
+		"end_time": newEnd.Format(time.RFC3339),
+	})
+	if rec.Code != http.StatusOK {
+		t.Fatalf("patch window status = %d body=%s", rec.Code, rec.Body)
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &patched); err != nil || patched.Title != "Retro" || !patched.EndTime.After(end) {
+		t.Fatalf("patch response = %s, want kept title and extended end", rec.Body)
+	}
+
+	// Empty patch is rejected.
+	rec = doAuth(t, h, http.MethodPatch, "/reservations/"+created.ReservationID, owner, map[string]any{})
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("empty patch status = %d, want 422", rec.Code)
+	}
+
+	// Someone else can't edit it.
+	stranger := userSession(t, h, verifier, "apple-sub-patch-stranger", "stranger@example.com")
+	rec = doAuth(t, h, http.MethodPatch, "/reservations/"+created.ReservationID, stranger, map[string]any{"title": "Hijacked"})
+	if rec.Code != http.StatusForbidden {
+		t.Fatalf("stranger patch status = %d, want 403", rec.Code)
+	}
+
+	// Cancelled bookings are immutable history.
+	rec = doAuth(t, h, http.MethodPost, "/reservations/"+created.ReservationID+"/cancel", owner, nil)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("cancel status = %d body=%s", rec.Code, rec.Body)
+	}
+	rec = doAuth(t, h, http.MethodPatch, "/reservations/"+created.ReservationID, owner, map[string]any{"title": "Zombie"})
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("patch cancelled status = %d, want 409", rec.Code)
+	}
+}

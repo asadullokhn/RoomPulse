@@ -36,6 +36,7 @@ func (s *Server) createReservation(w http.ResponseWriter, r *http.Request) {
 	}
 	var body struct {
 		WorkspaceID string    `json:"workspace_id"`
+		Title       string    `json:"title"`
 		StartTime   time.Time `json:"start_time"`
 		EndTime     time.Time `json:"end_time"`
 	}
@@ -70,6 +71,7 @@ func (s *Server) createReservation(w http.ResponseWriter, r *http.Request) {
 		ReservationID:   newReservationID(),
 		RoomID:          room.RoomID,
 		ZoomWorkspaceID: body.WorkspaceID,
+		Title:           clamp(body.Title, maxNameLen),
 		UserID:          user.UserID,
 		UserEmail:       user.Email,
 		StartTime:       body.StartTime,
@@ -97,6 +99,74 @@ func (s *Server) listMyReservations(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"reservations": mine})
+}
+
+// patchReservation edits the caller's own app-sourced booking: title and/or
+// the time window. Same ownership rules as cancelReservation; window moves
+// re-run the conflict check. Only still-booked reservations are editable —
+// history (cancelled/released/no-show) is immutable.
+func (s *Server) patchReservation(w http.ResponseWriter, r *http.Request) {
+	user, ok := userFromContext(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "missing bearer token")
+		return
+	}
+	id := r.PathValue("id")
+	res, ok := s.store.Reservation(id)
+	if !ok {
+		writeError(w, http.StatusNotFound, "reservation not found")
+		return
+	}
+	if res.Source != "app" || res.BookedByUserID != user.UserID {
+		writeError(w, http.StatusForbidden, "not your booking")
+		return
+	}
+	if res.Status != domain.StatusBooked {
+		writeError(w, http.StatusConflict, "only booked reservations can be edited")
+		return
+	}
+
+	var body struct {
+		Title     *string    `json:"title"`
+		StartTime *time.Time `json:"start_time"`
+		EndTime   *time.Time `json:"end_time"`
+	}
+	if err := decodeBody(w, r, &body); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid body")
+		return
+	}
+	if body.Title == nil && body.StartTime == nil && body.EndTime == nil {
+		writeError(w, http.StatusUnprocessableEntity, "nothing to change")
+		return
+	}
+
+	if body.Title != nil {
+		res.Title = clamp(*body.Title, maxNameLen)
+	}
+	if body.StartTime != nil || body.EndTime != nil {
+		start, end := res.StartTime, res.EndTime
+		if body.StartTime != nil {
+			start = *body.StartTime
+		}
+		if body.EndTime != nil {
+			end = *body.EndTime
+		}
+		if !end.After(start) {
+			writeError(w, http.StatusUnprocessableEntity, "end_time must be after start_time")
+			return
+		}
+		if conflict, has := s.conflictingReservation(res.ZoomWorkspaceID, start, end); has && conflict.ReservationID != id {
+			writeJSON(w, http.StatusConflict, map[string]any{
+				"error":    "room already booked in that window",
+				"conflict": conflict,
+			})
+			return
+		}
+		res.StartTime, res.EndTime = start, end
+	}
+
+	s.upsertReservation(res)
+	writeJSON(w, http.StatusOK, res)
 }
 
 // cancelReservation cancels the caller's own app-sourced booking. 404 if it

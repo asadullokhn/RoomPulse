@@ -234,6 +234,7 @@ paths:
               required: [workspace_id, start_time, end_time]
               properties:
                 workspace_id: { type: string }
+                title: { type: string, description: "Optional booking name (max 96 chars)" }
                 start_time: { type: string, format: date-time }
                 end_time: { type: string, format: date-time }
       responses:
@@ -257,6 +258,33 @@ paths:
                 properties:
                   reservations: { type: array, items: { $ref: '#/components/schemas/Reservation' } }
         "401": { $ref: '#/components/responses/Unauthorized' }
+  /reservations/{id}:
+    patch:
+      tags: [Reservations]
+      summary: Edit your own app-sourced booking (title and/or time window)
+      description: |
+        Only still-booked reservations are editable; history (cancelled,
+        released, no-show) is immutable. Window moves re-run the same
+        conflict check as booking.
+      security: [{ sessionToken: [] }]
+      parameters: [ { $ref: '#/components/parameters/ReservationId' } ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string, description: "New booking name (max 96 chars)" }
+                start_time: { type: string, format: date-time }
+                end_time: { type: string, format: date-time }
+      responses:
+        "200": { description: Updated, content: { application/json: { schema: { $ref: '#/components/schemas/Reservation' } } } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
+        "403": { description: Not your booking, or not app-sourced, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        "404": { $ref: '#/components/responses/NotFound' }
+        "409": { description: Room already booked in that window, or the reservation is no longer booked, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        "422": { $ref: '#/components/responses/Unprocessable' }
   /reservations/{id}/cancel:
     post:
       tags: [Reservations]
@@ -303,6 +331,7 @@ paths:
               required: [workspace_id, start_time, end_time]
               properties:
                 workspace_id: { type: string }
+                title: { type: string, description: "Optional booking name (max 96 chars)" }
                 start_time: { type: string, format: date-time }
                 end_time: { type: string, format: date-time }
                 user_email: { type: string, description: Notification recipient }
@@ -960,6 +989,7 @@ components:
         reservation_id: { type: string }
         room_id: { type: string }
         zoom_workspace_id: { type: string }
+        title: { type: string, description: "User-facing booking name; empty for Zoom-synced rows" }
         user_id: { type: string }
         user_email: { type: string }
         start_time: { type: string, format: date-time }

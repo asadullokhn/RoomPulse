@@ -16,7 +16,7 @@ func TestJSONContractKeysAlwaysPresent(t *testing.T) {
 		keys []string
 	}{
 		{"reservation", Reservation{}, []string{
-			"reservation_id", "room_id", "zoom_workspace_id", "user_id",
+			"reservation_id", "room_id", "zoom_workspace_id", "title", "user_id",
 			"user_email", "start_time", "end_time", "status", "check_in_status", "source",
 		}},
 		{"room", Room{}, []string{

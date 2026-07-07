@@ -58,6 +58,7 @@ type Reservation struct {
 	ReservationID   string            `json:"reservation_id"`
 	RoomID          string            `json:"room_id"`
 	ZoomWorkspaceID string            `json:"zoom_workspace_id"`
+	Title           string            `json:"title"` // user-facing booking name; empty for Zoom-synced rows
 	UserID          string            `json:"user_id"`
 	// No omitempty: the mobile app decodes user_email as non-optional, and
 	// one missing key fails its whole reservations fetch (it goes empty

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"quickroom/internal/domain"
@@ -55,6 +56,7 @@ CREATE TABLE IF NOT EXISTS app_reservations (
 	reservation_id    TEXT PRIMARY KEY,
 	room_id           TEXT NOT NULL,
 	zoom_workspace_id TEXT NOT NULL,
+	title             TEXT NOT NULL DEFAULT '',
 	booked_by_user_id TEXT NOT NULL,
 	user_email        TEXT NOT NULL DEFAULT '',
 	start_time        INTEGER NOT NULL,
@@ -105,6 +107,12 @@ func OpenDB(path string) (*DB, error) {
 	if _, err := sqlDB.Exec(schema); err != nil {
 		sqlDB.Close()
 		return nil, fmt.Errorf("migrate: %w", err)
+	}
+	// Additive migrations for databases created before a column existed;
+	// "duplicate column name" on an already-migrated DB is expected.
+	if _, err := sqlDB.Exec(`ALTER TABLE app_reservations ADD COLUMN title TEXT NOT NULL DEFAULT ''`); err != nil && !strings.Contains(err.Error(), "duplicate column") {
+		sqlDB.Close()
+		return nil, fmt.Errorf("migrate title column: %w", err)
 	}
 	return &DB{sql: sqlDB}, nil
 }
@@ -293,12 +301,15 @@ func (d *DB) DeleteUser(userID string) error {
 func (d *DB) SaveAppReservation(r domain.Reservation) error {
 	_, err := d.sql.Exec(`
 		INSERT INTO app_reservations
-			(reservation_id, room_id, zoom_workspace_id, booked_by_user_id, user_email, start_time, end_time, status, check_in_status)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+			(reservation_id, room_id, zoom_workspace_id, title, booked_by_user_id, user_email, start_time, end_time, status, check_in_status)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(reservation_id) DO UPDATE SET
+			title           = excluded.title,
+			start_time      = excluded.start_time,
+			end_time        = excluded.end_time,
 			status          = excluded.status,
 			check_in_status = excluded.check_in_status`,
-		r.ReservationID, r.RoomID, r.ZoomWorkspaceID, r.BookedByUserID, r.UserEmail,
+		r.ReservationID, r.RoomID, r.ZoomWorkspaceID, r.Title, r.BookedByUserID, r.UserEmail,
 		r.StartTime.Unix(), r.EndTime.Unix(), string(r.Status), string(r.CheckInStatus))
 	return err
 }
@@ -307,7 +318,7 @@ func (d *DB) SaveAppReservation(r domain.Reservation) error {
 // reloading into the in-memory store at startup.
 func (d *DB) AppReservations() ([]domain.Reservation, error) {
 	rows, err := d.sql.Query(`
-		SELECT reservation_id, room_id, zoom_workspace_id, booked_by_user_id, user_email, start_time, end_time, status, check_in_status
+		SELECT reservation_id, room_id, zoom_workspace_id, title, booked_by_user_id, user_email, start_time, end_time, status, check_in_status
 		FROM app_reservations`)
 	if err != nil {
 		return nil, err
@@ -318,7 +329,7 @@ func (d *DB) AppReservations() ([]domain.Reservation, error) {
 		var r domain.Reservation
 		var start, end int64
 		var status, checkIn string
-		if err := rows.Scan(&r.ReservationID, &r.RoomID, &r.ZoomWorkspaceID, &r.BookedByUserID, &r.UserEmail, &start, &end, &status, &checkIn); err != nil {
+		if err := rows.Scan(&r.ReservationID, &r.RoomID, &r.ZoomWorkspaceID, &r.Title, &r.BookedByUserID, &r.UserEmail, &start, &end, &status, &checkIn); err != nil {
 			return nil, err
 		}
 		r.StartTime = time.Unix(start, 0).UTC()

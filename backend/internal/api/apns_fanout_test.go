@@ -155,3 +155,22 @@ func TestEmitAppliesNotificationContract(t *testing.T) {
 		t.Fatalf("payload = %+v", got)
 	}
 }
+
+// The booker of a no-show release already gets a targeted "Booking released"
+// push; the room_freed broadcast must skip their devices or they get notified
+// twice about the same event.
+func TestEmitFreedBroadcastSkipsExcludedRecipient(t *testing.T) {
+	s := newNoShowServer(t, time.Now())
+	mustUser(t, s, "u-1", "booker@x.y")
+	mustUser(t, s, "u-2", "other@x.y")
+	_ = s.db.SaveAPNSToken("tokBooker", "u-1", time.Now())
+	_ = s.db.SaveAPNSToken("tokOther", "u-2", time.Now())
+	fp := &fakePusher{}
+	s.ConfigureAPNS(fp)
+
+	s.notify.emit("", Notification{Type: "room_freed", Title: "t", Body: "b", ExcludeRecipient: "booker@x.y"})
+	waitFor(t, func() bool { return len(fp.tokens()) == 1 })
+	if got := fp.tokens(); len(got) != 1 || got[0] != "tokOther" {
+		t.Fatalf("pushed tokens = %v, want only tokOther", got)
+	}
+}

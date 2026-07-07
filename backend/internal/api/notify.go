@@ -22,6 +22,10 @@ type Notification struct {
 	WorkspaceID   string    `json:"workspace_id,omitempty"`
 	ReservationID string    `json:"reservation_id,omitempty"`
 	Recipient     string    `json:"recipient,omitempty"` // booker; "" = broadcast
+	// ExcludeRecipient drops one user from a broadcast push — the booker of a
+	// no-show release already gets a targeted "Booking released" and must not
+	// also get the "just freed up" broadcast. Outbox JSON doesn't carry it.
+	ExcludeRecipient string `json:"-"`
 	Title         string    `json:"title"`
 	Body          string    `json:"body"`
 	CreatedAt     time.Time `json:"created_at"`
@@ -155,6 +159,23 @@ func apnsFields(note Notification) (category, interruption, collapseID string) {
 	return "", "", ""
 }
 
+// tokensFor resolves a bookerOf() identifier (email when known, else a user
+// id) to the user's device tokens. Unknown identifier — e.g. a Zoom-sourced
+// booker without an app account — resolves to no tokens, not an error.
+func (s *Server) tokensFor(recipient string) ([]string, error) {
+	user, ok, err := s.db.UserByID(recipient)
+	if err == nil && !ok {
+		user, ok, err = s.db.UserByEmail(recipient)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, nil
+	}
+	return s.db.APNSTokensForUser(user.UserID)
+}
+
 // notificationPusher is what the fan-out needs from the APNs client;
 // interface so tests can fake it.
 type notificationPusher interface {
@@ -170,19 +191,27 @@ func (s *Server) pushNotification(p notificationPusher, note Notification) {
 	var err error
 	if note.Recipient == "" {
 		tokens, err = s.db.AllAPNSTokens()
-	} else {
-		user, ok, lookupErr := s.db.UserByID(note.Recipient)
-		if lookupErr == nil && !ok {
-			user, ok, lookupErr = s.db.UserByEmail(note.Recipient)
+		if err == nil && note.ExcludeRecipient != "" {
+			if excluded, lookupErr := s.tokensFor(note.ExcludeRecipient); lookupErr == nil {
+				skip := make(map[string]bool, len(excluded))
+				for _, tok := range excluded {
+					skip[tok] = true
+				}
+				kept := tokens[:0]
+				for _, tok := range tokens {
+					if !skip[tok] {
+						kept = append(kept, tok)
+					}
+				}
+				tokens = kept
+			}
 		}
-		if lookupErr != nil {
-			s.log.Error("apns recipient lookup", "recipient", note.Recipient, "err", lookupErr)
+	} else {
+		tokens, err = s.tokensFor(note.Recipient)
+		if err != nil {
+			s.log.Error("apns recipient lookup", "recipient", note.Recipient, "err", err)
 			return
 		}
-		if !ok {
-			return // Zoom-sourced booker without an app account: normal, drop
-		}
-		tokens, err = s.db.APNSTokensForUser(user.UserID)
 	}
 	if err != nil {
 		s.log.Error("apns token lookup", "err", err)

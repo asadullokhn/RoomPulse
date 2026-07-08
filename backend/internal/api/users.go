@@ -6,7 +6,15 @@ import (
 	"quickroom/internal/domain"
 )
 
-// listUsers returns every app account.
+// adminUser is a user as the admin panel sees them: the account plus the
+// rating breakdown. The rating never rides on domain.User — that struct is
+// serialized to the app (auth response) and users must not see their rating.
+type adminUser struct {
+	domain.User
+	Rating ratingInfo `json:"rating"`
+}
+
+// listUsers returns every app account with its rating (admin-only).
 func (s *Server) listUsers(w http.ResponseWriter, _ *http.Request) {
 	users, err := s.db.Users()
 	if err != nil {
@@ -14,7 +22,21 @@ func (s *Server) listUsers(w http.ResponseWriter, _ *http.Request) {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"users": users})
+	ratings, err := s.userRatings()
+	if err != nil {
+		s.log.Error("user ratings", "err", err)
+		writeError(w, http.StatusInternalServerError, "internal error")
+		return
+	}
+	out := make([]adminUser, 0, len(users))
+	for _, u := range users {
+		ri, ok := ratings[u.UserID]
+		if !ok {
+			ri = ratingInfo{Auto: autoRating(0, 0), Effective: autoRating(0, 0)}
+		}
+		out = append(out, adminUser{User: u, Rating: ri})
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"users": out})
 }
 
 // userReservations returns one user's bookings (any status/source).

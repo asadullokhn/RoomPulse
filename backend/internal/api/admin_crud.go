@@ -130,8 +130,10 @@ func (s *Server) clearNotifications(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
-// patchUser renames an account (identities come from Sign in with Apple, so
-// name is the only editable field).
+// patchUser edits an account: rename (identities come from Sign in with
+// Apple, so name is the only identity field) and/or pin the rating. Rating
+// semantics: rating_override sets a pin (0..100), clear_rating_override
+// returns to the computed value; omitting both leaves the rating alone.
 func (s *Server) patchUser(w http.ResponseWriter, r *http.Request) {
 	userID := r.PathValue("id")
 	if _, ok, err := s.db.UserByID(userID); err != nil {
@@ -143,20 +145,42 @@ func (s *Server) patchUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var body struct {
-		Name string `json:"name"`
+		Name                *string `json:"name"`
+		RatingOverride      *int    `json:"rating_override"`
+		ClearRatingOverride bool    `json:"clear_rating_override"`
 	}
 	if err := decodeBody(w, r, &body); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid body")
 		return
 	}
-	if body.Name == "" || len(body.Name) > maxNameLen {
-		writeError(w, http.StatusUnprocessableEntity, "name required; 1..96 chars")
+	if body.Name == nil && body.RatingOverride == nil && !body.ClearRatingOverride {
+		writeError(w, http.StatusUnprocessableEntity, "nothing to update")
 		return
 	}
-	if err := s.db.UpdateUserName(userID, body.Name); err != nil {
-		s.log.Error("rename user", "err", err)
-		writeError(w, http.StatusInternalServerError, "internal error")
-		return
+	if body.Name != nil {
+		if *body.Name == "" || len(*body.Name) > maxNameLen {
+			writeError(w, http.StatusUnprocessableEntity, "name required; 1..96 chars")
+			return
+		}
+		if err := s.db.UpdateUserName(userID, *body.Name); err != nil {
+			s.log.Error("rename user", "err", err)
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		}
+	}
+	if body.RatingOverride != nil || body.ClearRatingOverride {
+		override := body.RatingOverride
+		if body.ClearRatingOverride {
+			override = nil
+		} else if *override < 0 || *override > 100 {
+			writeError(w, http.StatusUnprocessableEntity, "rating_override must be 0..100")
+			return
+		}
+		if err := s.db.SetUserRatingOverride(userID, override); err != nil {
+			s.log.Error("set rating override", "err", err)
+			writeError(w, http.StatusInternalServerError, "internal error")
+			return
+		}
 	}
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }

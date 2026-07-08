@@ -5,8 +5,15 @@ import type { Reservation } from '@/api/types'
 const DAY_START_H = 7
 const WINDOW_MIN = 720 // 07:00-19:00
 
-// One room's week: rows are days, the hour axis matches ScheduleGrid.
-const props = defineProps<{ reservations: Reservation[]; weekStart: Date }>()
+// One week of bookings: rows are days, the hour axis matches ScheduleGrid.
+// Blocks are labeled by booker (room pages); pass `label` to override —
+// the user page labels by room instead.
+const props = defineProps<{
+  reservations: Reservation[]
+  weekStart: Date
+  label?: (r: Reservation) => string
+  readonly?: boolean // no empty-slot booking (user page)
+}>()
 const emit = defineEmits<{
   select: [reservation: Reservation]
   create: [slot: { start: Date; end: Date }]
@@ -79,12 +86,17 @@ function bookerShort(r: Reservation): string {
   return who.split('@')[0] || 'booked'
 }
 
+function blockLabel(r: Reservation): string {
+  return props.label ? props.label(r) : bookerShort(r)
+}
+
 function timeRange(r: Reservation): string {
   const f = (s: string) => new Date(s).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   return `${f(r.start_time)}–${f(r.end_time)}`
 }
 
 function onTrackClick(e: MouseEvent, day: DayRow) {
+  if (props.readonly) return
   const track = e.currentTarget as HTMLElement
   const rect = track.getBoundingClientRect()
   const minutes = Math.floor(((e.clientX - rect.left) / rect.width) * WINDOW_MIN / 30) * 30
@@ -120,10 +132,10 @@ function onTrackClick(e: MouseEvent, day: DayRow) {
               class="block"
               :class="[b.tone, { faded: b.faded }]"
               :style="{ left: `${b.left}%`, width: `${b.width}%` }"
-              :title="`${bookerShort(b.r)} ${timeRange(b.r)} (${b.r.status})`"
+              :title="`${blockLabel(b.r)} ${timeRange(b.r)} (${b.r.status})`"
               @click.stop="emit('select', b.r)"
             >
-              <span class="who">{{ bookerShort(b.r) }}</span>
+              <span class="who">{{ blockLabel(b.r) }}</span>
               <span class="when">{{ timeRange(b.r) }}</span>
             </button>
             <span v-if="day.nowLine !== null" class="now" :style="{ left: `${day.nowLine}%` }"><i /></span>
@@ -135,7 +147,7 @@ function onTrackClick(e: MouseEvent, day: DayRow) {
       <span><i class="sw blue" />Booked</span>
       <span><i class="sw green" />Checked-In</span>
       <span><i class="sw gray" />Released or cancelled</span>
-      <span class="hint">Click an empty slot to book it.</span>
+      <span v-if="!readonly" class="hint">Click an empty slot to book it.</span>
     </div>
   </div>
 </template>

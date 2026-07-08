@@ -28,11 +28,20 @@ export interface Reservation {
   booked_by_user_id?: string
 }
 
+export interface UserRating {
+  auto: number
+  override?: number
+  effective: number
+  good: number
+  bad: number
+}
+
 export interface User {
   user_id: string
   email?: string
   name?: string
   created_at: string
+  rating?: UserRating
 }
 
 export interface OccupancyEntry {

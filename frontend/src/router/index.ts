@@ -18,6 +18,7 @@ const router = createRouter({
         { path: 'rooms', name: 'rooms', component: () => import('@/views/RoomsView.vue') },
         { path: 'rooms/:ws', name: 'room-detail', component: () => import('@/views/RoomDetailView.vue') },
         { path: 'users', name: 'users', component: () => import('@/views/UsersView.vue') },
+        { path: 'users/:id', name: 'user-detail', component: () => import('@/views/UserDetailView.vue') },
         { path: 'notifications', name: 'notifications', component: () => import('@/views/NotificationsView.vue') },
       ],
     },

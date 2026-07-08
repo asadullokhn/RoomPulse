@@ -31,6 +31,7 @@ func graceDuration(bookingLen time.Duration, fraction float64, min, max time.Dur
 // Returns the reservations newly released.
 func (s *Server) sweepNoShows(ctx context.Context, now time.Time) []domain.Reservation {
 	occ := s.store.AllOccupancy()
+	ratings := s.ratingsOrEmpty()
 	var released []domain.Reservation
 	for _, r := range s.store.Reservations() {
 		if r.Status != domain.StatusBooked || r.CheckInStatus != domain.NotCheckedIn {
@@ -39,7 +40,7 @@ func (s *Server) sweepNoShows(ctx context.Context, now time.Time) []domain.Reser
 		if len(occ[r.ZoomWorkspaceID]) > 0 {
 			continue // occupied right now — not a no-show
 		}
-		if now.Before(r.StartTime.Add(graceDuration(r.EndTime.Sub(r.StartTime), s.graceFraction, s.graceMin, s.graceMax))) {
+		if now.Before(r.StartTime.Add(s.effectiveGrace(r.EndTime.Sub(r.StartTime), r.BookedByUserID, ratings))) {
 			continue // still within the grace window
 		}
 		r.Status = domain.StatusNoShow
@@ -78,6 +79,7 @@ func (s *Server) sweepNoShows(ctx context.Context, now time.Time) []domain.Reser
 // ping fires once (deduped per reservation+level).
 func (s *Server) sweepGraceReminders(now time.Time) {
 	occ := s.store.AllOccupancy()
+	ratings := s.ratingsOrEmpty()
 	for _, r := range s.store.Reservations() {
 		if r.Status != domain.StatusBooked || r.CheckInStatus != domain.NotCheckedIn {
 			continue
@@ -89,7 +91,7 @@ func (s *Server) sweepGraceReminders(now time.Time) {
 		if booking <= 0 {
 			continue
 		}
-		graceDeadline := r.StartTime.Add(graceDuration(booking, s.graceFraction, s.graceMin, s.graceMax))
+		graceDeadline := r.StartTime.Add(s.effectiveGrace(booking, r.BookedByUserID, ratings))
 		if !now.Before(graceDeadline) {
 			continue // past grace — the release path handles it
 		}

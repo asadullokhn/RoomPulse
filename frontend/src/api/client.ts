@@ -63,6 +63,9 @@ export const deleteUser = (userId: string) =>
   sendJSON<{ status: string }>('DELETE', `/users/${encodeURIComponent(userId)}`).then(() => undefined)
 export const renameUser = (userId: string, name: string) =>
   sendJSON<{ status: string }>('PATCH', `/users/${encodeURIComponent(userId)}`, { name }).then(() => undefined)
+export const setUserRating = (userId: string, override: number | null) =>
+  sendJSON<{ status: string }>('PATCH', `/users/${encodeURIComponent(userId)}`,
+    override === null ? { clear_rating_override: true } : { rating_override: override }).then(() => undefined)
 export const adminCancelReservation = (reservationId: string) =>
   sendJSON<Reservation>('POST', `/admin/reservations/${encodeURIComponent(reservationId)}/cancel`)
 export const adminCreateReservation = (body: { workspace_id: string; start_time: string; end_time: string; user_email?: string }) =>

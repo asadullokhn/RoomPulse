@@ -815,7 +815,12 @@ paths:
   /users:
     get:
       tags: [Users]
-      summary: List every app account
+      summary: List every app account with its rating (admin)
+      description: >
+        Each user carries a `rating` block — auto (computed from booking
+        history: showed-up vs no-show releases), optional admin override,
+        and the effective value. Admin-only; the rating is never exposed to
+        the user themselves.
       security: [{ adminToken: [] }]
       responses:
         "200":
@@ -825,7 +830,14 @@ paths:
               schema:
                 type: object
                 properties:
-                  users: { type: array, items: { $ref: '#/components/schemas/User' } }
+                  users:
+                    type: array
+                    items:
+                      allOf:
+                        - $ref: '#/components/schemas/User'
+                        - type: object
+                          properties:
+                            rating: { $ref: '#/components/schemas/UserRating' }
   /users/{id}/reservations:
     get:
       tags: [Users]
@@ -845,7 +857,11 @@ paths:
   /users/{id}:
     patch:
       tags: [Users]
-      summary: Rename an account (admin)
+      summary: Rename an account and/or pin its rating (admin)
+      description: >
+        `rating_override` pins the rating (0..100, wins over the computed
+        value); `clear_rating_override` returns to the computed value. Bookers
+        below rating 50 get half the no-show grace window.
       security: [{ adminToken: [] }]
       parameters: [ { $ref: '#/components/parameters/UserId' } ]
       requestBody:
@@ -854,9 +870,10 @@ paths:
           application/json:
             schema:
               type: object
-              required: [name]
               properties:
                 name: { type: string }
+                rating_override: { type: integer, minimum: 0, maximum: 100 }
+                clear_rating_override: { type: boolean }
       responses:
         "200": { $ref: '#/components/responses/Ok' }
         "401": { $ref: '#/components/responses/Unauthorized' }
@@ -1005,6 +1022,15 @@ components:
         email: { type: string }
         name: { type: string }
         created_at: { type: string, format: date-time }
+    UserRating:
+      type: object
+      description: Admin-only booking-reliability score; never shown to the user.
+      properties:
+        auto: { type: integer, description: computed from history (no history = 100) }
+        override: { type: integer, description: admin-pinned value, wins when present }
+        effective: { type: integer }
+        good: { type: integer, description: bookings the user showed up for }
+        bad: { type: integer, description: no-show releases }
     OccupancyEntry:
       type: object
       properties:

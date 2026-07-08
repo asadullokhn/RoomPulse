@@ -114,6 +114,11 @@ func OpenDB(path string) (*DB, error) {
 		sqlDB.Close()
 		return nil, fmt.Errorf("migrate title column: %w", err)
 	}
+	// Admin-set rating override (0..100); NULL = rating computed from history.
+	if _, err := sqlDB.Exec(`ALTER TABLE users ADD COLUMN rating_override INTEGER`); err != nil && !strings.Contains(err.Error(), "duplicate column") {
+		sqlDB.Close()
+		return nil, fmt.Errorf("migrate rating_override column: %w", err)
+	}
 	return &DB{sql: sqlDB}, nil
 }
 
@@ -291,6 +296,66 @@ func (d *DB) Users() ([]domain.User, error) {
 // their bookings/sessions first (see Server.deleteUser).
 func (d *DB) DeleteUser(userID string) error {
 	_, err := d.sql.Exec(`DELETE FROM users WHERE user_id = ?`, userID)
+	return err
+}
+
+// RatingCounts is a user's booking-behaviour tally: Good = bookings they
+// actually showed up for (checked in at some point), Bad = bookings released
+// as no-shows. Cancellations and future bookings count as neither.
+type RatingCounts struct {
+	Good int
+	Bad  int
+}
+
+// UserRatingCounts tallies good/bad booking behaviour per user from the
+// persisted app reservations.
+func (d *DB) UserRatingCounts() (map[string]RatingCounts, error) {
+	rows, err := d.sql.Query(`
+		SELECT booked_by_user_id,
+		       SUM(CASE WHEN check_in_status IN ('checked_in', 'checked_out') THEN 1 ELSE 0 END),
+		       SUM(CASE WHEN status IN ('released', 'no_show') AND check_in_status = 'not_checked_in' THEN 1 ELSE 0 END)
+		FROM app_reservations
+		WHERE booked_by_user_id <> ''
+		GROUP BY booked_by_user_id`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]RatingCounts{}
+	for rows.Next() {
+		var id string
+		var c RatingCounts
+		if err := rows.Scan(&id, &c.Good, &c.Bad); err != nil {
+			return nil, err
+		}
+		out[id] = c
+	}
+	return out, rows.Err()
+}
+
+// UserRatingOverrides returns the admin-set rating overrides (users without
+// one are absent).
+func (d *DB) UserRatingOverrides() (map[string]int, error) {
+	rows, err := d.sql.Query(`SELECT user_id, rating_override FROM users WHERE rating_override IS NOT NULL`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]int{}
+	for rows.Next() {
+		var id string
+		var v int
+		if err := rows.Scan(&id, &v); err != nil {
+			return nil, err
+		}
+		out[id] = v
+	}
+	return out, rows.Err()
+}
+
+// SetUserRatingOverride pins a user's rating (nil clears back to computed).
+func (d *DB) SetUserRatingOverride(userID string, v *int) error {
+	_, err := d.sql.Exec(`UPDATE users SET rating_override = ? WHERE user_id = ?`, v, userID)
 	return err
 }
 

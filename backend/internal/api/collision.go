@@ -137,8 +137,8 @@ func (s *Server) sweepCollisions(now time.Time) []Collision {
 		})
 		s.notify.emit(c.ReservationID+"|collision-admin", Notification{
 			Type: "collision", WorkspaceID: c.WorkspaceID, ReservationID: c.ReservationID,
-			Title: "Booking conflict",
-			Body:  fmt.Sprintf("%s is occupied by someone other than the booker (%s).", c.RoomName, c.Booker),
+			AdminOnly: true, Title: "Booking conflict",
+			Body:      fmt.Sprintf("%s is occupied by someone other than the booker (%s).", c.RoomName, c.Booker),
 			CreatedAt: now,
 		})
 	}

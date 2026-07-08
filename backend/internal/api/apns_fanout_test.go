@@ -156,6 +156,25 @@ func TestEmitAppliesNotificationContract(t *testing.T) {
 	}
 }
 
+// Admin-audience notes (collision/overstay "for the panel" copies) may name
+// the booker — they must stay outbox-only, never fanned out to phones.
+func TestEmitAdminOnlyPushesNothing(t *testing.T) {
+	s := newNoShowServer(t, time.Now())
+	mustUser(t, s, "u-1", "a@x.y")
+	_ = s.db.SaveAPNSToken("tokA", "u-1", time.Now())
+	fp := &fakePusher{}
+	s.ConfigureAPNS(fp)
+
+	s.notify.emit("k", Notification{Type: "collision", AdminOnly: true, Title: "Booking conflict", Body: "with booker email"})
+	time.Sleep(100 * time.Millisecond)
+	if got := fp.tokens(); len(got) != 0 {
+		t.Fatalf("admin-only note must not push, got %v", got)
+	}
+	if notes := s.notify.recent("", 10); len(notes) != 1 {
+		t.Fatalf("admin-only note missing from outbox: %v", notes)
+	}
+}
+
 // The booker of a no-show release already gets a targeted "Booking released"
 // push; the room_freed broadcast must skip their devices or they get notified
 // twice about the same event.

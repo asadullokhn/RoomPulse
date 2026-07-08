@@ -86,8 +86,8 @@ func (s *Server) sweepOverstays(now time.Time) []Overstay {
 		})
 		s.notify.emit(o.ReservationID+"|overstay-admin", Notification{
 			Type: "overstay", WorkspaceID: o.WorkspaceID, ReservationID: o.ReservationID,
-			Title: "Room overstay",
-			Body:  fmt.Sprintf("%s is occupied past its booked end.", o.RoomName),
+			AdminOnly: true, Title: "Room overstay",
+			Body:      fmt.Sprintf("%s is occupied past its booked end.", o.RoomName),
 			CreatedAt: now,
 		})
 	}

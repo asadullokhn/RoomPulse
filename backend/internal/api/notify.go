@@ -26,6 +26,10 @@ type Notification struct {
 	// no-show release already gets a targeted "Booking released" and must not
 	// also get the "just freed up" broadcast. Outbox JSON doesn't carry it.
 	ExcludeRecipient string `json:"-"`
+	// AdminOnly keeps a notification in the outbox (the admin panel polls it)
+	// without any APNs fan-out. Admin notes may name the booker — pushing them
+	// to every phone leaked user emails.
+	AdminOnly bool `json:"admin_only,omitempty"`
 	Title         string    `json:"title"`
 	Body          string    `json:"body"`
 	CreatedAt     time.Time `json:"created_at"`
@@ -187,6 +191,9 @@ type notificationPusher interface {
 // the recipient is bookerOf() output — email when known, else a user id.
 // Fire-and-forget: failures are logged, the outbox stays the source of truth.
 func (s *Server) pushNotification(p notificationPusher, note Notification) {
+	if note.AdminOnly {
+		return // outbox-only: the admin panel polls /notifications
+	}
 	var tokens []string
 	var err error
 	if note.Recipient == "" {

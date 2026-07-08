@@ -73,6 +73,28 @@ func TestReapStale(t *testing.T) {
 	}
 }
 
+func TestReapStaleUserPresence(t *testing.T) {
+	m := NewMemory()
+	m.ApplyPresenceIfNewer("ws-a", "u-fresh", "Fresh", 1, true)
+	m.ApplyPresenceIfNewer("ws-b", "u-stale", "Stale", 1, true)
+	m.SetDeviceRoom("dev-1", "ws-b", "Device", 1) // device entries belong to ReapStale
+
+	time.Sleep(20 * time.Millisecond)
+	m.ApplyPresenceIfNewer("ws-a", "u-fresh", "Fresh", 2, true) // re-report refreshes the clock
+
+	reaped := m.ReapStaleUserPresence(10 * time.Millisecond)
+
+	if occCount(m, "ws-a") != 1 {
+		t.Fatalf("fresh user wrongly reaped: ws-a=%d", occCount(m, "ws-a"))
+	}
+	if occCount(m, "ws-b") != 1 {
+		t.Fatalf("ws-b=%d want 1 (stale user gone, device kept)", occCount(m, "ws-b"))
+	}
+	if len(reaped) != 1 || reaped[0].UserID != "u-stale" || reaped[0].WorkspaceID != "ws-b" {
+		t.Fatalf("reaped=%v want u-stale in ws-b", reaped)
+	}
+}
+
 func TestApplyPresenceIfNewer(t *testing.T) {
 	m := NewMemory()
 	if !m.ApplyPresenceIfNewer("ws-b", "u1", "U1", 100, true) {

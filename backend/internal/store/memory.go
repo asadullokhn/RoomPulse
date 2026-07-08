@@ -18,6 +18,7 @@ type Memory struct {
 	reservations   map[string]domain.Reservation
 	presence       map[string]map[string]struct{} // workspaceID -> set of present userIDs
 	lastPresenceTS map[string]int64               // "workspaceID|userID" -> last applied event_ts (ms)
+	presenceSeenAt map[string]time.Time           // "workspaceID|userID" -> server receipt time of the enter (for TTL)
 	displayNames   map[string]string              // userID -> display label
 	deviceRoom     map[string]string              // deviceID -> current workspaceID ("" = none)
 	deviceTS       map[string]int64               // deviceID -> last heartbeat ts (ms)
@@ -31,6 +32,7 @@ func NewMemory() *Memory {
 		reservations:   make(map[string]domain.Reservation),
 		presence:       make(map[string]map[string]struct{}),
 		lastPresenceTS: make(map[string]int64),
+		presenceSeenAt: make(map[string]time.Time),
 		displayNames:   make(map[string]string),
 		deviceRoom:     make(map[string]string),
 		deviceTS:       make(map[string]int64),
@@ -122,14 +124,50 @@ func (m *Memory) ApplyPresenceIfNewer(workspaceID, userID, displayName string, t
 	}
 	if entered {
 		m.presence[workspaceID][userID] = struct{}{}
+		m.presenceSeenAt[key] = time.Now() // server-side TTL clock
 		if displayName == "" {
 			displayName = userID
 		}
 		m.displayNames[userID] = displayName
 	} else {
 		delete(m.presence[workspaceID], userID)
+		delete(m.presenceSeenAt, key)
 	}
 	return true
+}
+
+// ReapedUser is a user-presence entry expired by the TTL backstop.
+type ReapedUser struct {
+	UserID      string
+	DisplayName string
+	WorkspaceID string
+}
+
+// ReapStaleUserPresence removes user presence (phone enter/exit events) not
+// re-confirmed within maxAge — the backstop for an exit event that never
+// arrived (locked phone, dead battery, killed app). The app re-reports its
+// enter on every foreground, which refreshes the clock for legit occupants.
+func (m *Memory) ReapStaleUserPresence(maxAge time.Duration) []ReapedUser {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	cutoff := time.Now().Add(-maxAge)
+	out := []ReapedUser{}
+	for ws, set := range m.presence {
+		for id := range set {
+			key := ws + "|" + id
+			seen, tracked := m.presenceSeenAt[key]
+			if tracked && seen.After(cutoff) {
+				continue
+			}
+			if !tracked && m.deviceRoom[id] != "" {
+				continue // device-heartbeat entry: ReapStale owns it
+			}
+			delete(set, id)
+			delete(m.presenceSeenAt, key)
+			out = append(out, ReapedUser{UserID: id, DisplayName: m.displayNames[id], WorkspaceID: ws})
+		}
+	}
+	return out
 }
 
 // Ident is one present identity: the raw presence key (a user id or device id)

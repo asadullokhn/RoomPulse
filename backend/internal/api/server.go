@@ -43,6 +43,12 @@ const (
 	// graceSweepInterval drives grace reminders + no-show release. Finer than the
 	// presence-reap cadence because grace windows on short bookings are minutes.
 	graceSweepInterval = 30 * time.Second
+
+	// userPresenceTTL expires phone-reported presence whose exit never arrived
+	// (locked phone, dead battery, killed app). Generous — one max-length
+	// booking — because a backgrounded phone in the room sends nothing between
+	// its enter and exit; the app refreshes the clock on every foreground.
+	userPresenceTTL = 2 * time.Hour
 )
 
 // OAuthFlow is implemented by the user-OAuth Zoom client. When the active
@@ -200,13 +206,25 @@ func (s *Server) ReapLoop(ctx context.Context) {
 				s.logEvent(rd.WorkspaceID, rd.DeviceID, rd.DisplayName, "leave", now)
 				rooms[rd.WorkspaceID] = struct{}{}
 			}
+			reapedUsers := s.store.ReapStaleUserPresence(userPresenceTTL)
+			for _, ru := range reapedUsers {
+				s.logEvent(ru.WorkspaceID, ru.UserID, ru.DisplayName, "leave", now)
+				rooms[ru.WorkspaceID] = struct{}{}
+			}
+			occ := s.store.AllOccupancy()
 			for ws := range rooms {
+				if len(occ[ws]) > 0 {
+					continue // someone's still inside — don't check the booking out
+				}
 				c, cancel := context.WithTimeout(ctx, 5*time.Second)
 				s.driveReservation(c, ws, zoom.EventCheckOut, domain.CheckedOut)
 				cancel()
 			}
 			if len(reaped) > 0 {
 				s.log.Info("reaped stale presence", "devices", len(reaped), "ttl", s.ttl)
+			}
+			if len(reapedUsers) > 0 {
+				s.log.Info("reaped stale user presence", "users", len(reapedUsers), "ttl", userPresenceTTL)
 			}
 			if err := s.db.PruneEvents(now.Add(-eventRetention)); err != nil {
 				s.log.Warn("prune events", "err", err)
@@ -747,11 +765,24 @@ func recovery(log *slog.Logger, next http.Handler) http.Handler {
 	})
 }
 
+// statusWriter records the response status so the request log can carry it —
+// without it, auth failures (401s signing users out of the app) are invisible.
+type statusWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+func (w *statusWriter) WriteHeader(code int) {
+	w.status = code
+	w.ResponseWriter.WriteHeader(code)
+}
+
 func logging(log *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
-		next.ServeHTTP(w, r)
-		log.Info("request", "method", r.Method, "path", r.URL.Path, "dur_ms", time.Since(start).Milliseconds())
+		sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(sw, r)
+		log.Info("request", "method", r.Method, "path", r.URL.Path, "status", sw.status, "dur_ms", time.Since(start).Milliseconds())
 	})
 }
 

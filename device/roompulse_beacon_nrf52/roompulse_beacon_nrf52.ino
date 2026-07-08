@@ -71,6 +71,14 @@ static void handleCommand(char *line) {
     g_minor = (uint16_t)v;
     startAdvertising();
     if (Serial) Serial.printf("ok minor=%u\n", g_minor);
+  } else if (sscanf(line, "major %d", &v) == 1) {
+    if (v < 1 || v > 65535) {
+      if (Serial) Serial.println("major must be 1..65535");
+      return;
+    }
+    g_major = (uint16_t)v;
+    startAdvertising();
+    if (Serial) Serial.printf("ok major=%u\n", g_major);
   } else if (sscanf(line, "adv %d", &v) == 1) {
     if (v < 100 || v > 2000) {
       if (Serial) Serial.println("adv must be 100..2000 ms");
@@ -80,7 +88,7 @@ static void handleCommand(char *line) {
     startAdvertising();
     if (Serial) Serial.printf("ok adv=%u ms\n", g_advMs);
   } else if (line[0] != '\0') {
-    if (Serial) Serial.println("commands: show | tx <dBm> | minor <n> | adv <ms>");
+    if (Serial) Serial.println("commands: show | tx <dBm> | major <n> | minor <n> | adv <ms>");
   }
 }
 

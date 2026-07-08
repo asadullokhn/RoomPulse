@@ -25,6 +25,25 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 TX_LEVELS = [-40, -20, -16, -12, -8, -4, 0, 2, 3, 4, 5, 6, 7, 8]
 
 
+def parse_ident(payload):
+    """Validate an /api/id body: {"major"?: n, "minor"?: n}, each 1..65535.
+
+    Returns [(field, value), ...] in a fixed order. Raises ValueError."""
+    if not isinstance(payload, dict):
+        raise ValueError('body must be {"major": <n>} and/or {"minor": <n>}')
+    fields = []
+    for key in ("major", "minor"):
+        if key not in payload:
+            continue
+        value = payload[key]
+        if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= 65535:
+            raise ValueError(f"{key} must be an integer 1..65535")
+        fields.append((key, value))
+    if not fields:
+        raise ValueError("provide major and/or minor")
+    return fields
+
+
 def parse_show(text):
     """Parse the firmware's `show` output into a state dict, or None."""
     m_id = re.search(r"major (\d+)\s+minor (\d+)", text)
@@ -132,6 +151,11 @@ PAGE = """<!doctype html>
   button.active { border-color: #35b8a5; background: #143029; }
   button:disabled { opacity: .45; }
   .secondary button { padding: 12px 4px; font-size: 15px; }
+  .idrow { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; margin-top: 10px; }
+  .idrow label { font-size: 12px; color: #8fa3bf; display: block; margin-bottom: 4px; }
+  .idrow input { width: 100%; background: #0b1220; border: 1px solid #26314a; color: #e8eef7;
+                 border-radius: 10px; padding: 12px 10px; font-size: 16px; }
+  .idrow button { align-self: end; }
 </style>
 </head>
 <body>
@@ -144,6 +168,14 @@ PAGE = """<!doctype html>
 </div>
 <div class="primary" id="primary"></div>
 <div class="secondary" id="secondary"></div>
+<div class="card">
+  <div class="meta">Room identity (major / minor) &mdash; local serial only, no backend</div>
+  <div class="idrow">
+    <div><label for="major">major</label><input id="major" type="number" min="1" max="65535" inputmode="numeric"></div>
+    <div><label for="minor">minor</label><input id="minor" type="number" min="1" max="65535" inputmode="numeric"></div>
+    <button onclick="setId()">Apply</button>
+  </div>
+</div>
 <script>
 const LABELS = {"8": "max range", "0": "tag default", "-12": "C6 floor",
                 "-16": "room start", "-20": "room tight"};
@@ -163,9 +195,12 @@ function buttons() {
 
 function render(s) {
   $("tx").textContent = fmt(s.tx);
-  $("meta").textContent = `minor ${s.minor} · adv ${s.adv} ms · major ${s.major}`;
-  document.querySelectorAll("button").forEach((b) =>
+  $("meta").textContent = `major ${s.major} · minor ${s.minor} · adv ${s.adv} ms`;
+  document.querySelectorAll("button[data-level]").forEach((b) =>
     b.classList.toggle("active", Number(b.dataset.level) === s.tx));
+  for (const k of ["major", "minor"]) {
+    if (document.activeElement !== $(k)) $(k).value = s[k];
+  }
 }
 
 function banner(text, ok) {
@@ -213,6 +248,30 @@ async function setTx(level) {
   }
 }
 
+async function setId() {
+  if (busy) return;
+  const body = {};
+  for (const k of ["major", "minor"]) {
+    const v = Number($(k).value);
+    if ($(k).value !== "" && Number.isInteger(v)) body[k] = v;
+  }
+  if (!Object.keys(body).length) { banner("enter major and/or minor", false); return; }
+  busy = true; setDisabled(true); banner("");
+  try {
+    const r = await fetch("/api/id", { method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body) });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "HTTP " + r.status);
+    render(data);
+    banner(`Beacon is now major ${data.major} / minor ${data.minor}`, true);
+  } catch (e) {
+    banner(e.message, false);
+  } finally {
+    busy = false; setDisabled(false);
+  }
+}
+
 buttons();
 refresh();
 </script>
@@ -255,21 +314,44 @@ class Handler(BaseHTTPRequestHandler):
         else:
             self._json(404, {"error": "not found"})
 
+    def _body(self):
+        try:
+            length = int(self.headers.get("Content-Length", 0))
+            return json.loads(self.rfile.read(length))
+        except (ValueError, json.JSONDecodeError) as e:
+            raise BeaconError("body must be JSON", code=400) from e
+
+    def _post_tx(self):
+        body = self._body()
+        level = body.get("level") if isinstance(body, dict) else None
+        if level not in TX_LEVELS:
+            raise BeaconError(f"level must be one of {TX_LEVELS}", code=400)
+        Handler.beacon.exchange(f"tx {level}", rf"ok tx={level} dBm")
+
+    def _post_id(self):
+        try:
+            fields = parse_ident(self._body())
+        except ValueError as e:
+            raise BeaconError(str(e), code=400) from None
+        for key, value in fields:
+            # Old firmware answers unknown commands with its "commands:" help
+            # line — surface that as an error instead of timing out.
+            out = Handler.beacon.exchange(f"{key} {value}", rf"ok {key}={value}|commands:|must be")
+            if f"ok {key}={value}" not in out:
+                raise BeaconError(
+                    f"firmware rejected '{key} {value}' — reflash roompulse_beacon_nrf52 for major support"
+                    if "commands:" in out else out.strip().splitlines()[-1],
+                    code=400,
+                )
+
     def do_POST(self):
-        if self.path != "/api/tx":
+        actions = {"/api/tx": self._post_tx, "/api/id": self._post_id}
+        action = actions.get(self.path)
+        if action is None:
             self._json(404, {"error": "not found"})
             return
         try:
-            length = int(self.headers.get("Content-Length", 0))
-            level = json.loads(self.rfile.read(length))["level"]
-        except (ValueError, KeyError, json.JSONDecodeError):
-            self._json(400, {"error": 'body must be {"level": <dBm>}'})
-            return
-        if level not in TX_LEVELS:
-            self._json(400, {"error": f"level must be one of {TX_LEVELS}"})
-            return
-        try:
-            Handler.beacon.exchange(f"tx {level}", rf"ok tx={level} dBm")
+            action()
             self._json(200, self._read_state())
         except BeaconError as e:
             self._json(e.code, {"error": str(e)})

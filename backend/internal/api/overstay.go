@@ -12,6 +12,12 @@ import (
 // inverse of a no-show. The slot is over but people haven't left, so the next
 // booker is squeezed out. We flag it once the end passes by overstayGrace so the
 // current occupants get a "time's up" nudge and the admin panel sees the squeeze.
+
+// overstayMaxAge bounds how long past its end a booking can still be flagged.
+// A wrap-up nudge is only meaningful right after the slot — without the bound,
+// stale bookings that never got checked out (a lost exit event) fired "ended
+// 36h ago, please wrap up" the moment someone walked in the next morning.
+const overstayMaxAge = time.Hour
 type Overstay struct {
 	WorkspaceID   string    `json:"workspace_id"`
 	RoomName      string    `json:"room_name"`
@@ -50,6 +56,12 @@ func (s *Server) currentOverstays(now time.Time) []Overstay {
 	for _, r := range s.store.Reservations() {
 		if now.Before(r.EndTime.Add(s.overstayGrace)) {
 			continue // not ended yet, or still inside the wrap-up grace
+		}
+		if now.Sub(r.EndTime) > overstayMaxAge {
+			continue // long over — the wrap-up moment has passed
+		}
+		if r.CheckInStatus != domain.CheckedIn {
+			continue // never came, or already checked out — the occupancy isn't theirs
 		}
 		users := occ[r.ZoomWorkspaceID]
 		if len(users) == 0 {

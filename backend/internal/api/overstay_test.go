@@ -44,6 +44,44 @@ func TestCurrentOverstaysFlagsOccupiedPastEnd(t *testing.T) {
 	}
 }
 
+// Stale bookings whose checkout was lost must not resurface as "wrap up"
+// nudges when the room is occupied again long after — that burst hit every
+// booker of the previous two days at once.
+func TestOverstaySkipsLongOverAndResolvedBookings(t *testing.T) {
+	now := time.Now()
+	srv := overstayServer(t, now)
+	base := domain.Reservation{
+		ZoomWorkspaceID: "ws-bedugul", UserEmail: "team@adabali.dev",
+		Status: domain.StatusBooked, CheckInStatus: domain.CheckedIn,
+	}
+
+	ancient := base
+	ancient.ReservationID = "res-ancient"
+	ancient.StartTime, ancient.EndTime = now.Add(-37*time.Hour), now.Add(-36*time.Hour)
+	srv.store.UpsertReservation(ancient)
+
+	left := base
+	left.ReservationID = "res-left"
+	left.CheckInStatus = domain.CheckedOut // properly checked out
+	left.StartTime, left.EndTime = now.Add(-63*time.Minute), now.Add(-3*time.Minute)
+	srv.store.UpsertReservation(left)
+
+	ghosted := base
+	ghosted.ReservationID = "res-ghosted"
+	ghosted.CheckInStatus = domain.NotCheckedIn // never came
+	ghosted.StartTime, ghosted.EndTime = now.Add(-63*time.Minute), now.Add(-3*time.Minute)
+	srv.store.UpsertReservation(ghosted)
+
+	srv.store.ApplyPresenceIfNewer("ws-bedugul", "u-x", "Someone", now.UnixMilli(), true)
+
+	for _, o := range srv.currentOverstays(now) {
+		switch o.ReservationID {
+		case "res-ancient", "res-left", "res-ghosted":
+			t.Errorf("%s flagged as overstay", o.ReservationID)
+		}
+	}
+}
+
 func TestOverstaySkipsBackToBackBooking(t *testing.T) {
 	now := time.Now()
 	srv := overstayServer(t, now)

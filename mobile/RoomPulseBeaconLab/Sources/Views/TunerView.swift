@@ -11,6 +11,9 @@ struct TunerView: View {
     @State private var bannerText = ""
     @State private var bannerOK = false
     @State private var serverURL = AppSettings.tunerBaseURL
+    @State private var majorText = ""
+    @State private var minorText = ""
+    @FocusState private var identFocus: Bool
 
     private static let labels: [Int: String] = [
         8: "max range", 0: "tag default", -12: "C6 floor",
@@ -71,6 +74,30 @@ struct TunerView: View {
                     }
                 }
 
+                Section {
+                    HStack(spacing: 12) {
+                        LabeledContent("major") {
+                            TextField("1", text: $majorText)
+                                .keyboardType(.numberPad)
+                                .multilineTextAlignment(.trailing)
+                                .focused($identFocus)
+                        }
+                        Divider()
+                        LabeledContent("minor") {
+                            TextField("101", text: $minorText)
+                                .keyboardType(.numberPad)
+                                .multilineTextAlignment(.trailing)
+                                .focused($identFocus)
+                        }
+                    }
+                    Button("Apply identity") { applyIdent() }
+                        .disabled(busy || identChange() == nil)
+                } header: {
+                    Text("Room identity")
+                } footer: {
+                    Text("Re-homes the beacon (major/minor) over the Mac's serial bridge — the backend room mapping is untouched.")
+                }
+
                 Section("Tuner server (Mac)") {
                     TextField("http://mac.local:8880", text: $serverURL)
                         .keyboardType(.URL)
@@ -113,10 +140,48 @@ struct TunerView: View {
             case .success(let s):
                 state = s
                 bannerText = ""
+                syncIdentFields(s)
             case .failure(let e):
                 bannerText = e.localizedDescription
                 bannerOK = false
             }
+        }
+    }
+
+    private func syncIdentFields(_ s: TunerState) {
+        guard !identFocus else { return } // don't clobber typing
+        majorText = String(s.major)
+        minorText = String(s.minor)
+    }
+
+    /// The (major, minor) to send, or nil when the fields match the beacon
+    /// (nothing to apply) or don't parse to 1..65535.
+    private func identChange() -> (major: Int?, minor: Int?)? {
+        guard let s = state,
+              let major = Int(majorText), (1...65535).contains(major),
+              let minor = Int(minorText), (1...65535).contains(minor) else { return nil }
+        let change = (major: major == s.major ? nil : Optional(major),
+                      minor: minor == s.minor ? nil : Optional(minor))
+        return (change.major == nil && change.minor == nil) ? nil : change
+    }
+
+    private func applyIdent() {
+        guard let change = identChange() else { return }
+        identFocus = false
+        busy = true
+        bannerText = ""
+        TunerClient.setIdent(major: change.major, minor: change.minor) { result in
+            switch result {
+            case .success(let s):
+                state = s
+                syncIdentFields(s)
+                bannerText = "Beacon is now major \(s.major) / minor \(s.minor)"
+                bannerOK = true
+            case .failure(let e):
+                bannerText = e.localizedDescription
+                bannerOK = false
+            }
+            busy = false
         }
     }
 

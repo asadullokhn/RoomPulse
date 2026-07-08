@@ -48,6 +48,25 @@ enum TunerClient {
         run(req, completion: completion)
     }
 
+    /// Re-homes the beacon to another room: sets major and/or minor (1..65535)
+    /// over the Mac bridge's POST /api/id. Serial-only — the backend mapping
+    /// is untouched.
+    static func setIdent(major: Int?, minor: Int?, completion: @escaping (Result<TunerState, TunerError>) -> Void) {
+        guard let url = URL(string: AppSettings.tunerBaseURL + "/api/id") else {
+            completion(.failure(.transport("Bad tuner URL")))
+            return
+        }
+        var body: [String: Int] = [:]
+        if let major { body["major"] = major }
+        if let minor { body["minor"] = minor }
+        var req = URLRequest(url: url)
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        req.timeoutInterval = 8
+        req.httpBody = try? JSONSerialization.data(withJSONObject: body)
+        run(req, completion: completion)
+    }
+
     private static func run(_ req: URLRequest,
                             completion: @escaping (Result<TunerState, TunerError>) -> Void) {
         URLSession.shared.dataTask(with: req) { data, resp, err in

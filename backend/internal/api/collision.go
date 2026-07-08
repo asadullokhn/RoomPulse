@@ -123,9 +123,9 @@ func (s *Server) currentCollisions(now time.Time) []Collision {
 }
 
 // sweepCollisions detects live conflicts and emits one notification per
-// reservation (deduped) — a heads-up to the booker and a broadcast for the admin
-// panel. Non-destructive: presence stays the truth and the room isn't released;
-// a human resolves it. Returns the live collisions.
+// reservation (deduped) — a heads-up to the booker and an outbox-only note for
+// the admin panel. Non-destructive: presence stays the truth and the room isn't
+// released; a human resolves it. Returns the live collisions.
 func (s *Server) sweepCollisions(now time.Time) []Collision {
 	cs := s.currentCollisions(now)
 	for _, c := range cs {

@@ -80,16 +80,16 @@ func TestSweepOverstaysEmitsNotifications(t *testing.T) {
 
 	srv.sweepOverstays(now)
 	all := srv.notify.recent("", 100)
-	if got := countByType(all, "overstay"); got != 2 {
-		t.Fatalf("overstay notifications = %d, want 2 (booker + admin)", got)
+	if got := countByType(all, "overstay"); got != 1 {
+		t.Fatalf("overstay notifications = %d, want 1 (booker only)", got)
 	}
 	if got := len(srv.notify.recent("team@adabali.dev", 100)); got != 1 {
 		t.Errorf("booker overstay notifications = %d, want 1", got)
 	}
 	// idempotent
 	srv.sweepOverstays(now)
-	if got := countByType(srv.notify.recent("", 100), "overstay"); got != 2 {
-		t.Errorf("overstay notifications after second sweep = %d, want 2", got)
+	if got := countByType(srv.notify.recent("", 100), "overstay"); got != 1 {
+		t.Errorf("overstay notifications after second sweep = %d, want 1", got)
 	}
 }
 

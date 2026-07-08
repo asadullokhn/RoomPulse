@@ -32,8 +32,7 @@ const filtered = computed(() => {
 const paged = computed(() => filtered.value.slice((page.value - 1) * PER_PAGE, page.value * PER_PAGE))
 
 function tone(t: string) {
-  return t === 'collision' ? 'b-danger' : t === 'overstay' ? 'b-amber'
-    : t === 'room_freed' ? 'b-signal' : 'b-muted'
+  return t === 'collision' ? 'b-danger' : t === 'overstay' ? 'b-amber' : 'b-muted'
 }
 function label(t: string) { return (t || '').replace(/_/g, ' ') }
 function fmtClock(s: string) {
@@ -95,7 +94,6 @@ usePoll(() => refresh().catch(() => {}), 4000)
               { value: 'all', label: 'All' },
               { value: 'grace_reminder', label: 'Reminders' },
               { value: 'no_show_released', label: 'Releases' },
-              { value: 'room_freed', label: 'Freed' },
               { value: 'collision', label: 'Conflicts' },
               { value: 'overstay', label: 'Overstays' },
             ]"

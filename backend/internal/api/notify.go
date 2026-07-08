@@ -13,19 +13,15 @@ import (
 )
 
 // Notification is one outbox message for the app/admin to surface: grace-window
-// "are you coming?" pings, no-show releases, and room-freed events. Kept in an
-// in-memory ring with per-key dedup so a reminder fires once, not every sweep.
+// "are you coming?" pings, no-show releases, collisions and overstays. Kept in
+// an in-memory ring with per-key dedup so a reminder fires once, not every sweep.
 type Notification struct {
 	ID            int64     `json:"id"`
-	Type          string    `json:"type"` // grace_reminder | no_show_released | room_freed | collision | overstay
+	Type          string    `json:"type"` // grace_reminder | no_show_released | collision | overstay
 	Level         int       `json:"level,omitempty"`
 	WorkspaceID   string    `json:"workspace_id,omitempty"`
 	ReservationID string    `json:"reservation_id,omitempty"`
-	Recipient     string    `json:"recipient,omitempty"` // booker; "" = broadcast
-	// ExcludeRecipient drops one user from a broadcast push — the booker of a
-	// no-show release already gets a targeted "Booking released" and must not
-	// also get the "just freed up" broadcast. Outbox JSON doesn't carry it.
-	ExcludeRecipient string `json:"-"`
+	Recipient     string    `json:"recipient,omitempty"` // booker; "" = outbox-only
 	// AdminOnly keeps a notification in the outbox (the admin panel polls it)
 	// without any APNs fan-out. Admin notes may name the booker — pushing them
 	// to every phone leaked user emails.
@@ -153,8 +149,6 @@ func apnsFields(note Notification) (category, interruption, collapseID string) {
 		return "GRACE_REMINDER", "time-sensitive", collapse("grace-", note.ReservationID)
 	case "no_show_released":
 		return "NO_SHOW_RELEASED", "active", collapse("res-", note.ReservationID)
-	case "room_freed":
-		return "ROOM_FREED", "passive", collapse("freed-", note.WorkspaceID)
 	case "collision":
 		return "COLLISION", "time-sensitive", collapse("res-", note.ReservationID)
 	case "overstay":
@@ -187,41 +181,16 @@ type notificationPusher interface {
 }
 
 // pushNotification delivers one freshly emitted outbox notification to the
-// relevant device tokens. Recipient "" = broadcast (room_freed); otherwise
-// the recipient is bookerOf() output — email when known, else a user id.
+// recipient's device tokens — bookerOf() output: email when known, else a
+// user id. No recipient means outbox-only; there are no broadcast pushes.
 // Fire-and-forget: failures are logged, the outbox stays the source of truth.
 func (s *Server) pushNotification(p notificationPusher, note Notification) {
-	if note.AdminOnly {
+	if note.AdminOnly || note.Recipient == "" {
 		return // outbox-only: the admin panel polls /notifications
 	}
-	var tokens []string
-	var err error
-	if note.Recipient == "" {
-		tokens, err = s.db.AllAPNSTokens()
-		if err == nil && note.ExcludeRecipient != "" {
-			if excluded, lookupErr := s.tokensFor(note.ExcludeRecipient); lookupErr == nil {
-				skip := make(map[string]bool, len(excluded))
-				for _, tok := range excluded {
-					skip[tok] = true
-				}
-				kept := tokens[:0]
-				for _, tok := range tokens {
-					if !skip[tok] {
-						kept = append(kept, tok)
-					}
-				}
-				tokens = kept
-			}
-		}
-	} else {
-		tokens, err = s.tokensFor(note.Recipient)
-		if err != nil {
-			s.log.Error("apns recipient lookup", "recipient", note.Recipient, "err", err)
-			return
-		}
-	}
+	tokens, err := s.tokensFor(note.Recipient)
 	if err != nil {
-		s.log.Error("apns token lookup", "err", err)
+		s.log.Error("apns recipient lookup", "recipient", note.Recipient, "err", err)
 		return
 	}
 

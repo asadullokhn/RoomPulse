@@ -1015,7 +1015,7 @@ components:
       type: object
       properties:
         id: { type: integer, format: int64 }
-        type: { type: string, enum: [grace_reminder, no_show_released, room_freed, collision, overstay] }
+        type: { type: string, enum: [grace_reminder, no_show_released, collision, overstay] }
         level: { type: integer, description: reminder ladder step (1 or 2) }
         workspace_id: { type: string }
         reservation_id: { type: string }

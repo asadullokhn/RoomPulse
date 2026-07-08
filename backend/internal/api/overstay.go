@@ -71,9 +71,9 @@ func (s *Server) currentOverstays(now time.Time) []Overstay {
 	return out
 }
 
-// sweepOverstays flags live overstays and emits one notification per reservation
-// (deduped): a "time's up" nudge to the booker and an admin broadcast. Returns
-// the live overstays.
+// sweepOverstays flags live overstays and emits one "time's up" nudge to the
+// booker per reservation (deduped). The admin panel sees overstays live via
+// GET /overstays, so no outbox copy. Returns the live overstays.
 func (s *Server) sweepOverstays(now time.Time) []Overstay {
 	os := s.currentOverstays(now)
 	for _, o := range os {
@@ -82,12 +82,6 @@ func (s *Server) sweepOverstays(now time.Time) []Overstay {
 			Type: "overstay", WorkspaceID: o.WorkspaceID, ReservationID: o.ReservationID,
 			Recipient: o.Booker, Title: "Time's up",
 			Body:      fmt.Sprintf("Your booking for %s ended %s ago but the room is still in use — please wrap up.", o.RoomName, over),
-			CreatedAt: now,
-		})
-		s.notify.emit(o.ReservationID+"|overstay-admin", Notification{
-			Type: "overstay", WorkspaceID: o.WorkspaceID, ReservationID: o.ReservationID,
-			AdminOnly: true, Title: "Room overstay",
-			Body:      fmt.Sprintf("%s is occupied past its booked end.", o.RoomName),
 			CreatedAt: now,
 		})
 	}

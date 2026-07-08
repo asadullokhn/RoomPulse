@@ -94,17 +94,19 @@ func TestEmitResolvesRecipientByUserID(t *testing.T) {
 	waitFor(t, func() bool { return len(fp.tokens()) == 1 })
 }
 
-func TestEmitBroadcastPushesToAllTokens(t *testing.T) {
+// There are no broadcast pushes: a note without a recipient stays outbox-only.
+func TestEmitEmptyRecipientPushesNothing(t *testing.T) {
 	s := newNoShowServer(t, time.Now())
 	mustUser(t, s, "u-1", "a@x.y")
-	mustUser(t, s, "u-2", "b@x.y")
 	_ = s.db.SaveAPNSToken("tokA", "u-1", time.Now())
-	_ = s.db.SaveAPNSToken("tokB", "u-2", time.Now())
 	fp := &fakePusher{}
 	s.ConfigureAPNS(fp)
 
-	s.notify.emit("", Notification{Type: "room_freed", Recipient: "", Title: "t", Body: "b"})
-	waitFor(t, func() bool { return len(fp.tokens()) == 2 })
+	s.notify.emit("", Notification{Type: "collision", Recipient: "", Title: "t", Body: "b"})
+	time.Sleep(100 * time.Millisecond)
+	if got := fp.tokens(); len(got) != 0 {
+		t.Fatalf("recipient-less note must not push, got %v", got)
+	}
 }
 
 func TestEmitUnknownRecipientPushesNothing(t *testing.T) {
@@ -175,21 +177,3 @@ func TestEmitAdminOnlyPushesNothing(t *testing.T) {
 	}
 }
 
-// The booker of a no-show release already gets a targeted "Booking released"
-// push; the room_freed broadcast must skip their devices or they get notified
-// twice about the same event.
-func TestEmitFreedBroadcastSkipsExcludedRecipient(t *testing.T) {
-	s := newNoShowServer(t, time.Now())
-	mustUser(t, s, "u-1", "booker@x.y")
-	mustUser(t, s, "u-2", "other@x.y")
-	_ = s.db.SaveAPNSToken("tokBooker", "u-1", time.Now())
-	_ = s.db.SaveAPNSToken("tokOther", "u-2", time.Now())
-	fp := &fakePusher{}
-	s.ConfigureAPNS(fp)
-
-	s.notify.emit("", Notification{Type: "room_freed", Title: "t", Body: "b", ExcludeRecipient: "booker@x.y"})
-	waitFor(t, func() bool { return len(fp.tokens()) == 1 })
-	if got := fp.tokens(); len(got) != 1 || got[0] != "tokOther" {
-		t.Fatalf("pushed tokens = %v, want only tokOther", got)
-	}
-}

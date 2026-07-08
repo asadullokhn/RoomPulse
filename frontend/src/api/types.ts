@@ -96,7 +96,7 @@ export interface Overstay {
 
 export interface Notification {
   id: number
-  type: 'grace_reminder' | 'no_show_released' | 'room_freed' | 'collision' | 'overstay'
+  type: 'grace_reminder' | 'no_show_released' | 'collision' | 'overstay'
   level?: number
   workspace_id?: string
   reservation_id?: string

@@ -66,11 +66,6 @@ func (s *Server) sweepNoShows(ctx context.Context, now time.Time) []domain.Reser
 			Body:      fmt.Sprintf("You didn't check in, so %s was released back to the pool.", room),
 			CreatedAt: now,
 		})
-		s.notify.emit(r.ReservationID+"|freed", Notification{
-			Type: "room_freed", WorkspaceID: r.ZoomWorkspaceID,
-			Title: "Room free", Body: fmt.Sprintf("%s just freed up.", room), CreatedAt: now,
-			ExcludeRecipient: bookerOf(r),
-		})
 		released = append(released, r)
 	}
 	return released

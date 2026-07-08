@@ -86,8 +86,9 @@ func TestSweepNoShowsEmitsNotifications(t *testing.T) {
 	if got := countByType(all, "no_show_released"); got != 1 {
 		t.Fatalf("no_show_released = %d, want 1", got)
 	}
-	if got := countByType(all, "room_freed"); got != 1 {
-		t.Fatalf("room_freed = %d, want 1", got)
+	// No "room freed" broadcast: the booker's targeted note is the only emit.
+	if got := countByType(all, "room_freed"); got != 0 {
+		t.Fatalf("room_freed = %d, want 0", got)
 	}
 	found := false
 	for _, n := range all {
@@ -110,7 +111,6 @@ func TestAPNSFieldsPerType(t *testing.T) {
 	}{
 		{"grace_reminder", "res-1", "ws-a", "GRACE_REMINDER", "time-sensitive", "grace-res-1"},
 		{"no_show_released", "res-1", "ws-a", "NO_SHOW_RELEASED", "active", "res-res-1"},
-		{"room_freed", "", "ws-a", "ROOM_FREED", "passive", "freed-ws-a"},
 		{"collision", "res-2", "ws-b", "COLLISION", "time-sensitive", "res-res-2"},
 		{"overstay", "res-3", "ws-b", "OVERSTAY", "active", "res-res-3"},
 		{"unknown_type", "res-4", "ws-c", "", "", ""},

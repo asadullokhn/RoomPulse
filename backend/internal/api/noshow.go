@@ -37,6 +37,10 @@ func (s *Server) sweepNoShows(ctx context.Context, now time.Time) []domain.Reser
 		if r.Status != domain.StatusBooked || r.CheckInStatus != domain.NotCheckedIn {
 			continue // already resolved, or someone showed at some point
 		}
+		if !now.Before(r.EndTime) {
+			continue // already over — releasing frees nothing (a restart mid-window
+			// must not push "you didn't check in" for a booking that has ended)
+		}
 		if len(occ[r.ZoomWorkspaceID]) > 0 {
 			continue // occupied right now — not a no-show
 		}
@@ -55,8 +59,10 @@ func (s *Server) sweepNoShows(ctx context.Context, now time.Time) []domain.Reser
 				continue
 			}
 		}
+		// CheckInStatus stays not_checked_in — it's the truth (nobody came),
+		// and the rating tally counts releases as no-shows only when the
+		// booking was never checked in.
 		r.Status = domain.StatusReleased
-		r.CheckInStatus = domain.CheckedOut
 		s.upsertReservation(r)
 		s.log.Info("released no-show booking", "reservation", r.ReservationID, "workspace", r.ZoomWorkspaceID, "user", r.UserID)
 

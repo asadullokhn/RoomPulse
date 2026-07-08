@@ -305,21 +305,45 @@ func (m *Memory) Reservation(id string) (domain.Reservation, bool) {
 	return r, ok
 }
 
-// ReservationByWorkspace returns the earliest-starting reservation for a
-// workspace. Presence events carry a workspace, not a reservation id.
-func (m *Memory) ReservationByWorkspace(workspaceID string) (domain.Reservation, bool) {
+// ReservationOwningWorkspace returns the reservation a presence event should
+// drive right now. Presence events carry a workspace, not a reservation id —
+// and a workspace accumulates history, so "earliest reservation" once
+// checked a phone into a cancelled booking from two days prior. Priority:
+// a booked reservation whose window covers now; else a checked-in one that
+// ended within the past hour (late leavers checking out); else a booked one
+// starting within 15 minutes (early arrivals).
+func (m *Memory) ReservationOwningWorkspace(workspaceID string, now time.Time) (domain.Reservation, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	var best domain.Reservation
-	found := false
+	var current, recent, upcoming domain.Reservation
+	var haveCurrent, haveRecent, haveUpcoming bool
 	for _, r := range m.reservations {
 		if r.ZoomWorkspaceID != workspaceID {
 			continue
 		}
-		if !found || r.StartTime.Before(best.StartTime) {
-			best = r
-			found = true
+		switch {
+		case r.Status == domain.StatusBooked && !now.Before(r.StartTime) && now.Before(r.EndTime):
+			if !haveCurrent || r.StartTime.Before(current.StartTime) {
+				current, haveCurrent = r, true
+			}
+		case r.CheckInStatus == domain.CheckedIn && !now.Before(r.EndTime) && now.Sub(r.EndTime) <= time.Hour:
+			if !haveRecent || r.EndTime.After(recent.EndTime) {
+				recent, haveRecent = r, true
+			}
+		case r.Status == domain.StatusBooked && now.Before(r.StartTime) && r.StartTime.Sub(now) <= 15*time.Minute:
+			if !haveUpcoming || r.StartTime.Before(upcoming.StartTime) {
+				upcoming, haveUpcoming = r, true
+			}
 		}
 	}
-	return best, found
+	if haveCurrent {
+		return current, true
+	}
+	if haveRecent {
+		return recent, true
+	}
+	if haveUpcoming {
+		return upcoming, true
+	}
+	return domain.Reservation{}, false
 }

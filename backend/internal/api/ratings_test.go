@@ -140,6 +140,42 @@ func TestSweepNoShowsReleasesBadRatedBookerSooner(t *testing.T) {
 	}
 }
 
+// A booking that already ended must never be released as a no-show — after a
+// restart wiped in-memory presence, the sweep pushed "you didn't check in"
+// for a booking that was over (and had been attended).
+func TestSweepNoShowsSkipsEndedBookings(t *testing.T) {
+	now := time.Now()
+	s := newNoShowServer(t, now)
+	res := domain.Reservation{
+		ReservationID: "res-over-and-done", ZoomWorkspaceID: "ws-bedugul",
+		BookedByUserID: "u-x", UserEmail: "x@x.y",
+		StartTime: now.Add(-40 * time.Minute), EndTime: now.Add(-10 * time.Minute),
+		Status: domain.StatusBooked, CheckInStatus: domain.NotCheckedIn, Source: "app",
+	}
+	s.store.UpsertReservation(res)
+
+	s.sweepNoShows(t.Context(), now)
+	if got, _ := s.store.Reservation("res-over-and-done"); got.Status != domain.StatusBooked {
+		t.Fatalf("ended booking status = %s, want untouched booked", got.Status)
+	}
+}
+
+// A real no-show release keeps not_checked_in — stamping checked_out made
+// every no-show count as "showed up" in the rating tally.
+func TestNoShowReleaseKeepsNotCheckedIn(t *testing.T) {
+	now := time.Now()
+	s := newNoShowServer(t, now)
+	// Default seed: res-agung is the live no-show at t=now.
+	s.sweepNoShows(t.Context(), now)
+	got, ok := s.store.Reservation("res-agung")
+	if !ok || got.Status != domain.StatusReleased {
+		t.Fatalf("res-agung = %+v ok=%v, want released", got, ok)
+	}
+	if got.CheckInStatus != domain.NotCheckedIn {
+		t.Fatalf("check_in_status = %s, want not_checked_in", got.CheckInStatus)
+	}
+}
+
 func TestPatchUserRatingOverride(t *testing.T) {
 	s := newNoShowServer(t, time.Now())
 	_ = mintSession(t, s, "u-rt", "rt@x.y")

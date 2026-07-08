@@ -607,7 +607,7 @@ func (s *Server) upsertReservation(res domain.Reservation) {
 // bookings). App-sourced bookings (Source == "app") have no Zoom
 // counterpart, so the Zoom call is skipped for them.
 func (s *Server) driveReservation(ctx context.Context, workspaceID string, event zoom.EventType, newStatus domain.CheckInStatus) {
-	res, ok := s.store.ReservationByWorkspace(workspaceID)
+	res, ok := s.store.ReservationOwningWorkspace(workspaceID, time.Now())
 	if !ok {
 		return
 	}
@@ -670,7 +670,7 @@ func (s *Server) presence(w http.ResponseWriter, r *http.Request) {
 
 	// Presence (headcount) is tracked above regardless of bookings. Below we
 	// best-effort drive the booker's reservation check-in/out.
-	res, ok := s.store.ReservationByWorkspace(body.WorkspaceID)
+	res, ok := s.store.ReservationOwningWorkspace(body.WorkspaceID, time.Now())
 	if !ok {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"status":       "recorded",

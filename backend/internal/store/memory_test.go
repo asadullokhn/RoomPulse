@@ -3,6 +3,8 @@ package store
 import (
 	"testing"
 	"time"
+
+	"quickroom/internal/domain"
 )
 
 func occCount(m *Memory, ws string) int {
@@ -92,6 +94,41 @@ func TestReapStaleUserPresence(t *testing.T) {
 	}
 	if len(reaped) != 1 || reaped[0].UserID != "u-stale" || reaped[0].WorkspaceID != "ws-b" {
 		t.Fatalf("reaped=%v want u-stale in ws-b", reaped)
+	}
+}
+
+// The selector must ignore workspace history (a cancelled booking from two
+// days ago once swallowed a live check-in) and pick what owns the room now.
+func TestReservationOwningWorkspace(t *testing.T) {
+	m := NewMemory()
+	now := time.Now()
+	mk := func(id string, start, end time.Duration, status domain.ReservationStatus, ci domain.CheckInStatus) {
+		m.UpsertReservation(domain.Reservation{
+			ReservationID: id, ZoomWorkspaceID: "ws-a",
+			StartTime: now.Add(start), EndTime: now.Add(end),
+			Status: status, CheckInStatus: ci,
+		})
+	}
+	mk("ancient-cancelled", -48*time.Hour, -47*time.Hour, domain.StatusCancelled, domain.NotCheckedIn)
+	mk("yesterday", -24*time.Hour, -23*time.Hour, domain.StatusReleased, domain.NotCheckedIn)
+
+	if _, ok := m.ReservationOwningWorkspace("ws-a", now); ok {
+		t.Fatal("history alone must not own the workspace")
+	}
+
+	mk("upcoming", 10*time.Minute, 40*time.Minute, domain.StatusBooked, domain.NotCheckedIn)
+	if r, ok := m.ReservationOwningWorkspace("ws-a", now); !ok || r.ReservationID != "upcoming" {
+		t.Fatalf("early arrival should pick upcoming, got %+v ok=%v", r, ok)
+	}
+
+	mk("recent-end", -90*time.Minute, -5*time.Minute, domain.StatusBooked, domain.CheckedIn)
+	if r, _ := m.ReservationOwningWorkspace("ws-a", now); r.ReservationID != "recent-end" {
+		t.Fatalf("late leaver should beat upcoming, got %s", r.ReservationID)
+	}
+
+	mk("current", -10*time.Minute, 20*time.Minute, domain.StatusBooked, domain.NotCheckedIn)
+	if r, _ := m.ReservationOwningWorkspace("ws-a", now); r.ReservationID != "current" {
+		t.Fatalf("current window must win, got %s", r.ReservationID)
 	}
 }
 

@@ -106,12 +106,12 @@ const bookSort = ref('newest')
 
 const HISTORY_STATUS: Record<string, { label: string; tone: string }> = {
   booked: { label: 'Booked', tone: 'b-blue' },
-  no_show: { label: 'No-show', tone: 'b-amber' },
-  released: { label: 'Released', tone: 'b-muted' },
-  cancelled: { label: 'Cancelled', tone: 'b-muted' },
+  no_show: { label: 'Released', tone: 'b-amber' }, // outcome, not cause
+  released: { label: 'Released', tone: 'b-amber' },
+  cancelled: { label: 'Cancelled', tone: 'b-danger' },
 }
 function bookingBadge(r: Reservation) {
-  if (r.status === 'booked' && r.check_in_status === 'checked_in') return { label: 'Checked in', tone: 'b-signal' }
+  if (r.status === 'booked' && r.check_in_status === 'checked_in') return { label: 'Checked-In', tone: 'b-signal' }
   if (r.status === 'booked' && r.check_in_status === 'checked_out') return { label: 'Checked out', tone: 'b-muted' }
   return HISTORY_STATUS[r.status] ?? HISTORY_STATUS.booked
 }

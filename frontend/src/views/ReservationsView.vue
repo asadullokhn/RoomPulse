@@ -69,12 +69,11 @@ function editable(r: Reservation) { return r.source === 'app' && r.status === 'b
 // sort of the list.
 const STATUS_META = {
   conflict: { label: 'Conflict', tone: 'b-danger', order: 0 },
-  checked_in: { label: 'Checked in', tone: 'b-signal', order: 1 },
+  checked_in: { label: 'Checked-In', tone: 'b-signal', order: 1 },
   booked: { label: 'Booked', tone: 'b-blue', order: 2 },
   checked_out: { label: 'Checked out', tone: 'b-muted', order: 3 },
-  no_show: { label: 'No-show', tone: 'b-amber', order: 4 },
-  released: { label: 'Released', tone: 'b-muted', order: 5 },
-  cancelled: { label: 'Cancelled', tone: 'b-muted', order: 6 },
+  released: { label: 'Released', tone: 'b-amber', order: 4 },
+  cancelled: { label: 'Cancelled', tone: 'b-danger', order: 5 },
 } as const
 type DisplayStatus = keyof typeof STATUS_META
 
@@ -87,6 +86,9 @@ function displayStatus(r: Reservation): DisplayStatus {
     if (r.check_in_status === 'checked_out') return 'checked_out'
     return 'booked'
   }
+  // A no-show is shown as Released everywhere — the outcome (room given
+  // back) is what matters; the cause stays in the dashboard stats.
+  if (r.status === 'no_show') return 'released'
   return r.status as DisplayStatus
 }
 function statusMeta(r: Reservation) { return STATUS_META[displayStatus(r)] ?? STATUS_META.booked }

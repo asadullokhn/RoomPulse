@@ -24,7 +24,7 @@ const occByWs = computed(() => {
 
 const stats = computed(() => util.value ? [
   { label: 'Bookings today', value: String(util.value.bookings) },
-  { label: 'Checked in', value: String(util.value.checked_in) },
+  { label: 'Checked-In', value: String(util.value.checked_in) },
   { label: 'Auto-released', value: String(util.value.no_show_released) },
   { label: 'No-show rate', value: `${Math.round(util.value.no_show_rate * 100)}%` },
   { label: 'Rooms in use', value: `${util.value.rooms_occupied}/${util.value.rooms_total}` },

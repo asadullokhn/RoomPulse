@@ -43,9 +43,8 @@ const blocksByRoom = computed<Record<string, Block[]>>(() => {
     const left = pct(s)
     const width = Math.max(pct(e) - left, 1.2)
     const tone = r.check_in_status === 'checked_in' ? 'green'
-      : r.status === 'booked' ? 'blue'
-      : r.status === 'no_show' ? 'red' : 'gray'
-    const faded = r.status === 'cancelled' || r.status === 'released'
+      : r.status === 'booked' ? 'blue' : 'gray'
+    const faded = r.status !== 'booked'
     ;(m[r.zoom_workspace_id] ??= []).push({ r, left, width, tone, faded })
   }
   return m
@@ -118,8 +117,7 @@ function onTrackClick(e: MouseEvent, ws: string) {
     </div>
     <div class="legend">
       <span><i class="sw blue" />Booked</span>
-      <span><i class="sw green" />Checked in</span>
-      <span><i class="sw red" />No-show</span>
+      <span><i class="sw green" />Checked-In</span>
       <span><i class="sw gray" />Released or cancelled</span>
       <span class="hint">Click an empty slot to book it.</span>
     </div>
@@ -149,7 +147,6 @@ function onTrackClick(e: MouseEvent, ws: string) {
 .block .when { font-size: 9.5px; opacity: .75; white-space: nowrap; overflow: hidden; font-variant-numeric: tabular-nums; }
 .block.blue { background: rgba(0, 113, 227, .14); box-shadow: inset 3px 0 0 var(--accent); color: #0058b0; }
 .block.green { background: rgba(52, 199, 89, .16); box-shadow: inset 3px 0 0 var(--signal); color: #1d8a3e; }
-.block.red { background: rgba(255, 59, 48, .12); box-shadow: inset 3px 0 0 var(--danger); color: #d70015; }
 .block.gray { background: rgba(0, 0, 0, .06); box-shadow: inset 3px 0 0 rgba(0, 0, 0, .22); color: var(--muted); }
 .block.faded { opacity: .55; z-index: 1; }
 .now { position: absolute; top: 0; bottom: 0; width: 1.5px; background: var(--danger); z-index: 4; pointer-events: none; }
@@ -160,7 +157,6 @@ function onTrackClick(e: MouseEvent, ws: string) {
 .sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
 .sw.blue { background: rgba(0, 113, 227, .35); }
 .sw.green { background: rgba(52, 199, 89, .45); }
-.sw.red { background: rgba(255, 59, 48, .35); }
 .sw.gray { background: rgba(0, 0, 0, .18); }
 .legend .hint { margin-left: auto; color: var(--faint); }
 </style>

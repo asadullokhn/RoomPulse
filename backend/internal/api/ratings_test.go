@@ -160,6 +160,43 @@ func TestSweepNoShowsSkipsEndedBookings(t *testing.T) {
 	}
 }
 
+// A checked-in booker stepping out must not be checked out immediately —
+// only after checkoutLinger of absence. Returning within the linger clears
+// the clock with no visible state change.
+func TestDeferredCheckoutLinger(t *testing.T) {
+	now := time.Now()
+	s := newNoShowServer(t, now)
+	res := domain.Reservation{
+		ReservationID: "res-linger", ZoomWorkspaceID: "ws-bedugul",
+		BookedByUserID: "u-lin", UserEmail: "lin@x.y",
+		StartTime: now.Add(-30 * time.Minute), EndTime: now.Add(60 * time.Minute),
+		Status: domain.StatusBooked, CheckInStatus: domain.CheckedIn, Source: "app",
+	}
+	s.store.UpsertReservation(res)
+
+	// Absent booker: first sweep only starts the clock.
+	s.sweepDeferredCheckouts(t.Context(), now)
+	if got, _ := s.store.Reservation("res-linger"); got.CheckInStatus != domain.CheckedIn {
+		t.Fatalf("immediately after exit: %s, want still checked_in", got.CheckInStatus)
+	}
+
+	// Comes back 2 minutes later — the clock resets, nothing happened.
+	s.store.ApplyPresenceIfNewer("ws-bedugul", "u-lin", "Lin", now.UnixMilli(), true)
+	s.sweepDeferredCheckouts(t.Context(), now.Add(2*time.Minute))
+	s.store.ApplyPresenceIfNewer("ws-bedugul", "u-lin", "Lin", now.UnixMilli()+1, false)
+
+	// Absent again: linger must elapse from the NEW absence, not the first.
+	s.sweepDeferredCheckouts(t.Context(), now.Add(3*time.Minute))
+	s.sweepDeferredCheckouts(t.Context(), now.Add(10*time.Minute))
+	if got, _ := s.store.Reservation("res-linger"); got.CheckInStatus != domain.CheckedIn {
+		t.Fatalf("7m into second absence: %s, want still checked_in", got.CheckInStatus)
+	}
+	s.sweepDeferredCheckouts(t.Context(), now.Add(19*time.Minute))
+	if got, _ := s.store.Reservation("res-linger"); got.CheckInStatus != domain.CheckedOut {
+		t.Fatalf("16m into second absence: %s, want checked_out", got.CheckInStatus)
+	}
+}
+
 // A real no-show release keeps not_checked_in — stamping checked_out made
 // every no-show count as "showed up" in the rating tally.
 func TestNoShowReleaseKeepsNotCheckedIn(t *testing.T) {

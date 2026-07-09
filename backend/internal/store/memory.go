@@ -109,20 +109,48 @@ func (m *Memory) SetDeviceRoom(deviceID, workspaceID, displayName string, ts int
 }
 
 // ApplyPresenceIfNewer updates presence only if ts is at least as new as the
-// last applied event for this (workspace, user). Returns false for stale events
-// — this makes out-of-order phone POSTs non-corrupting (last-event-wins).
-func (m *Memory) ApplyPresenceIfNewer(workspaceID, userID, displayName string, ts int64, entered bool) bool {
+// last applied event for this (workspace, user). Returns applied=false for
+// stale events — this makes out-of-order phone POSTs non-corrupting
+// (last-event-wins). A person is in one room at a time, but the app's exit
+// only fires when the phone leaves the whole beacon region — walking from
+// room A to room B just produces a fresh "entered". So an enter MOVES the
+// user: they're removed from every other workspace, returned in movedFrom so
+// the caller can log the implicit leaves.
+func (m *Memory) ApplyPresenceIfNewer(workspaceID, userID, displayName string, ts int64, entered bool) (applied bool, movedFrom []string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	key := workspaceID + "|" + userID
 	if ts > 0 && ts < m.lastPresenceTS[key] {
-		return false // stale: a newer event already applied
+		return false, nil // stale: a newer event already applied
+	}
+	if entered {
+		// Cross-room staleness: presence in another room applied from a newer
+		// event means this enter is a late arrival — moving would corrupt.
+		for ws, set := range m.presence {
+			if ws == workspaceID {
+				continue
+			}
+			if _, in := set[userID]; in && ts > 0 && ts < m.lastPresenceTS[ws+"|"+userID] {
+				return false, nil
+			}
+		}
 	}
 	m.lastPresenceTS[key] = ts
 	if m.presence[workspaceID] == nil {
 		m.presence[workspaceID] = make(map[string]struct{})
 	}
 	if entered {
+		for ws, set := range m.presence {
+			if ws == workspaceID {
+				continue
+			}
+			if _, in := set[userID]; in {
+				delete(set, userID)
+				delete(m.presenceSeenAt, ws+"|"+userID)
+				movedFrom = append(movedFrom, ws)
+			}
+		}
+		sort.Strings(movedFrom)
 		m.presence[workspaceID][userID] = struct{}{}
 		m.presenceSeenAt[key] = time.Now() // server-side TTL clock
 		if displayName == "" {
@@ -133,7 +161,7 @@ func (m *Memory) ApplyPresenceIfNewer(workspaceID, userID, displayName string, t
 		delete(m.presence[workspaceID], userID)
 		delete(m.presenceSeenAt, key)
 	}
-	return true
+	return true, movedFrom
 }
 
 // ReapedUser is a user-presence entry expired by the TTL backstop.

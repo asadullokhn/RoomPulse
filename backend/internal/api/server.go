@@ -49,6 +49,11 @@ const (
 	// booking — because a backgrounded phone in the room sends nothing between
 	// its enter and exit; the app refreshes the clock on every foreground.
 	userPresenceTTL = 2 * time.Hour
+
+	// checkoutLinger is how long a checked-in booking's booker must be absent
+	// before the booking flips to checked-out. Stepping out for a coffee must
+	// not check you out; coming back within the linger means nothing happened.
+	checkoutLinger = 15 * time.Minute
 )
 
 // OAuthFlow is implemented by the user-OAuth Zoom client. When the active
@@ -91,6 +96,11 @@ type Server struct {
 	// flagged (the inverse of a no-show). Set via ConfigureOverstay.
 	overstayGrace time.Duration
 
+	// absentSince tracks when a checked-in booking's booker was first seen
+	// absent, keyed by reservation id — the checkout-linger clock. Touched
+	// only from the GraceLoop goroutine.
+	absentSince map[string]time.Time
+
 	// Sign in with Apple + JWT issuance.
 	appleVerifier *appleauth.Verifier
 	userTokenTTL  time.Duration
@@ -105,7 +115,7 @@ func NewServer(st *store.Memory, db *store.DB, sync *syncsvc.Service, zc zoom.Cl
 	s := &Server{store: st, db: db, sync: sync, zoom: zc, mode: mode, ttl: ttl, log: log, diags: newDiagBuffer(50), decisions: newDecisionStore(), scenarioAnswers: newScenarioAnswerStore(), history: newHistoryBuffer(20),
 		graceFraction: 0.10, graceMin: 90 * time.Second, graceMax: 15 * time.Minute,
 		notify: newNotifier(200), notifyFirstFrac: 0.05, notifySecondFrac: 0.075, notifySecondEnabled: true,
-		overstayGrace: 5 * time.Minute,
+		overstayGrace: 5 * time.Minute, absentSince: map[string]time.Time{},
 		appleVerifier: appleVerifier, userTokenTTL: userTokenTTL, signer: signer}
 	if of, ok := zc.(OAuthFlow); ok {
 		s.oauth = of
@@ -178,6 +188,7 @@ func (s *Server) GraceLoop(ctx context.Context) {
 			if flagged := s.sweepNoShows(ctx, now); len(flagged) > 0 {
 				s.log.Info("released no-show bookings", "count", len(flagged))
 			}
+			s.sweepDeferredCheckouts(ctx, now)
 			if conflicts := s.sweepCollisions(now); len(conflicts) > 0 {
 				s.log.Info("booking conflicts flagged", "count", len(conflicts))
 			}
@@ -602,6 +613,51 @@ func (s *Server) upsertReservation(res domain.Reservation) {
 	}
 }
 
+// sweepDeferredCheckouts flips checked-in bookings to checked-out once their
+// booker has been absent for checkoutLinger. The exit event itself never
+// checks out (a 2-minute step-out isn't leaving); returning within the
+// linger resets the clock without a visible state change.
+func (s *Server) sweepDeferredCheckouts(ctx context.Context, now time.Time) {
+	occ := s.store.AllOccupancyIdents()
+	live := map[string]bool{}
+	for _, r := range s.store.Reservations() {
+		if r.Status != domain.StatusBooked || r.CheckInStatus != domain.CheckedIn {
+			continue
+		}
+		live[r.ReservationID] = true
+		if bookerPresent(r, occ[r.ZoomWorkspaceID]) {
+			delete(s.absentSince, r.ReservationID)
+			continue
+		}
+		since, tracked := s.absentSince[r.ReservationID]
+		if !tracked {
+			s.absentSince[r.ReservationID] = now
+			continue
+		}
+		if now.Sub(since) < checkoutLinger {
+			continue
+		}
+		if r.Source != "app" {
+			c, cancel := context.WithTimeout(ctx, 5*time.Second)
+			err := s.zoom.SendEvent(c, zoom.EventCheckOut, r.ReservationID)
+			cancel()
+			if err != nil {
+				s.log.Warn("deferred checkout failed", "reservation", r.ReservationID, "err", err)
+				continue // retried next sweep
+			}
+		}
+		r.CheckInStatus = domain.CheckedOut
+		s.upsertReservation(r)
+		delete(s.absentSince, r.ReservationID)
+		s.log.Info("checked out after linger", "reservation", r.ReservationID, "workspace", r.ZoomWorkspaceID)
+	}
+	for id := range s.absentSince {
+		if !live[id] {
+			delete(s.absentSince, id) // booking resolved some other way
+		}
+	}
+}
+
 // driveReservation reflects a room's occupancy onto its booking's check-in
 // state (best-effort; Zoom stays the source of truth for zoom-sourced
 // bookings). App-sourced bookings (Source == "app") have no Zoom
@@ -643,34 +699,46 @@ func (s *Server) presence(w http.ResponseWriter, r *http.Request) {
 	}
 	body.DisplayName = clamp(body.DisplayName, maxNameLen)
 
-	var event zoom.EventType
-	var newStatus domain.CheckInStatus
-	switch body.EventType {
-	case "entered":
-		event, newStatus = zoom.EventCheckIn, domain.CheckedIn
-	case "exited":
-		event, newStatus = zoom.EventCheckOut, domain.CheckedOut
-	default:
+	if body.EventType != "entered" && body.EventType != "exited" {
 		writeError(w, http.StatusUnprocessableEntity, "event_type must be 'entered' or 'exited'")
 		return
 	}
+	entered := body.EventType == "entered"
 
 	// Headcount: apply only if this event is newer than the last for this
 	// (workspace, user). Drops out-of-order/flap events so state can't corrupt.
-	if !s.store.ApplyPresenceIfNewer(body.WorkspaceID, body.UserID, body.DisplayName, body.EventTS, body.EventType == "entered") {
+	applied, movedFrom := s.store.ApplyPresenceIfNewer(body.WorkspaceID, body.UserID, body.DisplayName, body.EventTS, entered)
+	if !applied {
 		writeJSON(w, http.StatusOK, map[string]any{"status": "stale_ignored", "workspace_id": body.WorkspaceID})
 		return
 	}
 
+	now := time.Now()
 	kind := "leave"
-	if body.EventType == "entered" {
+	if entered {
 		kind = "enter"
 	}
-	s.logEvent(body.WorkspaceID, body.UserID, body.DisplayName, kind, time.Now())
+	s.logEvent(body.WorkspaceID, body.UserID, body.DisplayName, kind, now)
+	// An enter in a new room is an implicit leave of the old one — the phone
+	// never sends that exit (the beacon region covers all rooms).
+	for _, prev := range movedFrom {
+		s.logEvent(prev, body.UserID, body.DisplayName, "leave", now)
+	}
+
+	// Exits (explicit or via a room move) never drive check-out here: a short
+	// step-out must not flip the booking. sweepDeferredCheckouts checks out a
+	// booking only after its booker has been absent for checkoutLinger.
+	if !entered {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"status":       "recorded",
+			"workspace_id": body.WorkspaceID,
+		})
+		return
+	}
 
 	// Presence (headcount) is tracked above regardless of bookings. Below we
-	// best-effort drive the booker's reservation check-in/out.
-	res, ok := s.store.ReservationOwningWorkspace(body.WorkspaceID, time.Now())
+	// best-effort drive the booker's reservation check-in.
+	res, ok := s.store.ReservationOwningWorkspace(body.WorkspaceID, now)
 	if !ok {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"status":       "recorded",
@@ -682,13 +750,13 @@ func (s *Server) presence(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 	if res.Source != "app" {
-		if err := s.zoom.SendEvent(ctx, event, res.ReservationID); err != nil {
+		if err := s.zoom.SendEvent(ctx, zoom.EventCheckIn, res.ReservationID); err != nil {
 			writeError(w, http.StatusBadGateway, err.Error())
 			return
 		}
 	}
 
-	res.CheckInStatus = newStatus
+	res.CheckInStatus = domain.CheckedIn
 	s.upsertReservation(res)
 	s.log.Info("presence applied", "event", body.EventType, "workspace", body.WorkspaceID, "user", body.UserID)
 	writeJSON(w, http.StatusOK, res)

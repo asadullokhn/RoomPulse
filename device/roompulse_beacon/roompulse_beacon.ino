@@ -24,6 +24,12 @@
 // iBeacon advertising interval (ms). 100 ms = Apple's reference — more adverts
 // means faster, more reliable detection by the phone. Units are 0.625 ms.
 #define ADV_INTERVAL_MS 100
+// BLE transmit power. Lower = shorter range, so the phone only checks you in
+// when you're genuinely close / inside the room instead of picking the beacon
+// up from the corridor. The C6 otherwise advertises at its default (high) power.
+// After changing this, re-measure MEASURED_POWER — the 1 m RSSI shifts with it.
+// Scale: ESP_PWR_LVL_N12 (−12 dBm, weakest) · N9 · N6 · N3 · N0 (0) · P9 (+9, strong).
+#define BEACON_TX_POWER ESP_PWR_LVL_N12
 // =============================================
 
 #include <BLEDevice.h>
@@ -176,6 +182,8 @@ void setup() {
                 g_minor, g_minOverride ? "override" : "auto");
 
   BLEDevice::init(DEVICE_NAME);
+  // Dial the radio down so the detection range matches a room, not the corridor.
+  BLEDevice::setPower(BEACON_TX_POWER, ESP_BLE_PWR_TYPE_ADV);
 
   String payload = buildPayload();
   logHex(payload);

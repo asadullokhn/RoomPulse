@@ -5,9 +5,10 @@ enum BeaconConstants {
     /// share it. Major = floor/zone, Minor = room number.
     static let uuid = UUID(uuidString: "11111111-2222-3333-4444-555555555555")!
 
-    /// Default backend base URL — the public TezTun tunnel, so the app works
-    /// from anywhere with no manual setup. (Override in-app for local testing.)
-    static let defaultBackendBaseURL = "https://room.teztun.uz"
+    /// Default backend base URL — Cloudflare-proxied, origin IP hidden, so the
+    /// app works from anywhere with no manual setup. (Override in-app for local
+    /// testing.)
+    static let defaultBackendBaseURL = "https://rp.asadullokhn.uz"
 }
 
 /// A room's beacon identity, mapped to the backend's Zoom workspace id.

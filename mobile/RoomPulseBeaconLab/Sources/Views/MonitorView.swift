@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// The main screen. Auto check-in is the whole point, so it's the hero: one
 /// status, one action. Everything tunable or temporary (name, sensitivity,
@@ -143,6 +144,7 @@ struct MonitorView: View {
                             .onChange(of: backendURL) { newValue in AppSettings.backendBaseURL = newValue }
                         LabeledContent("Device ID", value: AppSettings.deviceID)
                             .font(.caption).foregroundStyle(.secondary)
+                        DiagnosticsCard(monitor: monitor)
                     }
                 }
             }
@@ -152,6 +154,151 @@ struct MonitorView: View {
                 guard !reduceMotion else { return }
                 withAnimation(.easeOut(duration: 2.2).repeatForever(autoreverses: false)) { pulse = true }
             }
+        }
+    }
+}
+
+/// Health panel for the (Advanced) section: a one-line verdict plus a colour-coded
+/// checklist of the things closed-app check-in actually depends on. Replaces the
+/// old single monospaced debug string with something a non-engineer can read.
+private struct DiagnosticsCard: View {
+    @ObservedObject var monitor: RoomMonitor
+    @State private var copied = false
+    @State private var sending = false
+    @State private var sendResult: Bool? = nil   // nil = idle, true/false = last outcome
+    @State private var sendingHist = false
+    @State private var histResult: Bool? = nil
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            // Verdict
+            HStack(spacing: 8) {
+                Image(systemName: monitor.diagReady ? "checkmark.seal.fill" : "exclamationmark.triangle.fill")
+                    .foregroundStyle(monitor.diagReady ? .green : .orange)
+                Text(monitor.diagSummary)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(monitor.diagReady ? .green : .primary)
+                Spacer()
+            }
+
+            // Checklist
+            ForEach(monitor.diagRows) { row in
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 10) {
+                        Image(systemName: row.level.icon)
+                            .font(.footnote)
+                            .foregroundStyle(row.level.color)
+                            .frame(width: 18)
+                        Text(row.label).font(.subheadline)
+                        Spacer(minLength: 8)
+                        Text(row.value)
+                            .font(.subheadline.weight(.medium).monospacedDigit())
+                            .foregroundStyle(row.level == .info ? .secondary : row.level.color)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+                    if let hint = row.hint {
+                        Text(hint)
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.leading, 28)
+                    }
+                }
+            }
+
+            // Actions: copy the one-line readout, or push the full snapshot to
+            // the backend so it can be reviewed remotely (GET /diag).
+            HStack(spacing: 18) {
+                Button {
+                    UIPasteboard.general.string = monitor.diag
+                    copied = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { copied = false }
+                } label: {
+                    Label(copied ? "Copied" : "Copy",
+                          systemImage: copied ? "checkmark" : "doc.on.doc")
+                }
+                .buttonStyle(.borderless)
+
+                Button {
+                    sending = true
+                    sendResult = nil
+                    monitor.sendDiagnostics { ok in
+                        sending = false
+                        sendResult = ok
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { sendResult = nil }
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        if sending {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Image(systemName: sendResult == nil ? "icloud.and.arrow.up"
+                                : (sendResult == true ? "checkmark.icloud.fill" : "exclamationmark.icloud"))
+                        }
+                        Text(sending ? "Sending…"
+                            : (sendResult == nil ? "Send to backend"
+                            : (sendResult == true ? "Sent" : "Failed")))
+                    }
+                    .foregroundStyle(sendResult == false ? .red : Brand.teal)
+                }
+                .buttonStyle(.borderless)
+                .disabled(sending)
+
+                Spacer()
+            }
+            .font(.caption)
+            .tint(Brand.teal)
+
+            // Full event history — tap this when something misbehaves, so the
+            // whole background timeline (region events, check-ins, lock/unlock)
+            // lands on the backend for review.
+            Button {
+                sendingHist = true
+                histResult = nil
+                monitor.sendHistory { ok in
+                    sendingHist = false
+                    histResult = ok
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { histResult = nil }
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    if sendingHist {
+                        ProgressView().controlSize(.small)
+                    } else {
+                        Image(systemName: histResult == nil ? "clock.arrow.circlepath"
+                            : (histResult == true ? "checkmark.icloud.fill" : "exclamationmark.icloud"))
+                    }
+                    Text(sendingHist ? "Sending…"
+                        : (histResult == nil ? "Send full history"
+                        : (histResult == true ? "History sent" : "Failed")))
+                }
+                .font(.caption)
+                .foregroundStyle(histResult == false ? .red : Brand.teal)
+            }
+            .buttonStyle(.borderless)
+            .disabled(sendingHist)
+        }
+        .padding(.vertical, 4)
+        .onAppear { monitor.updateDiag() }
+    }
+}
+
+private extension DiagLevel {
+    var color: Color {
+        switch self {
+        case .ok:   return .green
+        case .warn: return .orange
+        case .bad:  return .red
+        case .info: return Brand.teal
+        }
+    }
+    var icon: String {
+        switch self {
+        case .ok:   return "checkmark.circle.fill"
+        case .warn: return "exclamationmark.triangle.fill"
+        case .bad:  return "xmark.circle.fill"
+        case .info: return "info.circle.fill"
         }
     }
 }

@@ -28,3 +28,4 @@
 
 # belt-and-suspenders
 build/
+__pycache__/

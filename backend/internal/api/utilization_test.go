@@ -28,8 +28,9 @@ func TestUtilizationReport(t *testing.T) {
 		t.Errorf("rooms_total = %d, want 10 (seed rooms)", u.RoomsTotal)
 	}
 
-	// Release the one true no-show (res-agung) and put someone in a room.
-	srv.sweepNoShows(context.Background(), now)
+	// Release the one true no-show (res-agung, past its 12m grace at now+3m)
+	// and put someone in a room.
+	srv.sweepNoShows(context.Background(), now.Add(3*time.Minute))
 	srv.store.ApplyPresenceIfNewer("ws-petang", "u1", "One", now.UnixMilli(), true)
 	srv.store.ApplyPresenceIfNewer("ws-petang", "u2", "Two", now.UnixMilli(), true)
 

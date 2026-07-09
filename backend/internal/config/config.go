@@ -5,7 +5,6 @@ package config
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"time"
 )
 
@@ -40,18 +39,15 @@ type Config struct {
 	DBPath string
 
 	// No-show grace: a booking whose start passes by this window with nobody
-	// ever present is auto-released. Grace = GraceFraction of the booking length
-	// (Reno's proportional model), clamped to [GraceMin, GraceMax]. So a 2h
-	// booking at 10% = 12m; a 15m booking clamps up to GraceMin.
-	GraceFraction float64
-	GraceMin      time.Duration
-	GraceMax      time.Duration
+	// ever present is auto-released. Production model: one fixed window for
+	// every booking length; bookers rated below 50 get half of it.
+	GraceWindow time.Duration
 
-	// Grace-reminder ladder (Reno's model): "are you coming?" pings fire at these
-	// fractions of the booking elapsed, before the no-show release at
-	// GraceFraction. The second ping can be disabled to limit notification fatigue.
-	NotifyFirstFraction  float64
-	NotifySecondFraction float64
+	// Grace-reminder ladder: "are you coming?" fires NotifyFirstAfter into
+	// the booking; the optional last call fires NotifyLastCallBefore ahead of
+	// the release. The second ping can be disabled to limit notification fatigue.
+	NotifyFirstAfter     time.Duration
+	NotifyLastCallBefore time.Duration
 	NotifySecondEnabled  bool
 
 	// OverstayGrace: a room still occupied this long past its booking's end is
@@ -107,24 +103,15 @@ func Load() (Config, error) {
 	}
 	c.PresenceTTL = ttl
 
-	frac, err := strconv.ParseFloat(getenv("GRACE_FRACTION", "0.10"), 64)
-	if err != nil || frac <= 0 || frac >= 1 {
-		return Config{}, fmt.Errorf("invalid GRACE_FRACTION (want 0<f<1): %q", getenv("GRACE_FRACTION", "0.10"))
-	}
-	c.GraceFraction = frac
-
-	if c.GraceMin, err = time.ParseDuration(getenv("GRACE_MIN", "90s")); err != nil {
-		return Config{}, fmt.Errorf("invalid GRACE_MIN: %w", err)
-	}
-	if c.GraceMax, err = time.ParseDuration(getenv("GRACE_MAX", "15m")); err != nil {
-		return Config{}, fmt.Errorf("invalid GRACE_MAX: %w", err)
+	if c.GraceWindow, err = time.ParseDuration(getenv("GRACE_WINDOW", "12m")); err != nil {
+		return Config{}, fmt.Errorf("invalid GRACE_WINDOW: %w", err)
 	}
 
-	if c.NotifyFirstFraction, err = strconv.ParseFloat(getenv("NOTIFY_FIRST_FRACTION", "0.05"), 64); err != nil {
-		return Config{}, fmt.Errorf("invalid NOTIFY_FIRST_FRACTION: %w", err)
+	if c.NotifyFirstAfter, err = time.ParseDuration(getenv("NOTIFY_FIRST_AFTER", "2m")); err != nil {
+		return Config{}, fmt.Errorf("invalid NOTIFY_FIRST_AFTER: %w", err)
 	}
-	if c.NotifySecondFraction, err = strconv.ParseFloat(getenv("NOTIFY_SECOND_FRACTION", "0.075"), 64); err != nil {
-		return Config{}, fmt.Errorf("invalid NOTIFY_SECOND_FRACTION: %w", err)
+	if c.NotifyLastCallBefore, err = time.ParseDuration(getenv("NOTIFY_LAST_CALL_BEFORE", "2m")); err != nil {
+		return Config{}, fmt.Errorf("invalid NOTIFY_LAST_CALL_BEFORE: %w", err)
 	}
 	c.NotifySecondEnabled = getenv("NOTIFY_SECOND_ENABLED", "true") != "false"
 

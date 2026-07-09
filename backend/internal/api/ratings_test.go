@@ -94,21 +94,19 @@ func TestEffectiveGraceHalvedForBadRating(t *testing.T) {
 		"u-bad":  {Effective: 25},
 		"u-good": {Effective: 80},
 	}
-	booking := 60 * time.Minute // 10% = 6m
-	if got := s.effectiveGrace(booking, "u-good", ratings); got != 6*time.Minute {
-		t.Errorf("good grace = %v, want 6m", got)
+	if got := s.effectiveGrace("u-good", ratings); got != 12*time.Minute {
+		t.Errorf("good grace = %v, want 12m", got)
 	}
-	if got := s.effectiveGrace(booking, "u-bad", ratings); got != 3*time.Minute {
-		t.Errorf("bad grace = %v, want 3m", got)
+	if got := s.effectiveGrace("u-bad", ratings); got != 6*time.Minute {
+		t.Errorf("bad grace = %v, want 6m", got)
 	}
-	if got := s.effectiveGrace(booking, "u-unknown", ratings); got != 6*time.Minute {
-		t.Errorf("unknown booker grace = %v, want 6m", got)
+	if got := s.effectiveGrace("u-unknown", ratings); got != 12*time.Minute {
+		t.Errorf("unknown booker grace = %v, want 12m", got)
 	}
 }
 
-// A booking 4m into its window (60m long -> 6m default grace) survives the
-// sweep for a good booker but is released for one rated below the threshold
-// (grace halved to 3m).
+// A booking 8m into its window survives the sweep for a good booker (12m
+// grace) but is released for one rated below the threshold (halved to 6m).
 func TestSweepNoShowsReleasesBadRatedBookerSooner(t *testing.T) {
 	now := time.Now()
 	s := newNoShowServer(t, now)
@@ -118,7 +116,7 @@ func TestSweepNoShowsReleasesBadRatedBookerSooner(t *testing.T) {
 	res := domain.Reservation{
 		ReservationID: "res-flaky", ZoomWorkspaceID: "ws-bedugul",
 		BookedByUserID: "u-flaky", UserEmail: "flaky@x.y",
-		StartTime: now.Add(-4 * time.Minute), EndTime: now.Add(56 * time.Minute),
+		StartTime: now.Add(-8 * time.Minute), EndTime: now.Add(52 * time.Minute),
 		Status: domain.StatusBooked, CheckInStatus: domain.NotCheckedIn, Source: "app",
 	}
 	s.store.UpsertReservation(res)
@@ -126,7 +124,7 @@ func TestSweepNoShowsReleasesBadRatedBookerSooner(t *testing.T) {
 	s.sweepNoShows(t.Context(), now)
 	got, _ := s.store.Reservation("res-flaky")
 	if got.Status != domain.StatusReleased {
-		t.Fatalf("bad-rated booker status = %s, want released at 4m of a 3m grace", got.Status)
+		t.Fatalf("bad-rated booker status = %s, want released at 8m of a 6m grace", got.Status)
 	}
 
 	// Same booking shape, good booker: still inside the 6m grace.
@@ -136,7 +134,7 @@ func TestSweepNoShowsReleasesBadRatedBookerSooner(t *testing.T) {
 	s.store.UpsertReservation(res2)
 	s.sweepNoShows(t.Context(), now)
 	if got, _ := s.store.Reservation("res-solid"); got.Status != domain.StatusBooked {
-		t.Fatalf("good booker status = %s, want still booked at 4m of a 6m grace", got.Status)
+		t.Fatalf("good booker status = %s, want still booked at 8m of a 12m grace", got.Status)
 	}
 }
 
@@ -202,8 +200,8 @@ func TestDeferredCheckoutLinger(t *testing.T) {
 func TestNoShowReleaseKeepsNotCheckedIn(t *testing.T) {
 	now := time.Now()
 	s := newNoShowServer(t, now)
-	// Default seed: res-agung is the live no-show at t=now.
-	s.sweepNoShows(t.Context(), now)
+	// Default seed: res-agung (start -10m) passes its 12m grace at now+2m.
+	s.sweepNoShows(t.Context(), now.Add(3*time.Minute))
 	got, ok := s.store.Reservation("res-agung")
 	if !ok || got.Status != domain.StatusReleased {
 		t.Fatalf("res-agung = %+v ok=%v, want released", got, ok)

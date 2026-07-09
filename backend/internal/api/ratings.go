@@ -77,11 +77,11 @@ func (s *Server) ratingsOrEmpty() map[string]ratingInfo {
 	return ratings
 }
 
-// effectiveGrace is the no-show grace window for a booking, shortened for
-// bookers with a bad rating. Bookers without an app account (Zoom-sourced)
-// get the default window.
-func (s *Server) effectiveGrace(bookingLen time.Duration, bookerID string, ratings map[string]ratingInfo) time.Duration {
-	g := graceDuration(bookingLen, s.graceFraction, s.graceMin, s.graceMax)
+// effectiveGrace is the no-show grace window, shortened for bookers with a
+// bad rating (12 min becomes 6). Bookers without an app account
+// (Zoom-sourced) get the default window.
+func (s *Server) effectiveGrace(bookerID string, ratings map[string]ratingInfo) time.Duration {
+	g := s.graceWindow
 	if ri, ok := ratings[bookerID]; ok && ri.Effective < badRatingThreshold {
 		g = time.Duration(float64(g) * badRatingGraceFactor)
 	}

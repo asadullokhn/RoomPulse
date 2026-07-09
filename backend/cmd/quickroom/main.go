@@ -105,8 +105,8 @@ func main() {
 
 	appleVerifier := appleauth.NewVerifier(cfg.AppleBundleID, nil)
 	apiSrv := api.NewServer(st, db, sync, zc, cfg.ZoomMode, cfg.PresenceTTL, appleVerifier, cfg.SessionTTL, signer, log)
-	apiSrv.ConfigureGrace(cfg.GraceFraction, cfg.GraceMin, cfg.GraceMax)
-	apiSrv.ConfigureNotify(cfg.NotifyFirstFraction, cfg.NotifySecondFraction, cfg.NotifySecondEnabled)
+	apiSrv.ConfigureGrace(cfg.GraceWindow)
+	apiSrv.ConfigureNotify(cfg.NotifyFirstAfter, cfg.NotifyLastCallBefore, cfg.NotifySecondEnabled)
 	apiSrv.ConfigureOverstay(cfg.OverstayGrace)
 	apiSrv.ConfigureBeaconsFile(cfg.BeaconsFile)
 	if cfg.APNSKeyFile != "" && cfg.APNSKeyID != "" && cfg.APNSTeamID != "" && cfg.APNSTopic != "" {

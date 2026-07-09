@@ -80,17 +80,17 @@ type Server struct {
 	scenarioAnswers *scenarioAnswerStore // chosen answer per scenario (in-memory, for GET /scenario-answers)
 	history         *historyBuffer       // full device event-log dumps (in-memory, for GET /history)
 
-	// No-show grace model (Reno's proportional window). Set from config via
-	// ConfigureGrace; defaults applied in NewServer.
-	graceFraction float64
-	graceMin      time.Duration
-	graceMax      time.Duration
+	// No-show grace window (production model: fixed for every booking length;
+	// bookers rated below 50 get half). Set from config via ConfigureGrace;
+	// default applied in NewServer.
+	graceWindow time.Duration
 
-	// Notification outbox + grace-reminder ladder (Reno's model).
-	notify              *notifier
-	notifyFirstFrac     float64
-	notifySecondFrac    float64
-	notifySecondEnabled bool
+	// Notification outbox + grace-reminder ladder: first ping this long into
+	// the booking, optional last call this long before the release.
+	notify               *notifier
+	notifyFirstAfter     time.Duration
+	notifyLastCallBefore time.Duration
+	notifySecondEnabled  bool
 
 	// Overstay: a room still occupied this long past its booking's end is
 	// flagged (the inverse of a no-show). Set via ConfigureOverstay.
@@ -113,8 +113,8 @@ type Server struct {
 
 func NewServer(st *store.Memory, db *store.DB, sync *syncsvc.Service, zc zoom.Client, mode string, ttl time.Duration, appleVerifier *appleauth.Verifier, userTokenTTL time.Duration, signer *authtoken.Signer, log *slog.Logger) *Server {
 	s := &Server{store: st, db: db, sync: sync, zoom: zc, mode: mode, ttl: ttl, log: log, diags: newDiagBuffer(50), decisions: newDecisionStore(), scenarioAnswers: newScenarioAnswerStore(), history: newHistoryBuffer(20),
-		graceFraction: 0.10, graceMin: 90 * time.Second, graceMax: 15 * time.Minute,
-		notify: newNotifier(200), notifyFirstFrac: 0.05, notifySecondFrac: 0.075, notifySecondEnabled: true,
+		graceWindow: 12 * time.Minute,
+		notify: newNotifier(200), notifyFirstAfter: 2 * time.Minute, notifyLastCallBefore: 2 * time.Minute, notifySecondEnabled: true,
 		overstayGrace: 5 * time.Minute, absentSince: map[string]time.Time{},
 		appleVerifier: appleVerifier, userTokenTTL: userTokenTTL, signer: signer}
 	if of, ok := zc.(OAuthFlow); ok {
@@ -123,30 +123,24 @@ func NewServer(st *store.Memory, db *store.DB, sync *syncsvc.Service, zc zoom.Cl
 	return s
 }
 
-// ConfigureGrace overrides the no-show grace model (proportional fraction of the
-// booking length, clamped to [min,max]). Non-positive values are ignored so
-// callers can override selectively.
-func (s *Server) ConfigureGrace(fraction float64, min, max time.Duration) {
-	if fraction > 0 {
-		s.graceFraction = fraction
-	}
-	if min > 0 {
-		s.graceMin = min
-	}
-	if max > 0 {
-		s.graceMax = max
+// ConfigureGrace overrides the fixed no-show grace window. Non-positive
+// values are ignored so callers can override selectively.
+func (s *Server) ConfigureGrace(window time.Duration) {
+	if window > 0 {
+		s.graceWindow = window
 	}
 }
 
-// ConfigureNotify sets the grace-reminder ladder: first/second ping fractions of
-// the booking elapsed, and whether the second ping fires (Reno flagged
-// notification fatigue, so it can be turned off).
-func (s *Server) ConfigureNotify(first, second float64, secondEnabled bool) {
-	if first > 0 {
-		s.notifyFirstFrac = first
+// ConfigureNotify sets the grace-reminder ladder: the first ping this long
+// into the booking, the last call this long before the release, and whether
+// the last call fires (Reno flagged notification fatigue, so it can be
+// turned off).
+func (s *Server) ConfigureNotify(firstAfter, lastCallBefore time.Duration, secondEnabled bool) {
+	if firstAfter > 0 {
+		s.notifyFirstAfter = firstAfter
 	}
-	if second > 0 {
-		s.notifySecondFrac = second
+	if lastCallBefore > 0 {
+		s.notifyLastCallBefore = lastCallBefore
 	}
 	s.notifySecondEnabled = secondEnabled
 }

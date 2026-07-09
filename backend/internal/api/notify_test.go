@@ -45,31 +45,33 @@ func reminderLevels(notes []Notification, resID string) []int {
 	return out
 }
 
-// TestSweepGraceRemindersLadder: at t=now against the default seed, res-petang
-// (start -2m) is past the 5% ping but before 7.5% -> L1 only; res-ubud (start
-// -5m) is past both -> L1+L2; res-agung is past grace -> release path, no ping.
+// TestSweepGraceRemindersLadder: production ladder — first ping 2m into the
+// booking, last call 2m before the 12m release. At t=now against the seed:
+// res-petang (start -2m) is exactly at its first ping -> L1; res-ubud (start
+// -5m) past the first, before its last call (+5m) -> L1; res-agung (start
+// -10m) is past the first AND exactly at its last call (deadline +2m) -> L1+L2.
 func TestSweepGraceRemindersLadder(t *testing.T) {
 	now := time.Now()
 	srv := newNoShowServer(t, now)
 	srv.sweepGraceReminders(now)
 	all := srv.notify.recent("", 100)
 
-	if got := countByType(all, "grace_reminder"); got != 3 {
-		t.Fatalf("grace_reminders = %d, want 3 (petang L1, ubud L1+L2)", got)
+	if got := countByType(all, "grace_reminder"); got != 4 {
+		t.Fatalf("grace_reminders = %d, want 4 (petang L1, ubud L1, agung L1+L2)", got)
 	}
 	if lv := reminderLevels(all, "res-petang"); len(lv) != 1 || lv[0] != 1 {
 		t.Errorf("res-petang levels = %v, want [1]", lv)
 	}
-	if lv := reminderLevels(all, "res-ubud"); len(lv) != 2 {
-		t.Errorf("res-ubud levels = %v, want both (1 and 2)", lv)
+	if lv := reminderLevels(all, "res-ubud"); len(lv) != 1 || lv[0] != 1 {
+		t.Errorf("res-ubud levels = %v, want [1]", lv)
 	}
-	if lv := reminderLevels(all, "res-agung"); len(lv) != 0 {
-		t.Errorf("res-agung reminders = %v, want none (past grace)", lv)
+	if lv := reminderLevels(all, "res-agung"); len(lv) != 2 {
+		t.Errorf("res-agung levels = %v, want both (1 and 2)", lv)
 	}
 	// idempotent: pings don't re-fire on a second sweep
 	srv.sweepGraceReminders(now)
-	if got := countByType(srv.notify.recent("", 100), "grace_reminder"); got != 3 {
-		t.Errorf("grace_reminders after second sweep = %d, want 3", got)
+	if got := countByType(srv.notify.recent("", 100), "grace_reminder"); got != 4 {
+		t.Errorf("grace_reminders after second sweep = %d, want 4", got)
 	}
 	// recipient filter narrows to one booker
 	if got := len(srv.notify.recent("standup@adabali.dev", 100)); got != 1 {
@@ -80,7 +82,7 @@ func TestSweepGraceRemindersLadder(t *testing.T) {
 func TestSweepNoShowsEmitsNotifications(t *testing.T) {
 	now := time.Now()
 	srv := newNoShowServer(t, now)
-	srv.sweepNoShows(context.Background(), now)
+	srv.sweepNoShows(context.Background(), now.Add(3*time.Minute))
 	all := srv.notify.recent("", 100)
 
 	if got := countByType(all, "no_show_released"); got != 1 {

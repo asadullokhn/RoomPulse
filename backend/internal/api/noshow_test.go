@@ -16,28 +16,10 @@ import (
 	"quickroom/internal/zoom"
 )
 
-func TestGraceDuration(t *testing.T) {
-	min, max := 90*time.Second, 15*time.Minute
-	cases := []struct {
-		booking, want time.Duration
-	}{
-		{120 * time.Minute, 12 * time.Minute}, // 10%
-		{60 * time.Minute, 6 * time.Minute},
-		{30 * time.Minute, 3 * time.Minute},
-		{15 * time.Minute, 90 * time.Second},  // 10% == min
-		{5 * time.Minute, 90 * time.Second},   // below min -> clamp up
-		{300 * time.Minute, 15 * time.Minute}, // 10%=30m -> clamp down to max
-	}
-	for _, c := range cases {
-		if got := graceDuration(c.booking, 0.10, min, max); got != c.want {
-			t.Errorf("graceDuration(%v) = %v, want %v", c.booking, got, c.want)
-		}
-	}
-}
-
-// newNoShowServer builds a server over the seeded mock and runs one sync. The
-// default seed has res-agung (start -10m, 90m booking -> 9m grace, deadline
-// now-1m) sitting empty and unchecked — the one true no-show at t=now.
+// newNoShowServer builds a server over the seeded mock and runs one sync.
+// Production grace: a fixed 12m window. The seed's res-agung (start -10m) is
+// the ripest empty unchecked booking — its deadline is now+2m, so sweeps at
+// now+3m release it while res-ubud (-5m) and res-petang (-2m) stay in grace.
 func newNoShowServer(t *testing.T, now time.Time) *Server {
 	t.Helper()
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
@@ -59,7 +41,7 @@ func TestSweepNoShowsReleasesExpiredEmptyBooking(t *testing.T) {
 	now := time.Now()
 	srv := newNoShowServer(t, now)
 
-	released := srv.sweepNoShows(context.Background(), now)
+	released := srv.sweepNoShows(context.Background(), now.Add(3*time.Minute))
 	if len(released) != 1 || released[0].ReservationID != "res-agung" {
 		var got []string
 		for _, r := range released {
@@ -75,7 +57,7 @@ func TestSweepNoShowsReleasesExpiredEmptyBooking(t *testing.T) {
 		t.Errorf("res-petang status = %q, want booked (still in grace)", r.Status)
 	}
 	// Idempotent: a second sweep releases nothing more.
-	if again := srv.sweepNoShows(context.Background(), now); len(again) != 0 {
+	if again := srv.sweepNoShows(context.Background(), now.Add(3*time.Minute)); len(again) != 0 {
 		t.Errorf("second sweep released %d, want 0", len(again))
 	}
 }
@@ -86,7 +68,7 @@ func TestSweepNoShowsSkipsOccupiedRoom(t *testing.T) {
 	// A phone is physically in ws-agung -> presence truth beats the clock.
 	srv.store.SetDeviceRoom("dev-x", "ws-agung", "Someone", now.UnixMilli())
 
-	for _, r := range srv.sweepNoShows(context.Background(), now) {
+	for _, r := range srv.sweepNoShows(context.Background(), now.Add(3*time.Minute)) {
 		if r.ReservationID == "res-agung" {
 			t.Fatalf("res-agung released despite live presence")
 		}

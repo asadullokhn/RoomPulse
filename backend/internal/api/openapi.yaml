@@ -403,6 +403,27 @@ paths:
         "400": { $ref: '#/components/responses/BadRequest' }
         "422": { $ref: '#/components/responses/Unprocessable' }
         "502": { $ref: '#/components/responses/BadGateway' }
+  /presence/absent:
+    post:
+      tags: [Presence]
+      summary: Scrub the calling user from every room
+      description: |
+        The app sends this when it foregrounds OUTSIDE the beacon region — the
+        definitive "I'm nowhere". Removes the authenticated user from every
+        room's headcount (implicit leaves are logged), healing ghosts left by
+        a lost exit event without waiting for the presence TTL. No body.
+      security: [{ sessionToken: [] }]
+      responses:
+        "200":
+          description: Rooms the user was scrubbed from (possibly empty)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  cleared: { type: array, items: { type: string } }
+        "401": { $ref: '#/components/responses/Unauthorized' }
   /presence/heartbeat:
     post:
       tags: [Presence]

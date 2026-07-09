@@ -279,6 +279,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /reservations/{id}/check-in", s.requireAdmin(s.checkIn))
 	mux.HandleFunc("POST /reservations/{id}/check-out", s.requireAdmin(s.checkOut))
 	mux.HandleFunc("POST /presence", s.requireUser(s.presence))
+	mux.HandleFunc("POST /presence/absent", s.requireUser(s.presenceAbsent))
 	mux.HandleFunc("POST /presence/heartbeat", s.requireUser(s.heartbeat))
 	mux.HandleFunc("POST /diag", s.requireAdmin(s.postDiag))
 	mux.HandleFunc("GET /diag", s.requireAdmin(s.getDiag))
@@ -760,6 +761,27 @@ func (s *Server) presence(w http.ResponseWriter, r *http.Request) {
 	s.upsertReservation(res)
 	s.log.Info("presence applied", "event", body.EventType, "workspace", body.WorkspaceID, "user", body.UserID)
 	writeJSON(w, http.StatusOK, res)
+}
+
+// presenceAbsent scrubs the calling user from every room — the app sends it
+// when it foregrounds outside the beacon region, the definitive "I'm
+// nowhere". Heals ghosts left by a lost exit event (network blip, backend
+// restart mid-POST) without waiting for the presence TTL.
+func (s *Server) presenceAbsent(w http.ResponseWriter, r *http.Request) {
+	user, ok := userFromContext(r)
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "user token required")
+		return
+	}
+	cleared := s.store.ClearUserPresence(user.UserID)
+	now := time.Now()
+	for _, ws := range cleared {
+		s.logEvent(ws, user.UserID, user.Name, "leave", now)
+	}
+	if len(cleared) > 0 {
+		s.log.Info("presence scrubbed", "user", user.UserID, "rooms", cleared)
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"status": "ok", "cleared": cleared})
 }
 
 // checkEvent sends the event to Zoom, then reflects it locally (zoom-sourced

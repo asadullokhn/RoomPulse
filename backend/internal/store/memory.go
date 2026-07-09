@@ -198,6 +198,24 @@ func (m *Memory) ReapStaleUserPresence(maxAge time.Duration) []ReapedUser {
 	return out
 }
 
+// ClearUserPresence removes a user from every room, returning the rooms they
+// were in. The app calls this when it foregrounds outside the beacon region —
+// the definitive "I'm nowhere" — which scrubs any ghost left by a lost exit.
+func (m *Memory) ClearUserPresence(userID string) []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	cleared := []string{}
+	for ws, set := range m.presence {
+		if _, in := set[userID]; in {
+			delete(set, userID)
+			delete(m.presenceSeenAt, ws+"|"+userID)
+			cleared = append(cleared, ws)
+		}
+	}
+	sort.Strings(cleared)
+	return cleared
+}
+
 // Ident is one present identity: the raw presence key (a user id or device id)
 // plus its display name.
 type Ident struct {

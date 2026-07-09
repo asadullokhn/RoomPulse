@@ -91,6 +91,30 @@ func TestSharedSurfaceRequiresAnyJWT(t *testing.T) {
 	}
 }
 
+// The app's "I'm outside the whole region" foreground signal scrubs the
+// user's presence everywhere — heals ghosts left by a lost exit POST.
+func TestPresenceAbsentScrubsUserEverywhere(t *testing.T) {
+	s := newNoShowServer(t, time.Now())
+	tok := mintSession(t, s, "u-abs", "abs@x.y")
+	s.store.ApplyPresenceIfNewer("ws-agung", "u-abs", "Abs", 100, true)
+	s.store.ApplyPresenceIfNewer("ws-ubud", "u-other", "Other", 100, true)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/presence/absent", nil)
+	req.Header.Set("Authorization", "Bearer "+tok)
+	s.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("absent status = %d body=%s", rec.Code, rec.Body)
+	}
+	occ := s.store.AllOccupancy()
+	if len(occ["ws-agung"]) != 0 {
+		t.Fatalf("ws-agung still occupied: %v", occ["ws-agung"])
+	}
+	if len(occ["ws-ubud"]) != 1 {
+		t.Fatalf("other user must be untouched: %v", occ["ws-ubud"])
+	}
+}
+
 // TestPresenceRequiresUserJWT: only phones (user tokens) report presence.
 func TestPresenceRequiresUserJWT(t *testing.T) {
 	s := newNoShowServer(t, time.Now())
@@ -100,6 +124,7 @@ func TestPresenceRequiresUserJWT(t *testing.T) {
 
 	routes := []struct{ path, body string }{
 		{"/presence", `{"workspace_id":"ws-agung","user_id":"u-matrix","event_type":"entered"}`},
+		{"/presence/absent", ``},
 		{"/presence/heartbeat", `{"device_id":"dev-1"}`},
 	}
 	for _, route := range routes {

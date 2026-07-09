@@ -97,7 +97,7 @@ usePoll(() => refresh().catch(() => {}), 4000)
 
       <div class="section-label">Rooms today</div>
       <div class="tiles">
-        <div v-for="rm in rooms" :key="rm.zoom_workspace_id" class="card tile">
+        <RouterLink v-for="rm in rooms" :key="rm.zoom_workspace_id" class="card tile" :to="`/rooms/${rm.zoom_workspace_id}`">
           <div class="name">
             {{ rm.name }}
             <span class="dot" :class="{ on: occCount(rm.zoom_workspace_id) > 0 }" />
@@ -111,7 +111,7 @@ usePoll(() => refresh().catch(() => {}), 4000)
             />
           </div>
           <div class="pct">{{ Math.round(utilizationToday(rm.zoom_workspace_id) * 100) }}% booked today</div>
-        </div>
+        </RouterLink>
       </div>
 
       <div class="section-label">Recent activity</div>
@@ -142,7 +142,8 @@ usePoll(() => refresh().catch(() => {}), 4000)
 .alert.red { border-left-color: var(--danger); }
 .alert.orange { border-left-color: var(--amber); }
 .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
-.tile { padding: 13px 15px; }
+.tile { padding: 13px 15px; color: inherit; text-decoration: none; display: block; transition: box-shadow .15s ease, transform .15s ease; }
+.tile:hover { box-shadow: 0 4px 14px rgba(0, 0, 0, .08); transform: translateY(-1px); }
 .tile .name { font-size: 13px; font-weight: 600; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .dot { width: 7px; height: 7px; border-radius: 50%; background: rgba(0, 0, 0, .12); flex: none; }
 .dot.on { background: var(--signal); box-shadow: 0 0 6px rgba(52, 199, 89, .7); }

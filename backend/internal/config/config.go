@@ -43,12 +43,9 @@ type Config struct {
 	// every booking length; bookers rated below 50 get half of it.
 	GraceWindow time.Duration
 
-	// Grace-reminder ladder: "are you coming?" fires NotifyFirstAfter into
-	// the booking; the optional last call fires NotifyLastCallBefore ahead of
-	// the release. The second ping can be disabled to limit notification fatigue.
-	NotifyFirstAfter     time.Duration
-	NotifyLastCallBefore time.Duration
-	NotifySecondEnabled  bool
+	// Grace reminder: the single "are you coming?" ping fires NotifyFirstAfter
+	// into the booking, naming the release time.
+	NotifyFirstAfter time.Duration
 
 	// OverstayGrace: a room still occupied this long past its booking's end is
 	// flagged as an overstay (the inverse of a no-show).
@@ -110,10 +107,6 @@ func Load() (Config, error) {
 	if c.NotifyFirstAfter, err = time.ParseDuration(getenv("NOTIFY_FIRST_AFTER", "2m")); err != nil {
 		return Config{}, fmt.Errorf("invalid NOTIFY_FIRST_AFTER: %w", err)
 	}
-	if c.NotifyLastCallBefore, err = time.ParseDuration(getenv("NOTIFY_LAST_CALL_BEFORE", "2m")); err != nil {
-		return Config{}, fmt.Errorf("invalid NOTIFY_LAST_CALL_BEFORE: %w", err)
-	}
-	c.NotifySecondEnabled = getenv("NOTIFY_SECOND_ENABLED", "true") != "false"
 
 	if c.OverstayGrace, err = time.ParseDuration(getenv("OVERSTAY_GRACE", "5m")); err != nil {
 		return Config{}, fmt.Errorf("invalid OVERSTAY_GRACE: %w", err)

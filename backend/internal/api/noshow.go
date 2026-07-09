@@ -64,11 +64,19 @@ func (s *Server) sweepNoShows(ctx context.Context, now time.Time) []domain.Reser
 	return released
 }
 
-// sweepGraceReminders emits the "are you coming?" ladder for bookings that have
-// started, are still unchecked-in and empty, and are inside the grace window: a
-// first ping notifyFirstAfter into the booking and (optionally) a last call
-// notifyLastCallBefore ahead of the no-show release. Each ping fires once
-// (deduped per reservation+level).
+// academyTZ renders user-facing clock times — the backend runs in UTC, the
+// Academy is in Bali (WITA, UTC+8, no DST).
+var academyTZ = func() *time.Location {
+	if loc, err := time.LoadLocation("Asia/Makassar"); err == nil {
+		return loc
+	}
+	return time.FixedZone("WITA", 8*60*60)
+}()
+
+// sweepGraceReminders emits the single "are you coming?" ping for bookings
+// that have started, are still unchecked-in and empty, and are inside the
+// grace window. It fires notifyFirstAfter into the booking, names the exact
+// release time, and fires once (deduped per reservation).
 func (s *Server) sweepGraceReminders(now time.Time) {
 	occ := s.store.AllOccupancy()
 	ratings := s.ratingsOrEmpty()
@@ -86,23 +94,15 @@ func (s *Server) sweepGraceReminders(now time.Time) {
 		if !now.Before(graceDeadline) {
 			continue // past grace — the release path handles it
 		}
-		remaining := graceDeadline.Sub(now).Round(time.Second)
-		room := s.roomName(r.ZoomWorkspaceID)
-		if !now.Before(r.StartTime.Add(s.notifyFirstAfter)) {
-			s.notify.emit(r.ReservationID+"|1", Notification{
-				Type: "grace_reminder", Level: 1, WorkspaceID: r.ZoomWorkspaceID, ReservationID: r.ReservationID,
-				Recipient: bookerOf(r), Title: "Are you coming?",
-				Body:      fmt.Sprintf("%s hasn't checked in — it will be released in %s.", room, remaining),
-				CreatedAt: now,
-			})
+		if now.Before(r.StartTime.Add(s.notifyFirstAfter)) {
+			continue // too early to nag
 		}
-		if s.notifySecondEnabled && !now.Before(graceDeadline.Add(-s.notifyLastCallBefore)) {
-			s.notify.emit(r.ReservationID+"|2", Notification{
-				Type: "grace_reminder", Level: 2, WorkspaceID: r.ZoomWorkspaceID, ReservationID: r.ReservationID,
-				Recipient: bookerOf(r), Title: "Still coming?",
-				Body:      fmt.Sprintf("Last call for %s — released in %s if nobody arrives.", room, remaining),
-				CreatedAt: now,
-			})
-		}
+		s.notify.emit(r.ReservationID+"|1", Notification{
+			Type: "grace_reminder", Level: 1, WorkspaceID: r.ZoomWorkspaceID, ReservationID: r.ReservationID,
+			Recipient: bookerOf(r), Title: "Are you coming?",
+			Body: fmt.Sprintf("%s hasn't checked in — it will be released at %s.",
+				s.roomName(r.ZoomWorkspaceID), graceDeadline.In(academyTZ).Format("15.04")),
+			CreatedAt: now,
+		})
 	}
 }

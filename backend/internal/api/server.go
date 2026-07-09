@@ -85,12 +85,10 @@ type Server struct {
 	// default applied in NewServer.
 	graceWindow time.Duration
 
-	// Notification outbox + grace-reminder ladder: first ping this long into
-	// the booking, optional last call this long before the release.
-	notify               *notifier
-	notifyFirstAfter     time.Duration
-	notifyLastCallBefore time.Duration
-	notifySecondEnabled  bool
+	// Notification outbox + the single grace reminder, fired this long into
+	// the booking.
+	notify           *notifier
+	notifyFirstAfter time.Duration
 
 	// Overstay: a room still occupied this long past its booking's end is
 	// flagged (the inverse of a no-show). Set via ConfigureOverstay.
@@ -114,7 +112,7 @@ type Server struct {
 func NewServer(st *store.Memory, db *store.DB, sync *syncsvc.Service, zc zoom.Client, mode string, ttl time.Duration, appleVerifier *appleauth.Verifier, userTokenTTL time.Duration, signer *authtoken.Signer, log *slog.Logger) *Server {
 	s := &Server{store: st, db: db, sync: sync, zoom: zc, mode: mode, ttl: ttl, log: log, diags: newDiagBuffer(50), decisions: newDecisionStore(), scenarioAnswers: newScenarioAnswerStore(), history: newHistoryBuffer(20),
 		graceWindow: 12 * time.Minute,
-		notify: newNotifier(200), notifyFirstAfter: 2 * time.Minute, notifyLastCallBefore: 2 * time.Minute, notifySecondEnabled: true,
+		notify: newNotifier(200), notifyFirstAfter: 2 * time.Minute,
 		overstayGrace: 5 * time.Minute, absentSince: map[string]time.Time{},
 		appleVerifier: appleVerifier, userTokenTTL: userTokenTTL, signer: signer}
 	if of, ok := zc.(OAuthFlow); ok {
@@ -131,18 +129,12 @@ func (s *Server) ConfigureGrace(window time.Duration) {
 	}
 }
 
-// ConfigureNotify sets the grace-reminder ladder: the first ping this long
-// into the booking, the last call this long before the release, and whether
-// the last call fires (Reno flagged notification fatigue, so it can be
-// turned off).
-func (s *Server) ConfigureNotify(firstAfter, lastCallBefore time.Duration, secondEnabled bool) {
+// ConfigureNotify sets how long into the booking the grace reminder fires.
+// Non-positive values are ignored.
+func (s *Server) ConfigureNotify(firstAfter time.Duration) {
 	if firstAfter > 0 {
 		s.notifyFirstAfter = firstAfter
 	}
-	if lastCallBefore > 0 {
-		s.notifyLastCallBefore = lastCallBefore
-	}
-	s.notifySecondEnabled = secondEnabled
 }
 
 // ConfigureBeaconsFile sets the path admin beacon-mapping edits persist to.

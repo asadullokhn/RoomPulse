@@ -1063,7 +1063,7 @@ components:
       properties:
         id: { type: integer, format: int64 }
         type: { type: string, enum: [grace_reminder, no_show_released, collision, overstay] }
-        level: { type: integer, description: reminder ladder step (1 or 2) }
+        level: { type: integer, description: reminder step (always 1 — single ping) }
         workspace_id: { type: string }
         reservation_id: { type: string }
         recipient: { type: string, description: booker id/email; empty = broadcast }

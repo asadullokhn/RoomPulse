@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 )
@@ -45,33 +46,35 @@ func reminderLevels(notes []Notification, resID string) []int {
 	return out
 }
 
-// TestSweepGraceRemindersLadder: production ladder — first ping 2m into the
-// booking, last call 2m before the 12m release. At t=now against the seed:
-// res-petang (start -2m) is exactly at its first ping -> L1; res-ubud (start
-// -5m) past the first, before its last call (+5m) -> L1; res-agung (start
-// -10m) is past the first AND exactly at its last call (deadline +2m) -> L1+L2.
-func TestSweepGraceRemindersLadder(t *testing.T) {
+// TestSweepGraceReminders: one ping per booking, 2m into it, naming the exact
+// release time. At t=now against the seed all three empty unchecked bookings
+// (petang -2m, ubud -5m, agung -10m) are past their first-ping mark and still
+// inside the 12m grace.
+func TestSweepGraceReminders(t *testing.T) {
 	now := time.Now()
 	srv := newNoShowServer(t, now)
 	srv.sweepGraceReminders(now)
 	all := srv.notify.recent("", 100)
 
-	if got := countByType(all, "grace_reminder"); got != 4 {
-		t.Fatalf("grace_reminders = %d, want 4 (petang L1, ubud L1, agung L1+L2)", got)
+	if got := countByType(all, "grace_reminder"); got != 3 {
+		t.Fatalf("grace_reminders = %d, want 3 (petang, ubud, agung)", got)
 	}
-	if lv := reminderLevels(all, "res-petang"); len(lv) != 1 || lv[0] != 1 {
-		t.Errorf("res-petang levels = %v, want [1]", lv)
+	for _, res := range []string{"res-petang", "res-ubud", "res-agung"} {
+		if lv := reminderLevels(all, res); len(lv) != 1 || lv[0] != 1 {
+			t.Errorf("%s levels = %v, want [1]", res, lv)
+		}
 	}
-	if lv := reminderLevels(all, "res-ubud"); len(lv) != 1 || lv[0] != 1 {
-		t.Errorf("res-ubud levels = %v, want [1]", lv)
-	}
-	if lv := reminderLevels(all, "res-agung"); len(lv) != 2 {
-		t.Errorf("res-agung levels = %v, want both (1 and 2)", lv)
+	// The body names the release clock time, not a countdown.
+	wantClock := now.Add(-10 * time.Minute).Add(12 * time.Minute).In(academyTZ).Format("15.04")
+	for _, n := range all {
+		if n.ReservationID == "res-agung" && !strings.Contains(n.Body, "released at "+wantClock) {
+			t.Errorf("agung body = %q, want release at %s", n.Body, wantClock)
+		}
 	}
 	// idempotent: pings don't re-fire on a second sweep
 	srv.sweepGraceReminders(now)
-	if got := countByType(srv.notify.recent("", 100), "grace_reminder"); got != 4 {
-		t.Errorf("grace_reminders after second sweep = %d, want 4", got)
+	if got := countByType(srv.notify.recent("", 100), "grace_reminder"); got != 3 {
+		t.Errorf("grace_reminders after second sweep = %d, want 3", got)
 	}
 	// recipient filter narrows to one booker
 	if got := len(srv.notify.recent("standup@adabali.dev", 100)); got != 1 {

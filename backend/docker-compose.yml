@@ -45,7 +45,7 @@ services:
       - quickroom_token:/data   # persists the OAuth token across restarts
     restart: unless-stopped
 
-  # Public tunnel: exposes the backend at https://room.teztun.uz so the phones
+  # Public tunnel: exposes the backend at https://room.ttn.uz so the phones
   # reach it from anywhere. Needs TEZTUN_TOKEN in .env (mint at app.teztun.uz/tokens).
   tunnel:
     image: teztun-client:latest
